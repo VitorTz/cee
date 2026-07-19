@@ -9,6 +9,22 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const qs = (sel, root = document) => root.querySelector(sel);
 const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+
+
+// ----------------------------------------------------------------------------
+// Search normalization
+// Strips accents (diacritics) and converts punctuation/spaces to SQL wildcards (%)
+// ----------------------------------------------------------------------------
+function normalizeSearchTerm(term) {
+  const withoutAccents = term
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); 
+  
+  return withoutAccents.replace(/[^a-z0-9]+/g, '%');
+}
+
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -18,11 +34,17 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
+// Utility to properly format the neighborhood string array
+function formatNeighborhoods(neighborhoods) {
+  if (Array.isArray(neighborhoods)) return neighborhoods.join(', ');
+  return neighborhoods || '—';
+}
+
 // ----------------------------------------------------------------------------
-// CEP normalization — every Florianópolis island CEP starts with "880", so
-// people usually type only the last 5 digits. Whenever a typed value does not
-// already start with "880", we prepend it before validating, saving, or
-// searching.
+// CEP normalization
+// Every Florianópolis island CEP starts with "880", so people usually type 
+// only the last 5 digits. Whenever a typed value does not already start with 
+// "880", we prepend it before validating, saving, or searching.
 // ----------------------------------------------------------------------------
 const ZIP_REGEX = /^880[0-6][0-9]-[0-9]{3}$/;
 
@@ -112,7 +134,7 @@ function openDeleteConfirm(label, warning, onConfirm) {
 }
 
 // ----------------------------------------------------------------------------
-// Tabs
+// Tabs logic
 // ----------------------------------------------------------------------------
 qsa('.tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -124,125 +146,159 @@ function switchTab(tab) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', String(active));
   });
+  
   qsa('.panel').forEach((panel) => panel.classList.toggle('active', panel.id === `panel-${tab}`));
-}
 
-// =============================================================================
-// STREETS — read only, paginated, ordered by number of linked CEPs
-// =============================================================================
-
-// Lightweight full list (id, name) kept fresh for populating <select> dropdowns
-// elsewhere in the app (e.g. the zip code create/edit form).
-let streetsCache = [];
-
-async function loadStreetsLite() {
-  const { data, error } = await sb.from('streets').select('id, name').order('name');
-  if (error) {
-    console.error('Failed to load streets for dropdowns:', error);
-    return;
+  // Reload statistics data every time the stats tab is opened
+  if (tab === 'stats') {
+    loadStatistics();
   }
-  streetsCache = data;
+
+  // Reload the CEE sector offsets every time the floorplan tab is opened
+  if (tab === 'cee-map') {
+    loadCeeSectors();
+  }
+
+  // Reload the daily operation log every time its tab is opened
+  if (tab === 'daily-ops') {
+    loadDailyOps();
+  }
 }
 
-function populateStreetSelect(selectEl, selectedId) {
-  const options = ['<option value="">Selecione um logradouro&hellip;</option>'].concat(
-    streetsCache.map(
-      (s) => `<option value="${s.id}" ${String(s.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
-    )
-  );
-  selectEl.innerHTML = options.join('');
+// =============================================================================
+// STREET SEARCH COMBOBOX — shared typeahead used everywhere a street needs to
+// be picked (CEP form, Rules form, Rules filter). Streets are never dumped
+// into a single <select> anymore since the table has 3000+ rows; instead we
+// query a handful of matches per keystroke and let the person pick one.
+// =============================================================================
+
+async function searchStreetsByTerm(term, limit = 8) {
+  if (!term.trim()) return [];
+  
+  const wildcardTerm = normalizeSearchTerm(term);
+  
+  const { data, error } = await sb
+    .from('streets')
+    .select('id, name, neighborhood')
+    .ilike('search_text', `%${wildcardTerm}%`)
+    .order('name')
+    .limit(limit);
+    
+  if (error) {
+    console.error('Street search failed:', error);
+    return [];
+  }
+  return data;
 }
 
-const STREETS_PAGE_SIZE = 25;
-let streetsSearchTerm = '';
-let streetsPage = 0;
-let streetsTotalCount = 0;
-let streetsSearchDebounce = null;
+// Wires a text input + suggestions panel into a "search then pick one" street
+// selector. `onSelect` fires with the chosen street row, or with `null` when
+// a previously confirmed selection is invalidated by further typing.
+function initStreetCombobox({ inputEl, suggestionsEl, onSelect }) {
+  let debounceHandle = null;
+  let activeIndex = -1;
+  let currentMatches = [];
+  let selected = null;
 
-qs('#streets-search').addEventListener('input', (e) => {
-  clearTimeout(streetsSearchDebounce);
-  const value = e.target.value;
-  streetsSearchDebounce = setTimeout(() => {
-    streetsSearchTerm = value;
-    loadStreets(0);
-  }, 320);
-});
+  function closeSuggestions() {
+    suggestionsEl.innerHTML = '';
+    suggestionsEl.classList.add('hidden');
+    activeIndex = -1;
+    currentMatches = [];
+  }
 
-qs('#streets-prev').addEventListener('click', () => {
-  if (streetsPage > 0) loadStreets(streetsPage - 1);
-});
-qs('#streets-next').addEventListener('click', () => {
-  const totalPages = Math.max(1, Math.ceil(streetsTotalCount / STREETS_PAGE_SIZE));
-  if (streetsPage + 1 < totalPages) loadStreets(streetsPage + 1);
-});
+  function updateActiveHighlight() {
+    qsa('.combobox-suggestion', suggestionsEl).forEach((btn, i) => {
+      btn.classList.toggle('active', i === activeIndex);
+    });
+  }
 
-async function loadStreets(page = 0) {
-  streetsPage = page;
-  const tbody = qs('#streets-tbody');
-  const emptyEl = qs('#streets-empty');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>';
-
-  const term = streetsSearchTerm.trim();
-  const from = page * STREETS_PAGE_SIZE;
-  const to = from + STREETS_PAGE_SIZE - 1;
-
-  // streets_with_zip_count is a view (see README.md) that pre-aggregates the
-  // number of zip codes per street so we can order/paginate by it server-side.
-  let query = sb.from('streets_with_zip_count').select('id, name, neighborhood, descr, zip_count', { count: 'exact' });
-
-  if (term) {
-    const escaped = term.replace(/[%,]/g, '');
-    const orParts = [`name.ilike.%${escaped}%`, `neighborhood.ilike.%${escaped}%`, `descr.ilike.%${escaped}%`];
-
-    // Also allow finding a street by one of its linked CEPs.
-    const digits = term.replace(/\D/g, '');
-    if (digits) {
-      const pattern = digitsToZipPattern(normalizeZipDigits(term));
-      const { data: zipMatches } = await sb.from('zip_codes').select('street_id').ilike('zip_code', `%${pattern}%`);
-      const streetIds = [...new Set((zipMatches || []).map((z) => z.street_id))];
-      if (streetIds.length) orParts.push(`id.in.(${streetIds.join(',')})`);
+  function renderSuggestions(matches) {
+    currentMatches = matches;
+    activeIndex = -1;
+    if (matches.length === 0) {
+      suggestionsEl.innerHTML = '<div class="combobox-empty">Nenhum logradouro encontrado.</div>';
+      suggestionsEl.classList.remove('hidden');
+      return;
     }
-
-    query = query.or(orParts.join(','));
+    suggestionsEl.innerHTML = matches
+      .map(
+        (s, i) => `
+      <button type="button" class="combobox-suggestion" data-index="${i}">
+        <span class="combobox-suggestion-name">${escapeHtml(s.name)}</span>
+        <span class="combobox-suggestion-sub">${escapeHtml(formatNeighborhoods(s.neighborhood))}</span>
+      </button>
+    `
+      )
+      .join('');
+    suggestionsEl.classList.remove('hidden');
   }
 
-  query = query.order('zip_count', { ascending: false }).order('name', { ascending: true }).range(from, to);
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    tbody.innerHTML = `<tr class="error-row"><td colspan="4">Erro ao carregar logradouros: ${escapeHtml(error.message)}</td></tr>`;
-    return;
+  function pick(street) {
+    selected = street;
+    inputEl.value = street.name;
+    closeSuggestions();
+    onSelect(street);
   }
 
-  streetsTotalCount = count || 0;
-  emptyEl.classList.toggle('hidden', data.length > 0);
-  tbody.innerHTML = data
-    .map(
-      (s) => `
-    <tr>
-      <td><strong>${escapeHtml(s.name)}</strong></td>
-      <td>${escapeHtml(s.neighborhood)}</td>
-      <td>${escapeHtml(s.descr) || '<span class="field-hint">&mdash;</span>'}</td>
-      <td><span class="count-badge">${s.zip_count}</span></td>
-    </tr>
-  `
-    )
-    .join('');
+  inputEl.addEventListener('input', () => {
+    if (selected && inputEl.value !== selected.name) {
+      selected = null;
+      onSelect(null);
+    }
+    clearTimeout(debounceHandle);
+    const term = inputEl.value;
+    debounceHandle = setTimeout(async () => {
+      const matches = await searchStreetsByTerm(term);
+      renderSuggestions(matches);
+    }, 280);
+  });
 
-  renderStreetsPagination();
-}
+  inputEl.addEventListener('keydown', (e) => {
+    if (suggestionsEl.classList.contains('hidden') || currentMatches.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, currentMatches.length - 1);
+      updateActiveHighlight();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      updateActiveHighlight();
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0) {
+        e.preventDefault();
+        pick(currentMatches[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      closeSuggestions();
+    }
+  });
 
-function renderStreetsPagination() {
-  const totalPages = Math.max(1, Math.ceil(streetsTotalCount / STREETS_PAGE_SIZE));
-  const countLabel = streetsTotalCount === 1 ? 'logradouro' : 'logradouros';
-  qs('#streets-page-info').textContent = `Página ${streetsPage + 1} de ${totalPages} · ${streetsTotalCount} ${countLabel}`;
-  qs('#streets-prev').disabled = streetsPage <= 0;
-  qs('#streets-next').disabled = streetsPage + 1 >= totalPages;
+  suggestionsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.combobox-suggestion');
+    if (!btn) return;
+    pick(currentMatches[Number(btn.dataset.index)]);
+  });
+
+  // Delay closing on blur so a click on a suggestion button still registers.
+  inputEl.addEventListener('blur', () => {
+    setTimeout(closeSuggestions, 150);
+  });
+
+  return {
+    setValue(street) {
+      selected = street;
+      inputEl.value = street ? street.name : '';
+      closeSuggestions();
+    },
+    getSelected() {
+      return selected;
+    },
+  };
 }
 
 // =============================================================================
-// ZIP CODES — full CRUD, combined search across CEP / street / neighborhood / descr
+// ZIP CODES — Full CRUD, combined search across CEP / street / descr
 // =============================================================================
 
 async function loadZipsLite(filterStreetId = '') {
@@ -268,20 +324,10 @@ function populateZipSelect(selectEl, zipList, selectedId) {
   selectEl.innerHTML = options.join('');
 }
 
-async function refreshZipFilterDropdowns() {
-  const allZips = await loadZipsLite();
-  ['#ranges-filter-zip', '#numbers-filter-zip'].forEach((selector) => {
-    const el = qs(selector);
-    const current = el.value;
-    const options = ['<option value="">Todos os CEPs</option>'].concat(
-      allZips.map((z) => `<option value="${z.id}">${z.zip_code} &mdash; ${escapeHtml(z.streets ? z.streets.name : '')}</option>`)
-    );
-    el.innerHTML = options.join('');
-    el.value = current;
-  });
-}
-
+const ZIPS_PAGE_SIZE = 25;
 let zipsSearchTerm = '';
+let zipsPage = 0;
+let zipsTotalCount = 0;
 let zipsSearchDebounce = null;
 
 qs('#zips-search').addEventListener('input', (e) => {
@@ -289,24 +335,41 @@ qs('#zips-search').addEventListener('input', (e) => {
   const value = e.target.value;
   zipsSearchDebounce = setTimeout(() => {
     zipsSearchTerm = value;
-    loadZips();
+    loadZips(0);
   }, 320);
 });
 
-async function loadZips() {
+qs('#zips-prev').addEventListener('click', () => {
+  if (zipsPage > 0) loadZips(zipsPage - 1);
+});
+qs('#zips-next').addEventListener('click', () => {
+  const totalPages = Math.max(1, Math.ceil(zipsTotalCount / ZIPS_PAGE_SIZE));
+  if (zipsPage + 1 < totalPages) loadZips(zipsPage + 1);
+});
+
+async function loadZips(page = 0) {
   const tbody = qs('#zips-tbody');
   const emptyEl = qs('#zips-empty');
+  zipsPage = page;
   tbody.innerHTML = '<tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>';
 
   const term = zipsSearchTerm.trim();
-  let query = sb.from('zip_codes').select('id, zip_code, street_id, streets(name, neighborhood)').order('zip_code');
+  const from = page * ZIPS_PAGE_SIZE;
+  const to = from + ZIPS_PAGE_SIZE - 1;
+
+  let query = sb
+    .from('zip_codes')
+    .select('id, zip_code, street_id, streets(name, neighborhood)', { count: 'exact' })
+    .order('zip_code');
 
   if (term) {
-    const escaped = term.replace(/[%,]/g, '');
+    const wildcardTerm = normalizeSearchTerm(term);
+    
+    // Query the new unified search_text column
     const { data: streetMatches, error: streetError } = await sb
       .from('streets')
       .select('id')
-      .or(`name.ilike.%${escaped}%,neighborhood.ilike.%${escaped}%,descr.ilike.%${escaped}%`);
+      .ilike('search_text', `%${wildcardTerm}%`);
 
     if (streetError) {
       tbody.innerHTML = `<tr class="error-row"><td colspan="4">Erro ao carregar CEPs: ${escapeHtml(streetError.message)}</td></tr>`;
@@ -316,6 +379,7 @@ async function loadZips() {
     const streetIds = (streetMatches || []).map((s) => s.id);
     const digits = term.replace(/\D/g, '');
     const orParts = [];
+    
     if (digits) {
       const pattern = digitsToZipPattern(normalizeZipDigits(term));
       orParts.push(`zip_code.ilike.%${pattern}%`);
@@ -323,20 +387,25 @@ async function loadZips() {
     if (streetIds.length) orParts.push(`street_id.in.(${streetIds.join(',')})`);
 
     if (orParts.length === 0) {
+      zipsTotalCount = 0;
       emptyEl.classList.remove('hidden');
       tbody.innerHTML = '';
+      renderZipsPagination();
       return;
     }
     query = query.or(orParts.join(','));
   }
 
-  const { data, error } = await query;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
 
   if (error) {
     tbody.innerHTML = `<tr class="error-row"><td colspan="4">Erro ao carregar CEPs: ${escapeHtml(error.message)}</td></tr>`;
     return;
   }
 
+  zipsTotalCount = count || 0;
   emptyEl.classList.toggle('hidden', data.length > 0);
   tbody.innerHTML = data
     .map(
@@ -344,26 +413,37 @@ async function loadZips() {
     <tr>
       <td class="zip-code-cell">${z.zip_code}</td>
       <td>${escapeHtml(z.streets ? z.streets.name : '&mdash;')}</td>
-      <td>${escapeHtml(z.streets ? z.streets.neighborhood : '&mdash;')}</td>
+      <td>${escapeHtml(z.streets ? formatNeighborhoods(z.streets.neighborhood) : '&mdash;')}</td>
       <td class="col-actions">
         <span class="row-actions">
-          <button class="btn btn-secondary btn-icon" data-view-zip="${z.id}" data-zip-value="${z.zip_code}">Ver detalhes</button>
+          <button class="btn btn-secondary btn-icon" data-view-zip="${z.id}" data-zip-value="${z.zip_code}">Consultar</button>
           <button class="btn btn-secondary btn-icon" data-edit-zip="${z.id}">Editar</button>
-          <button class="btn btn-danger btn-icon" data-delete-zip="${z.id}" data-zip-label="${z.zip_code}">Excluir</button>
         </span>
       </td>
     </tr>
   `
     )
     .join('');
+
+  renderZipsPagination();
+}
+
+function renderZipsPagination() {
+  const totalPages = Math.max(1, Math.ceil(zipsTotalCount / ZIPS_PAGE_SIZE));
+  const countLabel = zipsTotalCount === 1 ? 'CEP' : 'CEPs';
+  qs('#zips-page-info').textContent = `Página ${zipsPage + 1} de ${totalPages} · ${zipsTotalCount} ${countLabel}`;
+  qs('#zips-prev').disabled = zipsPage <= 0;
+  qs('#zips-next').disabled = zipsPage + 1 >= totalPages;
 }
 
 function zipFormTemplate(record) {
   return `
     <form id="zip-form">
-      <div class="field">
-        <label for="zip-street">Logradouro</label>
-        <select id="zip-street" required></select>
+      <div class="field combobox-field">
+        <label for="zip-street-search">Logradouro</label>
+        <input type="text" id="zip-street-search" autocomplete="off" placeholder="Digite para buscar um logradouro&hellip;" required>
+        <div class="combobox-suggestions hidden" id="zip-street-suggestions"></div>
+        <p class="field-error">Selecione um logradouro na lista de sugestões.</p>
       </div>
       <div class="field" id="zip-code-field">
         <label for="zip-code-input">CEP</label>
@@ -382,15 +462,31 @@ function zipFormTemplate(record) {
 
 async function openZipForm(record = null) {
   openModal(record ? 'Editar CEP' : 'Novo CEP', zipFormTemplate(record));
-  populateStreetSelect(qs('#zip-street'), record ? record.street_id : '');
   attachZipMask(qs('#zip-code-input'));
+
+  const streetCombobox = initStreetCombobox({
+    inputEl: qs('#zip-street-search'),
+    suggestionsEl: qs('#zip-street-suggestions'),
+    onSelect: () => qs('#zip-street-search').closest('.field').classList.remove('has-error'),
+  });
+  if (record && record.streets) {
+    streetCombobox.setValue({ id: record.street_id, name: record.streets.name });
+  }
+
   qs('#zip-cancel').addEventListener('click', closeModal);
-  qs('#zip-form').addEventListener('submit', (e) => submitZipForm(e, record));
+  qs('#zip-form').addEventListener('submit', (e) => submitZipForm(e, record, streetCombobox));
 }
 
-async function submitZipForm(e, record) {
+async function submitZipForm(e, record, streetCombobox) {
   e.preventDefault();
-  const streetId = qs('#zip-street').value;
+  const selectedStreet = streetCombobox.getSelected();
+  const streetField = qs('#zip-street-search').closest('.field');
+  if (!selectedStreet) {
+    streetField.classList.add('has-error');
+    return;
+  }
+  streetField.classList.remove('has-error');
+
   const zipInput = qs('#zip-code-input');
   const normalizedZip = digitsToZipPattern(normalizeZipDigits(zipInput.value));
   zipInput.value = normalizedZip;
@@ -402,7 +498,7 @@ async function submitZipForm(e, record) {
   }
   zipField.classList.remove('has-error');
 
-  const payload = { street_id: streetId, zip_code: normalizedZip };
+  const payload = { street_id: selectedStreet.id, zip_code: normalizedZip };
   const query = record
     ? sb.from('zip_codes').update(payload).eq('id', record.id)
     : sb.from('zip_codes').insert(payload);
@@ -414,12 +510,12 @@ async function submitZipForm(e, record) {
   }
   closeModal();
   showToast(record ? 'CEP atualizado.' : 'CEP cadastrado.');
-  await loadZips();
-  await refreshZipFilterDropdowns();
+  await loadZips(zipsPage);
+  if (rulesFilterStreetId) await loadRulesFilterZipOptions(rulesFilterStreetId);
 }
 
 async function deleteZip(id, label) {
-  openDeleteConfirm(`CEP ${label}`, 'Excluir este CEP também remove as faixas de numeração e números únicos vinculados a ele.', async () => {
+  openDeleteConfirm(`CEP ${label}`, 'Excluir este CEP também remove as regras de numeração vinculadas a ele.', async () => {
     const { error } = await sb.from('zip_codes').delete().eq('id', id);
     if (error) {
       showToast(`Erro ao excluir: ${error.message}`, 'error');
@@ -427,8 +523,8 @@ async function deleteZip(id, label) {
     }
     closeModal();
     showToast('CEP excluído.');
-    await loadZips();
-    await refreshZipFilterDropdowns();
+    await loadZips(zipsPage);
+    if (rulesFilterStreetId) await loadRulesFilterZipOptions(rulesFilterStreetId);
   });
 }
 
@@ -446,7 +542,7 @@ qs('#zips-tbody').addEventListener('click', (e) => {
   if (editBtn) {
     const id = editBtn.dataset.editZip;
     sb.from('zip_codes')
-      .select('id, zip_code, street_id')
+      .select('id, zip_code, street_id, streets(name)')
       .eq('id', id)
       .single()
       .then(({ data, error }) => {
@@ -461,12 +557,11 @@ qs('#zips-tbody').addEventListener('click', (e) => {
 });
 
 // =============================================================================
-// CEP SEARCH — resolve a street from a CEP/name/descr query, then locate which
-// of its CEPs covers a given property number (via unique_numbers or number_ranges).
+// CEP SEARCH — Resolve a street from a query, then locate matching CEP logic
 // =============================================================================
 const SIDE_LABELS = { odd: 'Ímpar', even: 'Par', both: 'Ambos' };
 
-let cepSearchState = { streetId: null, street: null, breakdown: [] };
+let cepSearchState = { streetId: null, street: null, breakdown: [], searchLogged: false };
 let cepSearchDebounce = null;
 
 qs('#cepsearch-query').addEventListener('input', (e) => {
@@ -475,7 +570,27 @@ qs('#cepsearch-query').addEventListener('input', (e) => {
   cepSearchDebounce = setTimeout(() => resolveStreetForQuery(value), 320);
 });
 
-qs('#cepsearch-number').addEventListener('input', () => renderCepSearchResults());
+qs('#cepsearch-number').addEventListener('input', async () => {
+  // Update the UI immediately
+  renderCepSearchResults();
+  
+  const numberRaw = qs('#cepsearch-number').value;
+  
+  // Log the search only once per street resolution to prevent database spam
+  // Validates if a number is typed, a street is selected, and it hasn't been logged yet
+  if (numberRaw.trim() !== '' && cepSearchState.streetId && !cepSearchState.searchLogged) {
+    cepSearchState.searchLogged = true;
+    
+    // Insert the log into Supabase asynchronously
+    const { error } = await sb
+      .from('street_search_logs')
+      .insert({ street_id: cepSearchState.streetId });
+      
+    if (error) {
+      console.error('Failed to log street search:', error);
+    }
+  }
+});
 
 function goToCepSearch(zipCodeStr) {
   switchTab('cepsearch');
@@ -492,7 +607,7 @@ async function resolveStreetForQuery(term, opts = {}) {
   const emptyEl = qs('#cepsearch-empty');
 
   if (!trimmed) {
-    cepSearchState = { streetId: null, street: null, breakdown: [] };
+    cepSearchState = { streetId: null, street: null, breakdown: [], searchLogged: false };
     hintEl.textContent = 'Digite para localizar o logradouro.';
     numberInput.disabled = true;
     resultsEl.classList.add('hidden');
@@ -502,13 +617,13 @@ async function resolveStreetForQuery(term, opts = {}) {
 
   hintEl.textContent = 'Buscando...';
 
-  const escaped = trimmed.replace(/[%,]/g, '');
-  const digits = trimmed.replace(/\D/g, '');
+  const wildcardTerm = normalizeSearchTerm(term);
+  const digits = term.replace(/\D/g, '');
 
   const textPromise = sb
     .from('streets')
     .select('id, name, neighborhood, descr')
-    .or(`name.ilike.%${escaped}%,neighborhood.ilike.%${escaped}%,descr.ilike.%${escaped}%`)
+    .ilike('search_text', `%${wildcardTerm}%`)
     .order('name')
     .limit(5);
 
@@ -529,7 +644,7 @@ async function resolveStreetForQuery(term, opts = {}) {
     return;
   }
 
-  // CEP matches are more specific than free-text matches, so they take priority.
+  // CEP matches are more specific than free-text matches, prioritizing them
   const merged = new Map();
   (zipMatches || []).forEach((z) => {
     if (z.streets) merged.set(z.streets.id, z.streets);
@@ -541,7 +656,7 @@ async function resolveStreetForQuery(term, opts = {}) {
   const candidates = Array.from(merged.values());
 
   if (candidates.length === 0) {
-    cepSearchState = { streetId: null, street: null, breakdown: [] };
+    cepSearchState = { streetId: null, street: null, breakdown: [], searchLogged: false };
     hintEl.textContent = 'Nenhum logradouro encontrado para esta busca.';
     numberInput.disabled = true;
     resultsEl.classList.add('hidden');
@@ -564,27 +679,25 @@ async function resolveStreetForQuery(term, opts = {}) {
 async function loadStreetBreakdown(street) {
   const { data, error } = await sb
     .from('zip_codes')
-    .select('id, zip_code, number_ranges(id, start_number, end_number, side), unique_numbers(id, address_number, description)')
+    .select('id, zip_code, numbering_rules(id, start_number, end_number, side, description)')
     .eq('street_id', street.id)
     .order('zip_code');
 
   if (error) {
     showToast(`Erro ao carregar CEPs do logradouro: ${error.message}`, 'error');
-    cepSearchState = { streetId: street.id, street, breakdown: [] };
+    cepSearchState = { streetId: street.id, street, breakdown: [], searchLogged: false };
     return;
   }
-  cepSearchState = { streetId: street.id, street, breakdown: data };
+  cepSearchState = { streetId: street.id, street, breakdown: data, searchLogged: false };
 }
 
 function findMatchingZip(breakdown, number) {
   for (const z of breakdown) {
-    if ((z.unique_numbers || []).some((u) => u.address_number === number)) return z;
-  }
-  for (const z of breakdown) {
-    for (const r of z.number_ranges || []) {
+    for (const r of z.numbering_rules || []) {
       const startOk = r.start_number === null || number >= r.start_number;
       const endOk = r.end_number === null || number <= r.end_number;
       if (!startOk || !endOk) continue;
+
       const parityOk = r.side === 'both' || (r.side === 'odd' && number % 2 === 1) || (r.side === 'even' && number % 2 === 0);
       if (parityOk) return z;
     }
@@ -609,29 +722,50 @@ function renderCepSearchResults() {
   const number = numberRaw === '' ? null : Number(numberRaw);
   const matchedZip = number !== null ? findMatchingZip(breakdown, number) : null;
 
-  const blocksHtml = breakdown
+  // Reorder the breakdown array to put the matched ZIP code at the very beginning
+  let displayBreakdown = [...breakdown];
+  if (matchedZip) {
+    displayBreakdown = displayBreakdown.filter(z => z.id !== matchedZip.id);
+    displayBreakdown.unshift(matchedZip);
+  }
+
+  // Generate HTML for each zip block based on the reordered array
+  const blocksHtml = displayBreakdown
     .map((z) => {
       const isMatch = Boolean(matchedZip && matchedZip.id === z.id);
-      const rangesHtml = (z.number_ranges || [])
+      const rulesHtml = (z.numbering_rules || [])
         .map((r) => {
           const start = r.start_number === null ? 'aberto' : r.start_number;
           const end = r.end_number === null ? 'aberto' : r.end_number;
-          return `<li>Faixa ${start}&ndash;${end} &middot; <span class="side-badge side-${r.side}">${SIDE_LABELS[r.side] || r.side}</span></li>`;
+          let label = '';
+          
+          // Check if it represents a unique/single number match
+          if (r.start_number !== null && r.start_number === r.end_number) {
+            label = `Número ${r.start_number}`;
+          } else {
+            label = `Faixa ${start}&ndash;${end}`;
+          }
+          
+          const descr = r.description ? ` &middot; ${escapeHtml(r.description)}` : '';
+          return `<li>${label} &middot; <span class="side-badge side-${r.side}">${SIDE_LABELS[r.side] || r.side}</span>${descr}</li>`;
         })
         .join('');
-      const uniquesHtml = (z.unique_numbers || [])
-        .map((u) => `<li>Número ${u.address_number}${u.description ? ` &middot; ${escapeHtml(u.description)}` : ''}</li>`)
-        .join('');
-      const detailsHtml =
-        rangesHtml || uniquesHtml
-          ? `<ul class="zip-block-detail-list">${rangesHtml}${uniquesHtml}</ul>`
-          : '<p class="field-hint">Nenhuma faixa ou número cadastrado para este CEP.</p>';
+        
+      const detailsHtml = rulesHtml
+          ? `<ul class="zip-block-detail-list">${rulesHtml}</ul>`
+          : '<p class="field-hint">Nenhuma regra cadastrada para este CEP.</p>';
 
+      // Added copy button to the header of each block
       return `
       <div class="zip-block ${isMatch ? 'zip-block--match' : ''}">
         <div class="zip-block-header">
-          <span class="zip-block-title">${z.zip_code}</span>
-          ${isMatch ? '<span class="match-tag">CEP correto</span>' : ''}
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="zip-block-title">${z.zip_code}</span>
+            ${isMatch ? '<span class="match-tag">CEP correto</span>' : ''}
+          </div>
+          <button type="button" class="btn btn-secondary btn-icon copy-zip-btn" data-clipboard="${z.zip_code}">
+            Copiar
+          </button>
         </div>
         ${detailsHtml}
       </div>
@@ -639,15 +773,30 @@ function renderCepSearchResults() {
     })
     .join('');
 
+  // Prepare "Not Found" message if a number was typed but no ZIP matched
+  let notFoundMessageHtml = '';
+  if (number !== null && !matchedZip) {
+    notFoundMessageHtml = `
+      <div class="zip-block zip-block--not-found" style="border-color: var(--stamp-red); background: #fbeae7;">
+        <p class="field-error" style="display:block; margin:0; text-align:center;">
+          Número <strong>${number}</strong> não encontrado nas faixas cadastradas.
+        </p>
+      </div>
+    `;
+  }
+
+  // Inject everything into the UI
   resultsEl.innerHTML = `
     <div class="envelope-card">
       <div class="envelope-card-airmail" aria-hidden="true"></div>
       <div class="envelope-card-body">
         <p class="field-hint">Logradouro</p>
         <div class="address-window">${escapeHtml(street.name)}</div>
-        <p class="field-hint" style="margin-top:10px;">${escapeHtml(street.neighborhood)}${
-    street.descr ? ` &middot; ${escapeHtml(street.descr)}` : ''
-  }</p>
+        <p class="field-hint" style="margin-top:10px;">${escapeHtml(formatNeighborhoods(street.neighborhood))}${
+          street.descr ? ` &middot; ${escapeHtml(street.descr)}` : ''
+        }</p>
+        
+        ${notFoundMessageHtml}
         ${blocksHtml || '<p class="field-hint">Este logradouro ainda não tem CEPs cadastrados.</p>'}
       </div>
     </div>
@@ -655,31 +804,152 @@ function renderCepSearchResults() {
 }
 
 // =============================================================================
-// NUMBER RANGES — full CRUD (unchanged tab)
+// CLIPBOARD FUNCTIONALITY FOR ZIP CODES
 // =============================================================================
-let rangesCache = [];
 
-async function loadRanges() {
-  const tbody = qs('#ranges-tbody');
-  const emptyEl = qs('#ranges-empty');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="6">Carregando manifesto&hellip;</td></tr>';
+// Listen for clicks on dynamically rendered copy buttons within the results area
+qs('#cepsearch-results').addEventListener('click', async (e) => {
+  const copyBtn = e.target.closest('.copy-zip-btn');
+  
+  if (copyBtn) {
+    const zipCode = copyBtn.dataset.clipboard;
+    
+    try {
+      // Write the zip code string to the system clipboard
+      await navigator.clipboard.writeText(zipCode);
+      
+      // Notify the user of successful copy using the existing toast system
+      showToast(`CEP ${zipCode} copiado para a área de transferência.`);
+    } catch (err) {
+      console.error('Failed to copy zip code: ', err);
+      showToast('Erro ao copiar o CEP.', 'error');
+    }
+  }
+});
 
-  const filterZipId = qs('#ranges-filter-zip').value;
+// =============================================================================
+// NUMBERING RULES — Full CRUD for the newly merged table (ranges + unique nums)
+// =============================================================================
+
+
+
+// --- Filter toolbar: search a street, then optionally narrow to one of its CEPs ---
+let rulesFilterStreetId = '';
+let rulesFilterZipId = '';
+
+const rulesFilterZipSelect = qs('#rules-filter-zip');
+
+function resetRulesFilterZipSelect() {
+  rulesFilterZipSelect.innerHTML = '<option value="">Selecione um logradouro&hellip;</option>';
+  rulesFilterZipSelect.disabled = true;
+}
+
+async function loadRulesFilterZipOptions(streetId) {
+  if (!streetId) {
+    resetRulesFilterZipSelect();
+    return;
+  }
+  rulesFilterZipSelect.disabled = true;
+  rulesFilterZipSelect.innerHTML = '<option value="">Carregando CEPs&hellip;</option>';
+  const zipList = await loadZipsLite(streetId);
+  const options = ['<option value="">Todos os CEPs deste logradouro</option>'].concat(
+    zipList.map((z) => `<option value="${z.id}">${z.zip_code}</option>`)
+  );
+  rulesFilterZipSelect.innerHTML = options.join('');
+  rulesFilterZipSelect.disabled = zipList.length === 0;
+}
+
+const rulesFilterCombobox = initStreetCombobox({
+  inputEl: qs('#rules-filter-street-search'),
+  suggestionsEl: qs('#rules-filter-street-suggestions'),
+  onSelect: async (street) => {
+    rulesFilterStreetId = street ? street.id : '';
+    rulesFilterZipId = '';
+    await loadRulesFilterZipOptions(rulesFilterStreetId);
+    await loadRules();
+  },
+});
+
+const RULES_PAGE_SIZE = 25;
+let rulesPage = 0;
+let rulesTotalCount = 0;
+let rulesCache = [];
+
+// Event listeners for pagination buttons
+qs('#rules-prev').addEventListener('click', () => {
+  if (rulesPage > 0) loadRules(rulesPage - 1);
+});
+
+qs('#rules-next').addEventListener('click', () => {
+  const totalPages = Math.max(1, Math.ceil(rulesTotalCount / RULES_PAGE_SIZE));
+  if (rulesPage + 1 < totalPages) loadRules(rulesPage + 1);
+});
+
+// Update the filter change events to reset to page 0
+rulesFilterZipSelect.addEventListener('change', () => {
+  rulesFilterZipId = rulesFilterZipSelect.value;
+  loadRules(0);
+});
+
+qs('#rules-filter-clear').addEventListener('click', () => {
+  rulesFilterStreetId = '';
+  rulesFilterZipId = '';
+  rulesFilterCombobox.setValue(null);
+  resetRulesFilterZipSelect();
+  loadRules(0);
+});
+
+async function loadRules(page = 0) {
+  const tbody = qs('#rules-tbody');
+  const emptyEl = qs('#rules-empty');
+  
+  rulesPage = page;
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Loading manifest&hellip;</td></tr>';
+
+  // Calculate the pagination range
+  const from = page * RULES_PAGE_SIZE;
+  const to = from + RULES_PAGE_SIZE - 1;
+
+  // Request the exact count along with the data
   let query = sb
-    .from('number_ranges')
-    .select('id, start_number, end_number, side, zip_code_id, zip_codes(zip_code, streets(name))')
+    .from('numbering_rules')
+    .select('id, start_number, end_number, side, description, zip_code_id, zip_codes(id, zip_code, street_id, streets(name))', { count: 'exact' })
     .order('id');
-  if (filterZipId) query = query.eq('zip_code_id', filterZipId);
 
-  const { data, error } = await query;
+  if (rulesFilterZipId) {
+    // A specific CEP was chosen: narrow directly.
+    query = query.eq('zip_code_id', rulesFilterZipId);
+  } else if (rulesFilterStreetId) {
+    // Only a street was chosen: match any of its (usually few) CEPs.
+    const zipList = await loadZipsLite(rulesFilterStreetId);
+    const zipIds = zipList.map((z) => z.id);
+    
+    if (zipIds.length === 0) {
+      rulesCache = [];
+      rulesTotalCount = 0;
+      emptyEl.classList.remove('hidden');
+      tbody.innerHTML = '';
+      renderRulesPagination();
+      return;
+    }
+    query = query.in('zip_code_id', zipIds);
+  }
+
+  // Apply the pagination range
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
 
   if (error) {
-    tbody.innerHTML = `<tr class="error-row"><td colspan="6">Erro ao carregar faixas: ${escapeHtml(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr class="error-row"><td colspan="7">Error loading rules: ${escapeHtml(error.message)}</td></tr>`;
     return;
   }
 
-  rangesCache = data;
+  rulesTotalCount = count || 0;
+  rulesCache = data;
+  
   emptyEl.classList.toggle('hidden', data.length > 0);
+  
   tbody.innerHTML = data
     .map(
       (r) => `
@@ -689,69 +959,160 @@ async function loadRanges() {
       <td>${r.start_number === null ? '<span class="field-hint">aberto</span>' : r.start_number}</td>
       <td>${r.end_number === null ? '<span class="field-hint">aberto</span>' : r.end_number}</td>
       <td><span class="side-badge side-${r.side}">${SIDE_LABELS[r.side] || r.side}</span></td>
+      <td>${escapeHtml(r.description) || '<span class="field-hint">&mdash;</span>'}</td>
       <td class="col-actions">
         <span class="row-actions">
-          <button class="btn btn-secondary btn-icon" data-edit-range="${r.id}">Editar</button>
-          <button class="btn btn-danger btn-icon" data-delete-range="${r.id}">Excluir</button>
+          <button class="btn btn-secondary btn-icon" data-edit-rule="${r.id}">Editar</button>
+          <button class="btn btn-danger btn-icon" data-delete-rule="${r.id}">Excluir</button>
         </span>
       </td>
     </tr>
   `
     )
     .join('');
+
+  renderRulesPagination();
 }
 
-function rangeFormTemplate(record) {
+// Render pagination state on the UI
+function renderRulesPagination() {
+  const totalPages = Math.max(1, Math.ceil(rulesTotalCount / RULES_PAGE_SIZE));
+  const countLabel = rulesTotalCount === 1 ? 'Regra' : 'Regras';
+  
+  qs('#rules-page-info').textContent = `Página ${rulesPage + 1} de ${totalPages} · ${rulesTotalCount} ${countLabel}`;
+  qs('#rules-prev').disabled = rulesPage <= 0;
+  qs('#rules-next').disabled = rulesPage + 1 >= totalPages;
+}
+
+function ruleFormTemplate(record) {
   return `
-    <form id="range-form">
+    <form id="rule-form">
+      <div class="field combobox-field">
+        <label for="rule-street-search">Logradouro</label>
+        <input type="text" id="rule-street-search" autocomplete="off" placeholder="Digite para buscar um logradouro&hellip;" required>
+        <div class="combobox-suggestions hidden" id="rule-street-suggestions"></div>
+        <p class="field-error">Selecione um logradouro na lista de sugestões.</p>
+      </div>
       <div class="field">
-        <label for="range-zip">CEP</label>
-        <select id="range-zip" required></select>
+        <label for="rule-zip">CEP</label>
+        <select id="rule-zip" required disabled>
+          <option value="">Selecione um logradouro primeiro&hellip;</option>
+        </select>
       </div>
       <div class="field-row">
         <div class="field">
-          <label for="range-start">Número inicial</label>
-          <input id="range-start" type="number" min="0" value="${record && record.start_number !== null ? record.start_number : ''}">
+          <label for="rule-start">Número inicial</label>
+          <input id="rule-start" type="number" min="0" placeholder="Opcional" value="${record && record.start_number !== null ? record.start_number : ''}">
         </div>
         <div class="field">
-          <label for="range-end">Número final</label>
-          <input id="range-end" type="number" min="0" value="${record && record.end_number !== null ? record.end_number : ''}">
+          <label for="rule-end">Número final</label>
+          <input id="rule-end" type="number" min="0" placeholder="Opcional" value="${record && record.end_number !== null ? record.end_number : ''}">
         </div>
       </div>
-      <p class="field-error" id="range-order-error">O número inicial deve ser menor ou igual ao final.</p>
+      <p class="field-error" id="rule-order-error">O número inicial deve ser menor ou igual ao final.</p>
+      
       <div class="field">
-        <label for="range-side">Lado da rua</label>
-        <select id="range-side">
+        <label for="rule-side">Lado da rua</label>
+        <select id="rule-side">
           <option value="both" ${!record || record.side === 'both' ? 'selected' : ''}>Ambos</option>
           <option value="odd" ${record && record.side === 'odd' ? 'selected' : ''}>Ímpar</option>
           <option value="even" ${record && record.side === 'even' ? 'selected' : ''}>Par</option>
         </select>
       </div>
+      
+      <div class="field">
+        <label for="rule-descr">Descrição</label>
+        <input id="rule-descr" type="text" maxlength="255" placeholder="Ex.: Hospital, condomínio, prédio comercial&hellip;"
+               value="${record && record.description ? escapeHtml(record.description) : ''}">
+      </div>
+      
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="range-cancel">Cancelar</button>
-        <button type="submit" class="btn btn-primary">${record ? 'Salvar alterações' : 'Cadastrar faixa'}</button>
+        <button type="button" class="btn btn-secondary" id="rule-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">${record ? 'Salvar alterações' : 'Cadastrar regra'}</button>
       </div>
     </form>
   `;
 }
 
-async function openRangeForm(record = null) {
-  openModal(record ? 'Editar Faixa de Numeração' : 'Nova Faixa de Numeração', rangeFormTemplate(record));
-  const zipList = await loadZipsLite();
-  populateZipSelect(qs('#range-zip'), zipList, record ? record.zip_code_id : '');
-  qs('#range-cancel').addEventListener('click', closeModal);
-  qs('#range-form').addEventListener('submit', (e) => submitRangeForm(e, record));
+async function openRuleForm(record = null) {
+  openModal(record ? 'Editar Regra de Numeração' : 'Nova Regra de Numeração', ruleFormTemplate(record));
+
+  const zipSelect = qs('#rule-zip');
+
+  async function loadCepOptionsForStreet(streetId, selectedZipId) {
+    if (!streetId) {
+      zipSelect.innerHTML = '<option value="">Selecione um logradouro primeiro&hellip;</option>';
+      zipSelect.disabled = true;
+      return;
+    }
+    zipSelect.disabled = true;
+    zipSelect.innerHTML = '<option value="">Carregando CEPs&hellip;</option>';
+    const zipList = await loadZipsLite(streetId);
+    if (zipList.length === 0) {
+      zipSelect.innerHTML = '<option value="">Este logradouro não tem CEPs cadastrados</option>';
+      zipSelect.disabled = true;
+      return;
+    }
+    populateZipSelect(zipSelect, zipList, selectedZipId);
+    zipSelect.disabled = false;
+  }
+
+  const streetCombobox = initStreetCombobox({
+    inputEl: qs('#rule-street-search'),
+    suggestionsEl: qs('#rule-street-suggestions'),
+    onSelect: (street) => {
+      qs('#rule-street-search').closest('.field').classList.remove('has-error');
+      loadCepOptionsForStreet(street ? street.id : null);
+    },
+  });
+
+  if (record && record.zip_codes) {
+    streetCombobox.setValue({ id: record.zip_codes.street_id, name: record.zip_codes.streets.name });
+    await loadCepOptionsForStreet(record.zip_codes.street_id, record.zip_code_id);
+  }
+
+  qs('#rule-cancel').addEventListener('click', closeModal);
+  qs('#rule-form').addEventListener('submit', (e) => submitRuleForm(e, record, streetCombobox));
 }
 
-async function submitRangeForm(e, record) {
+async function submitRuleForm(e, record, streetCombobox) {
   e.preventDefault();
-  const zipCodeId = qs('#range-zip').value;
-  const startRaw = qs('#range-start').value;
-  const endRaw = qs('#range-end').value;
-  const side = qs('#range-side').value;
-  const startNumber = startRaw === '' ? null : Number(startRaw);
-  const endNumber = endRaw === '' ? null : Number(endRaw);
-  const orderError = qs('#range-order-error');
+
+  const selectedStreet = streetCombobox.getSelected();
+  const streetField = qs('#rule-street-search').closest('.field');
+  if (!selectedStreet) {
+    streetField.classList.add('has-error');
+    return;
+  }
+  streetField.classList.remove('has-error');
+
+  const zipCodeId = qs('#rule-zip').value;
+  if (!zipCodeId) {
+    showToast('Selecione um CEP para este logradouro.', 'error');
+    return;
+  }
+
+  const startRaw = qs('#rule-start').value;
+  const endRaw = qs('#rule-end').value;
+  const side = qs('#rule-side').value;
+  const description = qs('#rule-descr').value.trim() || null;
+  
+  // Use 'let' instead of 'const' to allow reassignment
+  let startNumber = startRaw === '' ? null : Number(startRaw);
+  let endNumber = endRaw === '' ? null : Number(endRaw);
+  
+  // Treat invalid numbers as null
+  if (Number.isNaN(startNumber)) startNumber = null;
+  if (Number.isNaN(endNumber)) endNumber = null;
+
+  // Mirror the values if only one is provided
+  if (startNumber === null && endNumber !== null) {
+    startNumber = endNumber;
+  } else if (endNumber === null && startNumber !== null) {
+    endNumber = startNumber;
+  }
+
+  const orderError = qs('#rule-order-error');
 
   if (startNumber !== null && endNumber !== null && startNumber > endNumber) {
     orderError.style.display = 'block';
@@ -759,174 +1120,48 @@ async function submitRangeForm(e, record) {
   }
   orderError.style.display = 'none';
 
-  const payload = { zip_code_id: zipCodeId, start_number: startNumber, end_number: endNumber, side };
+  const payload = { zip_code_id: zipCodeId, start_number: startNumber, end_number: endNumber, side, description };
   const query = record
-    ? sb.from('number_ranges').update(payload).eq('id', record.id)
-    : sb.from('number_ranges').insert(payload);
+    ? sb.from('numbering_rules').update(payload).eq('id', record.id)
+    : sb.from('numbering_rules').insert(payload);
   const { error } = await query;
 
   if (error) {
-    showToast(`Erro ao salvar faixa: ${error.message}`, 'error');
+    showToast(`Erro ao salvar regra: ${error.message}`, 'error');
     return;
   }
   closeModal();
-  showToast(record ? 'Faixa atualizada.' : 'Faixa cadastrada.');
-  await loadRanges();
+  showToast(record ? 'Regra atualizada.' : 'Regra cadastrada.');
+  await loadRules(rulesPage);
 }
 
-async function deleteRange(id) {
-  openDeleteConfirm('esta faixa de numeração', null, async () => {
-    const { error } = await sb.from('number_ranges').delete().eq('id', id);
+async function deleteRule(id) {
+  openDeleteConfirm('esta regra de numeração', null, async () => {
+    const { error } = await sb.from('numbering_rules').delete().eq('id', id);
     if (error) {
       showToast(`Erro ao excluir: ${error.message}`, 'error');
       return;
     }
     closeModal();
-    showToast('Faixa excluída.');
-    await loadRanges();
+    showToast('Regra excluída.');
+    await loadRules(rulesPage);
   });
 }
 
-qs('#btn-new-range').addEventListener('click', () => openRangeForm());
-qs('#ranges-filter-zip').addEventListener('change', loadRanges);
+qs('#btn-new-rule').addEventListener('click', () => openRuleForm());
 
-qs('#ranges-tbody').addEventListener('click', (e) => {
-  const editBtn = e.target.closest('[data-edit-range]');
-  const deleteBtn = e.target.closest('[data-delete-range]');
+qs('#rules-tbody').addEventListener('click', (e) => {
+  const editBtn = e.target.closest('[data-edit-rule]');
+  const deleteBtn = e.target.closest('[data-delete-rule]');
   if (editBtn) {
-    const record = rangesCache.find((r) => String(r.id) === editBtn.dataset.editRange);
-    if (record) openRangeForm(record);
+    const record = rulesCache.find((r) => String(r.id) === editBtn.dataset.editRule);
+    if (record) openRuleForm(record);
   }
-  if (deleteBtn) deleteRange(deleteBtn.dataset.deleteRange);
+  if (deleteBtn) deleteRule(deleteBtn.dataset.deleteRule);
 });
 
 // =============================================================================
-// UNIQUE NUMBERS — full CRUD (unchanged tab)
-// =============================================================================
-let numbersCache = [];
-
-async function loadNumbers() {
-  const tbody = qs('#numbers-tbody');
-  const emptyEl = qs('#numbers-empty');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Carregando manifesto&hellip;</td></tr>';
-
-  const filterZipId = qs('#numbers-filter-zip').value;
-  let query = sb
-    .from('unique_numbers')
-    .select('id, address_number, description, zip_code_id, zip_codes(zip_code, streets(name))')
-    .order('address_number');
-  if (filterZipId) query = query.eq('zip_code_id', filterZipId);
-
-  const { data, error } = await query;
-
-  if (error) {
-    tbody.innerHTML = `<tr class="error-row"><td colspan="5">Erro ao carregar números: ${escapeHtml(error.message)}</td></tr>`;
-    return;
-  }
-
-  numbersCache = data;
-  emptyEl.classList.toggle('hidden', data.length > 0);
-  tbody.innerHTML = data
-    .map(
-      (n) => `
-    <tr>
-      <td class="zip-code-cell">${n.zip_codes ? n.zip_codes.zip_code : '&mdash;'}</td>
-      <td>${escapeHtml(n.zip_codes && n.zip_codes.streets ? n.zip_codes.streets.name : '&mdash;')}</td>
-      <td>${n.address_number}</td>
-      <td>${escapeHtml(n.description) || '<span class="field-hint">&mdash;</span>'}</td>
-      <td class="col-actions">
-        <span class="row-actions">
-          <button class="btn btn-secondary btn-icon" data-edit-number="${n.id}">Editar</button>
-          <button class="btn btn-danger btn-icon" data-delete-number="${n.id}">Excluir</button>
-        </span>
-      </td>
-    </tr>
-  `
-    )
-    .join('');
-}
-
-function numberFormTemplate(record) {
-  return `
-    <form id="number-form">
-      <div class="field">
-        <label for="number-zip">CEP</label>
-        <select id="number-zip" required></select>
-      </div>
-      <div class="field">
-        <label for="number-address">Número do imóvel</label>
-        <input id="number-address" type="number" min="0" value="${record ? record.address_number : ''}" required>
-      </div>
-      <div class="field">
-        <label for="number-descr">Descrição</label>
-        <input id="number-descr" type="text" maxlength="255" placeholder="Ex.: Hospital, condomínio, prédio comercial&hellip;"
-               value="${record && record.description ? escapeHtml(record.description) : ''}">
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="number-cancel">Cancelar</button>
-        <button type="submit" class="btn btn-primary">${record ? 'Salvar alterações' : 'Cadastrar número'}</button>
-      </div>
-    </form>
-  `;
-}
-
-async function openNumberForm(record = null) {
-  openModal(record ? 'Editar Número Único' : 'Novo Número Único', numberFormTemplate(record));
-  const zipList = await loadZipsLite();
-  populateZipSelect(qs('#number-zip'), zipList, record ? record.zip_code_id : '');
-  qs('#number-cancel').addEventListener('click', closeModal);
-  qs('#number-form').addEventListener('submit', (e) => submitNumberForm(e, record));
-}
-
-async function submitNumberForm(e, record) {
-  e.preventDefault();
-  const zipCodeId = qs('#number-zip').value;
-  const addressNumber = Number(qs('#number-address').value);
-  const description = qs('#number-descr').value.trim() || null;
-
-  const payload = { zip_code_id: zipCodeId, address_number: addressNumber, description };
-  const query = record
-    ? sb.from('unique_numbers').update(payload).eq('id', record.id)
-    : sb.from('unique_numbers').insert(payload);
-  const { error } = await query;
-
-  if (error) {
-    showToast(`Erro ao salvar número: ${error.message}`, 'error');
-    return;
-  }
-  closeModal();
-  showToast(record ? 'Número atualizado.' : 'Número cadastrado.');
-  await loadNumbers();
-}
-
-async function deleteNumber(id) {
-  openDeleteConfirm('este número único', null, async () => {
-    const { error } = await sb.from('unique_numbers').delete().eq('id', id);
-    if (error) {
-      showToast(`Erro ao excluir: ${error.message}`, 'error');
-      return;
-    }
-    closeModal();
-    showToast('Número excluído.');
-    await loadNumbers();
-  });
-}
-
-qs('#btn-new-number').addEventListener('click', () => openNumberForm());
-qs('#numbers-filter-zip').addEventListener('change', loadNumbers);
-
-qs('#numbers-tbody').addEventListener('click', (e) => {
-  const editBtn = e.target.closest('[data-edit-number]');
-  const deleteBtn = e.target.closest('[data-delete-number]');
-  if (editBtn) {
-    const record = numbersCache.find((n) => String(n.id) === editBtn.dataset.editNumber);
-    if (record) openNumberForm(record);
-  }
-  if (deleteBtn) deleteNumber(deleteBtn.dataset.deleteNumber);
-});
-
-// =============================================================================
-// Init
+// Init 
 // =============================================================================
 async function init() {
   const placeholderUrl = SUPABASE_URL.includes('YOUR-PROJECT');
@@ -935,12 +1170,1077 @@ async function init() {
     qs('#config-banner').classList.remove('hidden');
   }
 
-  await loadStreetsLite();
-  await loadStreets(0);
-  await loadZips();
-  await refreshZipFilterDropdowns();
-  await loadRanges();
-  await loadNumbers();
+  const dailyOpsDateEl = qs('#daily-ops-date');
+  if (dailyOpsDateEl && !dailyOpsDateEl.value) dailyOpsDateEl.value = todayIsoDate();
+
+  await loadZips(0);
+  await loadRules();
+  await loadStatistics();
+}
+
+// =============================================================================
+// STREET MANAGEMENT (CREATE NEW STREET)
+// =============================================================================
+
+// Template for the street creation form
+function streetFormTemplate() {
+  return `
+    <form id="street-form">
+      <div class="field">
+        <label for="street-name">Nome do Logradouro</label>
+        <input type="text" id="street-name" required placeholder="Ex: Rua Felipe Schmidt">
+      </div>
+      <div class="field">
+        <label for="street-neighborhood">Bairros (separados por vírgula)</label>
+        <input type="text" id="street-neighborhood" required placeholder="Ex: Centro, Agronômica">
+      </div>
+      <div class="field">
+        <label for="street-descr">Descrição (Opcional)</label>
+        <input type="text" id="street-descr" placeholder="Ex: Servidão, Rodovia...">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="street-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar Logradouro</button>
+      </div>
+    </form>
+  `;
+}
+
+// Opens the modal to create a new street
+function openStreetForm() {
+  openModal('Novo Logradouro', streetFormTemplate());
+  qs('#street-cancel').addEventListener('click', closeModal);
+  qs('#street-form').addEventListener('submit', submitStreetForm);
+}
+
+// Handles the street form submission
+async function submitStreetForm(e) {
+  e.preventDefault();
+  
+  const name = qs('#street-name').value.trim();
+  const neighborhoodRaw = qs('#street-neighborhood').value;
+  const descr = qs('#street-descr').value.trim() || null;
+  
+  // Convert comma-separated string to an array of trimmed strings
+  const neighborhood = neighborhoodRaw.split(',').map(n => n.trim()).filter(n => n);
+
+  const payload = { name, neighborhood, descr };
+  
+  // Insert the new street into the database
+  const { error } = await sb.from('streets').insert(payload);
+  
+  if (error) {
+    showToast(`Error saving street: ${error.message}`, 'error');
+    return;
+  }
+  
+  closeModal();
+  showToast('Logradouro cadastrado com sucesso!');
+}
+
+// Attach event listener to the new street button
+const btnNewStreet = qs('#btn-new-street');
+if (btnNewStreet) {
+  btnNewStreet.addEventListener('click', openStreetForm);
+}
+
+// =============================================================================
+// GLOBAL HOTKEYS (F4 TO CLEAR INPUTS)
+// =============================================================================
+
+// Listen for F4 keydown event to clear all inputs
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'F4') {
+    e.preventDefault(); // Prevent default browser behavior for F4
+    
+    // Clear all standard input elements
+    qsa('input, select, textarea').forEach(el => {
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        el.checked = false;
+      } else {
+        el.value = '';
+      }
+    });
+
+    // Reset combobox states if they exist
+    if (typeof rulesFilterCombobox !== 'undefined' && rulesFilterCombobox.setValue) {
+      rulesFilterCombobox.setValue(null);
+    }
+    
+    // Reset internal filter variables
+    if (typeof rulesFilterStreetId !== 'undefined') rulesFilterStreetId = '';
+    if (typeof rulesFilterZipId !== 'undefined') rulesFilterZipId = '';
+    
+    // Reset specific select elements and search UI
+    if (typeof resetRulesFilterZipSelect === 'function') resetRulesFilterZipSelect();
+    
+    if (typeof cepSearchState !== 'undefined') {
+      cepSearchState = { streetId: null, street: null, breakdown: [], searchLogged: false };
+    }
+    
+    const resultsEl = qs('#cepsearch-results');
+    const emptyEl = qs('#cepsearch-empty');
+    if (resultsEl) resultsEl.classList.add('hidden');
+    if (emptyEl) emptyEl.classList.remove('hidden');
+
+    // Trigger load functions to reset tables to their default unfiltered state
+    if (typeof loadZips === 'function') loadZips(0);
+    if (typeof loadRules === 'function') loadRules();
+
+    // Reset the daily operation log back to today's date and reload it
+    const dailyOpsDateEl = qs('#daily-ops-date');
+    if (dailyOpsDateEl && typeof loadDailyOps === 'function') {
+      dailyOpsDateEl.value = todayIsoDate();
+      loadDailyOps();
+    }
+
+    // Reload the CEE sector offsets so the checkbox list rebuilds cleanly
+    if (typeof loadCeeSectors === 'function') loadCeeSectors();
+
+    // Provide visual feedback to the user
+    showToast('Todos os campos e filtros foram limpos.');
+  }
+});
+
+// Map numeric keys to their corresponding tab data attributes
+const tabKeyMap = {
+  '1': 'zips',
+  '2': 'cepsearch',
+  '3': 'rules',
+  '4': 'stats',
+  '5': 'cee-map',
+  '6': 'daily-ops'
+};
+
+document.addEventListener('keydown', (e) => {
+  // Get the currently focused element
+  const activeElement = document.activeElement;
+  
+  // Check if the focused element is a text input, textarea, or select dropdown
+  const isInputFocused = activeElement && (
+    activeElement.tagName === 'INPUT' ||
+    activeElement.tagName === 'TEXTAREA' ||
+    activeElement.tagName === 'SELECT' ||
+    activeElement.isContentEditable
+  );
+
+  // If the user is typing in an input field, do not trigger the shortcut
+  if (isInputFocused) {
+    return;
+  }
+
+  // Check if the pressed key is mapped to a specific tab
+  const targetTab = tabKeyMap[e.key];
+  
+  if (targetTab) {
+    e.preventDefault(); // Prevent any default browser behavior for this key
+    switchTab(targetTab);
+  }
+});
+
+// =============================================================================
+// BUG REPORT MANAGEMENT
+// =============================================================================
+
+// Template for the bug report form
+function bugReportFormTemplate() {
+  return `
+    <form id="bug-report-form">
+      <div class="field">
+        <label for="bug-title">Título (Obrigatório)</label>
+        <input type="text" id="bug-title" required placeholder="Ex: Erro ao buscar logradouro na aba 2">
+      </div>
+      <div class="field">
+        <label for="bug-description">Descrição (Obrigatório)</label>
+        <textarea id="bug-description" required rows="5" placeholder="Descreva os passos para reproduzir o problema..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="bug-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-danger">Enviar Report</button>
+      </div>
+    </form>
+  `;
+}
+
+// Opens the modal to create a new bug report
+function openBugReportForm() {
+  openModal('Reportar um Bug', bugReportFormTemplate());
+  qs('#bug-cancel').addEventListener('click', closeModal);
+  qs('#bug-report-form').addEventListener('submit', submitBugReportForm);
+}
+
+// Handles the bug report form submission
+async function submitBugReportForm(e) {
+  e.preventDefault();
+  
+  const title = qs('#bug-title').value.trim();
+  const description = qs('#bug-description').value.trim();
+  
+  const payload = { title, description };
+  
+  // Insert the new bug report into the database
+  const { error } = await sb.from('bug_reports').insert(payload);
+  
+  if (error) {
+    showToast(`Error saving bug report: ${error.message}`, 'error');
+    return;
+  }
+  
+  closeModal();
+  showToast('Bug report enviado com sucesso!');
+}
+
+// Attach event listener to the bug report button
+const btnReportBug = qs('#btn-report-bug');
+if (btnReportBug) {
+  btnReportBug.addEventListener('click', openBugReportForm);
+}
+
+// =============================================================================
+// CEE MAP — SECTOR NUMBERING OFFSETS
+// =============================================================================
+// Loads the base + current-offset ranges for the four operational sectors
+// (A/B, C/D, E/F, G/H), paints them onto the floorplan cells, and lets the
+// user apply (or zero out) an offset for whichever sectors are checked.
+
+let ceeSectorsCache = [];
+
+async function loadCeeSectors() {
+  const { data, error } = await sb
+    .from('cee_sectors')
+    .select('id, code, label, base_start, base_end, current_offset')
+    .order('display_order');
+
+  if (error) {
+    console.error('Failed to load CEE sectors:', error);
+    showToast(`Erro ao carregar setores: ${error.message}`, 'error');
+    return;
+  }
+
+  ceeSectorsCache = data || [];
+  renderCeeSectorCells();
+  renderCeeOffsetCheckboxes();
+}
+
+// Paints the effective (base + offset) range onto every floorplan cell that
+// references a given sector, and shows a small badge when an offset is active.
+function renderCeeSectorCells() {
+  ceeSectorsCache.forEach((sector) => {
+    const effectiveStart = sector.base_start + sector.current_offset;
+    const effectiveEnd = sector.base_end + sector.current_offset;
+    const offsetLabel = sector.current_offset > 0 ? `+${sector.current_offset}` : `${sector.current_offset}`;
+
+    qsa(`.cee-sector[data-sector="${sector.code}"]`).forEach((cell) => {
+      cell.innerHTML = `
+        <span class="cee-sector-code">${escapeHtml(sector.label)}</span>
+        <span class="cee-sector-range">(${effectiveStart}-${effectiveEnd})</span>
+        <span class="cee-sector-offset-badge ${sector.current_offset === 0 ? 'hidden' : ''}">${offsetLabel}</span>
+      `;
+    });
+  });
+}
+
+// Renders one checkbox per sector in the offset control panel, showing its
+// currently applied offset (if any) next to the label.
+function renderCeeOffsetCheckboxes() {
+  const container = qs('#cee-offset-sectors');
+  if (!container) return;
+
+  if (ceeSectorsCache.length === 0) {
+    container.innerHTML = '<span class="empty-state">Nenhum setor cadastrado.</span>';
+    return;
+  }
+
+  container.innerHTML = ceeSectorsCache
+    .map(
+      (sector) => `
+    <label class="cee-offset-checkbox">
+      <input type="checkbox" value="${sector.code}">
+      Setor ${escapeHtml(sector.label)}
+      <span class="cee-offset-checkbox-offset">${sector.current_offset !== 0 ? `(atual: ${sector.current_offset > 0 ? '+' : ''}${sector.current_offset})` : ''}</span>
+    </label>
+  `
+    )
+    .join('');
+}
+
+function getCheckedCeeSectorCodes() {
+  return qsa('#cee-offset-sectors input[type="checkbox"]:checked').map((el) => el.value);
+}
+
+async function applyCeeOffset() {
+  const valueInput = qs('#cee-offset-value');
+  const offsetValue = Number(valueInput.value);
+
+  if (!valueInput.value.trim() || Number.isNaN(offsetValue) || offsetValue === 0) {
+    showToast('Informe um valor de offset diferente de zero.', 'error');
+    return;
+  }
+
+  const codes = getCheckedCeeSectorCodes();
+  if (codes.length === 0) {
+    showToast('Selecione ao menos um setor para receber o offset.', 'error');
+    return;
+  }
+
+  // Apply the offset (added to whatever is currently stored) to each checked sector.
+  for (const code of codes) {
+    const sector = ceeSectorsCache.find((s) => s.code === code);
+    if (!sector) continue;
+    const newOffset = sector.current_offset + offsetValue;
+    const { error } = await sb.from('cee_sectors').update({ current_offset: newOffset }).eq('id', sector.id);
+    if (error) {
+      showToast(`Erro ao aplicar offset no setor ${sector.label}: ${error.message}`, 'error');
+      return;
+    }
+  }
+
+  valueInput.value = '';
+  showToast('Offset aplicado com sucesso!');
+  await loadCeeSectors();
+}
+
+async function resetCeeOffset() {
+  const codes = getCheckedCeeSectorCodes();
+  if (codes.length === 0) {
+    showToast('Selecione ao menos um setor para zerar o offset.', 'error');
+    return;
+  }
+
+  for (const code of codes) {
+    const sector = ceeSectorsCache.find((s) => s.code === code);
+    if (!sector) continue;
+    const { error } = await sb.from('cee_sectors').update({ current_offset: 0 }).eq('id', sector.id);
+    if (error) {
+      showToast(`Erro ao zerar offset do setor ${sector.label}: ${error.message}`, 'error');
+      return;
+    }
+  }
+
+  showToast('Offset zerado para os setores selecionados.');
+  await loadCeeSectors();
+}
+
+const btnCeeOffsetApply = qs('#cee-offset-apply');
+if (btnCeeOffsetApply) btnCeeOffsetApply.addEventListener('click', applyCeeOffset);
+
+const btnCeeOffsetReset = qs('#cee-offset-reset');
+if (btnCeeOffsetReset) btnCeeOffsetReset.addEventListener('click', resetCeeOffset);
+
+// =============================================================================
+// DAILY OPERATION LOG (CEE) — trucks/CDLs, LOEC scans, label swaps, meetings,
+// and malote deliveries, all scoped to a single selectable date.
+// =============================================================================
+
+function todayIsoDate() {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}
+
+function getDailyOpsDate() {
+  const input = qs('#daily-ops-date');
+  return (input && input.value) || todayIsoDate();
+}
+
+function formatTimeShort(value) {
+  // Postgres TIME values come back as 'HH:MM:SS' — trim seconds for display.
+  if (!value) return '&mdash;';
+  return value.slice(0, 5);
+}
+
+let dailyTrucksCache = [];
+let dailyScansCache = [];
+let dailySwapsCache = [];
+let dailyMeetingsCache = [];
+let dailyMalotesCache = [];
+
+async function loadDailyOps() {
+  const dateInput = qs('#daily-ops-date');
+  if (dateInput && !dateInput.value) dateInput.value = todayIsoDate();
+  const date = getDailyOpsDate();
+
+  await Promise.all([
+    loadDailyOpsSummary(date),
+    loadDailyTrucks(date),
+    loadDailyScans(date),
+    loadDailySwaps(date),
+    loadDailyMeetings(date),
+    loadDailyMalotes(date),
+  ]);
+}
+
+async function loadDailyOpsSummary(date) {
+  const { data, error } = await sb
+    .from('daily_operation_summary')
+    .select('*')
+    .eq('log_date', date)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load daily summary:', error);
+    return;
+  }
+
+  const summary = data || {
+    total_trucks: 0,
+    total_cdls: 0,
+    total_objects: 0,
+    total_swaps: 0,
+    total_meetings: 0,
+    total_malotes: 0,
+  };
+
+  qs('#dops-total-trucks').textContent = summary.total_trucks;
+  qs('#dops-total-cdls').textContent = summary.total_cdls;
+  qs('#dops-total-objects').textContent = summary.total_objects;
+  qs('#dops-total-swaps').textContent = summary.total_swaps;
+  qs('#dops-total-meetings').textContent = summary.total_meetings;
+  qs('#dops-total-malotes').textContent = summary.total_malotes;
+}
+
+// ---------- Truck arrivals / CDLs ----------
+
+async function loadDailyTrucks(date) {
+  const tbody = qs('#daily-trucks-tbody');
+  const emptyEl = qs('#daily-trucks-empty');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>';
+
+  const { data, error } = await sb
+    .from('daily_truck_arrivals')
+    .select('*')
+    .eq('log_date', date)
+    .order('arrival_time');
+
+  if (error) {
+    tbody.innerHTML = `<tr class="error-row"><td colspan="5">Erro ao carregar: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+
+  dailyTrucksCache = data || [];
+  emptyEl.classList.toggle('hidden', dailyTrucksCache.length > 0);
+  tbody.innerHTML = dailyTrucksCache
+    .map(
+      (t) => `
+    <tr>
+      <td>${formatTimeShort(t.arrival_time)}</td>
+      <td>${escapeHtml(t.truck_identifier)}</td>
+      <td><span class="count-badge">${t.cdl_count}</span></td>
+      <td>${escapeHtml(t.notes || '')}</td>
+      <td class="col-actions">
+        <button class="btn btn-danger btn-icon" data-delete-truck="${t.id}">Excluir</button>
+      </td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function truckFormTemplate() {
+  return `
+    <form id="truck-form">
+      <div class="field-row">
+        <div class="field">
+          <label for="truck-time">Horário de chegada</label>
+          <input type="time" id="truck-time" required>
+        </div>
+        <div class="field">
+          <label for="truck-cdl-count">Quantidade de CDLs</label>
+          <input type="number" id="truck-cdl-count" min="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="truck-identifier">Caminhão (placa, rota ou transportadora)</label>
+        <input type="text" id="truck-identifier" required placeholder="Ex.: ABC-1234 ou Rota Norte">
+      </div>
+      <div class="field">
+        <label for="truck-notes">Observações (opcional)</label>
+        <input type="text" id="truck-notes" placeholder="Opcional">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="truck-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Caminhão</button>
+      </div>
+    </form>
+  `;
+}
+
+function openTruckForm() {
+  openModal('Registrar Chegada de Caminhão', truckFormTemplate());
+  qs('#truck-cancel').addEventListener('click', closeModal);
+  qs('#truck-form').addEventListener('submit', submitTruckForm);
+}
+
+async function submitTruckForm(e) {
+  e.preventDefault();
+  const payload = {
+    log_date: getDailyOpsDate(),
+    arrival_time: qs('#truck-time').value,
+    truck_identifier: qs('#truck-identifier').value.trim(),
+    cdl_count: Number(qs('#truck-cdl-count').value),
+    notes: qs('#truck-notes').value.trim() || null,
+  };
+
+  const { error } = await sb.from('daily_truck_arrivals').insert(payload);
+  if (error) {
+    showToast(`Erro ao registrar caminhão: ${error.message}`, 'error');
+    return;
+  }
+  closeModal();
+  showToast('Caminhão registrado com sucesso!');
+  await loadDailyOps();
+}
+
+async function deleteDailyTruck(id) {
+  openDeleteConfirm('este registro de caminhão', null, async () => {
+    const { error } = await sb.from('daily_truck_arrivals').delete().eq('id', id);
+    if (error) {
+      showToast(`Erro ao excluir: ${error.message}`, 'error');
+      return;
+    }
+    closeModal();
+    showToast('Registro excluído.');
+    await loadDailyOps();
+  });
+}
+
+qs('#btn-new-truck').addEventListener('click', openTruckForm);
+qs('#daily-trucks-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-delete-truck]');
+  if (btn) deleteDailyTruck(btn.dataset.deleteTruck);
+});
+
+// ---------- Object scans at the LOEC computers ----------
+
+async function loadDailyScans(date) {
+  const tbody = qs('#daily-scans-tbody');
+  const emptyEl = qs('#daily-scans-empty');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>';
+
+  const { data, error } = await sb
+    .from('daily_object_scans')
+    .select('*')
+    .eq('log_date', date)
+    .order('scan_time');
+
+  if (error) {
+    tbody.innerHTML = `<tr class="error-row"><td colspan="5">Erro ao carregar: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+
+  dailyScansCache = data || [];
+  emptyEl.classList.toggle('hidden', dailyScansCache.length > 0);
+  tbody.innerHTML = dailyScansCache
+    .map(
+      (s) => `
+    <tr>
+      <td>${formatTimeShort(s.scan_time)}</td>
+      <td>${escapeHtml(s.station || '&mdash;')}</td>
+      <td><span class="count-badge">${s.object_count}</span></td>
+      <td>${escapeHtml(s.notes || '')}</td>
+      <td class="col-actions">
+        <button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button>
+      </td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function scanFormTemplate() {
+  return `
+    <form id="scan-form">
+      <div class="field-row">
+        <div class="field">
+          <label for="scan-time">Horário</label>
+          <input type="time" id="scan-time" required>
+        </div>
+        <div class="field">
+          <label for="scan-object-count">Quantidade de objetos</label>
+          <input type="number" id="scan-object-count" min="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="scan-station">Estação (opcional)</label>
+        <select id="scan-station">
+          <option value="">Não especificado</option>
+          <option value="Computador A">Computador A</option>
+          <option value="Computador B">Computador B</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="scan-notes">Observações (opcional)</label>
+        <input type="text" id="scan-notes" placeholder="Opcional">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="scan-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Leitura</button>
+      </div>
+    </form>
+  `;
+}
+
+function openScanForm() {
+  openModal('Registrar Leitura de Objetos', scanFormTemplate());
+  qs('#scan-cancel').addEventListener('click', closeModal);
+  qs('#scan-form').addEventListener('submit', submitScanForm);
+}
+
+async function submitScanForm(e) {
+  e.preventDefault();
+  const payload = {
+    log_date: getDailyOpsDate(),
+    scan_time: qs('#scan-time').value,
+    station: qs('#scan-station').value || null,
+    object_count: Number(qs('#scan-object-count').value),
+    notes: qs('#scan-notes').value.trim() || null,
+  };
+
+  const { error } = await sb.from('daily_object_scans').insert(payload);
+  if (error) {
+    showToast(`Erro ao registrar leitura: ${error.message}`, 'error');
+    return;
+  }
+  closeModal();
+  showToast('Leitura registrada com sucesso!');
+  await loadDailyOps();
+}
+
+async function deleteDailyScan(id) {
+  openDeleteConfirm('este registro de leitura', null, async () => {
+    const { error } = await sb.from('daily_object_scans').delete().eq('id', id);
+    if (error) {
+      showToast(`Erro ao excluir: ${error.message}`, 'error');
+      return;
+    }
+    closeModal();
+    showToast('Registro excluído.');
+    await loadDailyOps();
+  });
+}
+
+qs('#btn-new-scan').addEventListener('click', openScanForm);
+qs('#daily-scans-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-delete-scan]');
+  if (btn) deleteDailyScan(btn.dataset.deleteScan);
+});
+
+// ---------- Label swaps ----------
+
+async function loadDailySwaps(date) {
+  const tbody = qs('#daily-swaps-tbody');
+  const emptyEl = qs('#daily-swaps-empty');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="4">Carregando&hellip;</td></tr>';
+
+  const { data, error } = await sb
+    .from('daily_label_swaps')
+    .select('*')
+    .eq('log_date', date)
+    .order('occurrence_time');
+
+  if (error) {
+    tbody.innerHTML = `<tr class="error-row"><td colspan="4">Erro ao carregar: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+
+  dailySwapsCache = data || [];
+  emptyEl.classList.toggle('hidden', dailySwapsCache.length > 0);
+  tbody.innerHTML = dailySwapsCache
+    .map(
+      (s) => `
+    <tr>
+      <td>${formatTimeShort(s.occurrence_time)}</td>
+      <td><span class="count-badge">${s.swap_count}</span></td>
+      <td>${escapeHtml(s.notes || '')}</td>
+      <td class="col-actions">
+        <button class="btn btn-danger btn-icon" data-delete-swap="${s.id}">Excluir</button>
+      </td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function swapFormTemplate() {
+  return `
+    <form id="swap-form">
+      <div class="field-row">
+        <div class="field">
+          <label for="swap-time">Horário</label>
+          <input type="time" id="swap-time" required>
+        </div>
+        <div class="field">
+          <label for="swap-count">Quantidade de trocas</label>
+          <input type="number" id="swap-count" min="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="swap-notes">Observações (opcional)</label>
+        <input type="text" id="swap-notes" placeholder="Ex.: encomendas para endereços diferentes">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="swap-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Troca</button>
+      </div>
+    </form>
+  `;
+}
+
+function openSwapForm() {
+  openModal('Registrar Troca de Etiqueta', swapFormTemplate());
+  qs('#swap-cancel').addEventListener('click', closeModal);
+  qs('#swap-form').addEventListener('submit', submitSwapForm);
+}
+
+async function submitSwapForm(e) {
+  e.preventDefault();
+  const payload = {
+    log_date: getDailyOpsDate(),
+    occurrence_time: qs('#swap-time').value,
+    swap_count: Number(qs('#swap-count').value),
+    notes: qs('#swap-notes').value.trim() || null,
+  };
+
+  const { error } = await sb.from('daily_label_swaps').insert(payload);
+  if (error) {
+    showToast(`Erro ao registrar troca: ${error.message}`, 'error');
+    return;
+  }
+  closeModal();
+  showToast('Troca de etiqueta registrada.');
+  await loadDailyOps();
+}
+
+async function deleteDailySwap(id) {
+  openDeleteConfirm('este registro de troca de etiqueta', null, async () => {
+    const { error } = await sb.from('daily_label_swaps').delete().eq('id', id);
+    if (error) {
+      showToast(`Erro ao excluir: ${error.message}`, 'error');
+      return;
+    }
+    closeModal();
+    showToast('Registro excluído.');
+    await loadDailyOps();
+  });
+}
+
+qs('#btn-new-swap').addEventListener('click', openSwapForm);
+qs('#daily-swaps-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-delete-swap]');
+  if (btn) deleteDailySwap(btn.dataset.deleteSwap);
+});
+
+// ---------- Meetings (regular or union/sindicato) ----------
+
+async function loadDailyMeetings(date) {
+  const tbody = qs('#daily-meetings-tbody');
+  const emptyEl = qs('#daily-meetings-empty');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>';
+
+  const { data, error } = await sb
+    .from('daily_meetings')
+    .select('*')
+    .eq('log_date', date)
+    .order('meeting_time');
+
+  if (error) {
+    tbody.innerHTML = `<tr class="error-row"><td colspan="5">Erro ao carregar: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+
+  dailyMeetingsCache = data || [];
+  emptyEl.classList.toggle('hidden', dailyMeetingsCache.length > 0);
+  tbody.innerHTML = dailyMeetingsCache
+    .map(
+      (m) => `
+    <tr>
+      <td>${formatTimeShort(m.meeting_time)}</td>
+      <td>${m.duration_minutes} min</td>
+      <td>${m.is_union ? '<span class="union-tag">Sindicato</span>' : '<span class="meeting-tag">Reunião</span>'}</td>
+      <td>${escapeHtml(m.notes || '')}</td>
+      <td class="col-actions">
+        <button class="btn btn-danger btn-icon" data-delete-meeting="${m.id}">Excluir</button>
+      </td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function meetingFormTemplate() {
+  return `
+    <form id="meeting-form">
+      <div class="field-row">
+        <div class="field">
+          <label for="meeting-time">Horário</label>
+          <input type="time" id="meeting-time" required>
+        </div>
+        <div class="field">
+          <label for="meeting-duration">Duração (minutos)</label>
+          <input type="number" id="meeting-duration" min="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="meeting-is-union">Tipo</label>
+        <select id="meeting-is-union">
+          <option value="false">Reunião comum</option>
+          <option value="true">Intervenção do sindicato</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="meeting-notes">Observações (opcional)</label>
+        <input type="text" id="meeting-notes" placeholder="Opcional">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="meeting-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Reunião</button>
+      </div>
+    </form>
+  `;
+}
+
+function openMeetingForm() {
+  openModal('Registrar Reunião', meetingFormTemplate());
+  qs('#meeting-cancel').addEventListener('click', closeModal);
+  qs('#meeting-form').addEventListener('submit', submitMeetingForm);
+}
+
+async function submitMeetingForm(e) {
+  e.preventDefault();
+  const payload = {
+    log_date: getDailyOpsDate(),
+    meeting_time: qs('#meeting-time').value,
+    duration_minutes: Number(qs('#meeting-duration').value),
+    is_union: qs('#meeting-is-union').value === 'true',
+    notes: qs('#meeting-notes').value.trim() || null,
+  };
+
+  const { error } = await sb.from('daily_meetings').insert(payload);
+  if (error) {
+    showToast(`Erro ao registrar reunião: ${error.message}`, 'error');
+    return;
+  }
+  closeModal();
+  showToast('Reunião registrada.');
+  await loadDailyOps();
+}
+
+async function deleteDailyMeeting(id) {
+  openDeleteConfirm('este registro de reunião', null, async () => {
+    const { error } = await sb.from('daily_meetings').delete().eq('id', id);
+    if (error) {
+      showToast(`Erro ao excluir: ${error.message}`, 'error');
+      return;
+    }
+    closeModal();
+    showToast('Registro excluído.');
+    await loadDailyOps();
+  });
+}
+
+qs('#btn-new-meeting').addEventListener('click', openMeetingForm);
+qs('#daily-meetings-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-delete-meeting]');
+  if (btn) deleteDailyMeeting(btn.dataset.deleteMeeting);
+});
+
+// ---------- Malotes ----------
+
+async function loadDailyMalotes(date) {
+  const tbody = qs('#daily-malotes-tbody');
+  const emptyEl = qs('#daily-malotes-empty');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>';
+
+  const { data, error } = await sb
+    .from('daily_malote_deliveries')
+    .select('*')
+    .eq('log_date', date)
+    .order('delivery_time');
+
+  if (error) {
+    tbody.innerHTML = `<tr class="error-row"><td colspan="5">Erro ao carregar: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+
+  dailyMalotesCache = data || [];
+  emptyEl.classList.toggle('hidden', dailyMalotesCache.length > 0);
+  tbody.innerHTML = dailyMalotesCache
+    .map(
+      (m) => `
+    <tr>
+      <td>${formatTimeShort(m.delivery_time)}</td>
+      <td>${escapeHtml(m.carteiro_name)}</td>
+      <td><span class="count-badge">${m.malote_count}</span></td>
+      <td>${escapeHtml(m.notes || '')}</td>
+      <td class="col-actions">
+        <button class="btn btn-danger btn-icon" data-delete-malote="${m.id}">Excluir</button>
+      </td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function maloteFormTemplate() {
+  return `
+    <form id="malote-form">
+      <div class="field-row">
+        <div class="field">
+          <label for="malote-time">Horário</label>
+          <input type="time" id="malote-time" required>
+        </div>
+        <div class="field">
+          <label for="malote-count">Quantidade de malotes</label>
+          <input type="number" id="malote-count" min="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="malote-carteiro">Carteiro</label>
+        <input type="text" id="malote-carteiro" required placeholder="Nome do carteiro">
+      </div>
+      <div class="field">
+        <label for="malote-notes">Observações (opcional)</label>
+        <input type="text" id="malote-notes" placeholder="Opcional">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="malote-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Malote</button>
+      </div>
+    </form>
+  `;
+}
+
+function openMaloteForm() {
+  openModal('Registrar Malote', maloteFormTemplate());
+  qs('#malote-cancel').addEventListener('click', closeModal);
+  qs('#malote-form').addEventListener('submit', submitMaloteForm);
+}
+
+async function submitMaloteForm(e) {
+  e.preventDefault();
+  const payload = {
+    log_date: getDailyOpsDate(),
+    delivery_time: qs('#malote-time').value,
+    carteiro_name: qs('#malote-carteiro').value.trim(),
+    malote_count: Number(qs('#malote-count').value),
+    notes: qs('#malote-notes').value.trim() || null,
+  };
+
+  const { error } = await sb.from('daily_malote_deliveries').insert(payload);
+  if (error) {
+    showToast(`Erro ao registrar malote: ${error.message}`, 'error');
+    return;
+  }
+  closeModal();
+  showToast('Malote registrado.');
+  await loadDailyOps();
+}
+
+async function deleteDailyMalote(id) {
+  openDeleteConfirm('este registro de malote', null, async () => {
+    const { error } = await sb.from('daily_malote_deliveries').delete().eq('id', id);
+    if (error) {
+      showToast(`Erro ao excluir: ${error.message}`, 'error');
+      return;
+    }
+    closeModal();
+    showToast('Registro excluído.');
+    await loadDailyOps();
+  });
+}
+
+qs('#btn-new-malote').addEventListener('click', openMaloteForm);
+qs('#daily-malotes-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-delete-malote]');
+  if (btn) deleteDailyMalote(btn.dataset.deleteMalote);
+});
+
+// ---------- Date navigation ----------
+
+const dailyOpsDateInput = qs('#daily-ops-date');
+if (dailyOpsDateInput) {
+  dailyOpsDateInput.addEventListener('change', () => loadDailyOps());
+}
+
+const btnDailyOpsToday = qs('#daily-ops-today');
+if (btnDailyOpsToday) {
+  btnDailyOpsToday.addEventListener('click', () => {
+    qs('#daily-ops-date').value = todayIsoDate();
+    loadDailyOps();
+  });
+}
+
+// =============================================================================
+// STATISTICS DASHBOARD LOGIC
+// =============================================================================
+
+async function loadStatistics() {
+  // 1. Load global counts (single row)
+  const { data: globalData, error: globalError } = await sb
+    .from('stats_global_counts')
+    .select('*')
+    .single();
+
+  if (!globalError && globalData) {
+    qs('#stat-total-streets').textContent = globalData.total_streets;
+    qs('#stat-total-zips').textContent = globalData.total_zips;
+    qs('#stat-total-rules').textContent = globalData.total_rules;
+  } else if (globalError) {
+    console.error('Failed to load global stats:', globalError);
+  }
+
+  // 2. Load Top 10 Neighborhoods with the most streets
+  const { data: neighborhoodData, error: neighborhoodError } = await sb
+    .from('stats_neighborhoods')
+    .select('*')
+    .limit(10);
+
+  if (!neighborhoodError && neighborhoodData) {
+    qs('#stat-neighborhoods-tbody').innerHTML = neighborhoodData.map(n => `
+      <tr>
+        <td>${escapeHtml(n.neighborhood_name)}</td>
+        <td class="col-actions"><span class="count-badge">${n.street_count}</span></td>
+      </tr>
+    `).join('');
+  } else if (neighborhoodError) {
+    console.error('Failed to load top neighborhoods:', neighborhoodError);
+  }
+
+  // 3. Load Top 10 Streets with the most ZIP Codes (using existing view)
+  const { data: topStreetsData, error: topStreetsError } = await sb
+    .from('streets_with_zip_count')
+    .select('name, zip_count')
+    .order('zip_count', { ascending: false })
+    .limit(10);
+
+  if (!topStreetsError && topStreetsData) {
+    qs('#stat-top-streets-tbody').innerHTML = topStreetsData.map(s => `
+      <tr>
+        <td>${escapeHtml(s.name)}</td>
+        <td class="col-actions"><span class="count-badge">${s.zip_count}</span></td>
+      </tr>
+    `).join('');
+  } else if (topStreetsError) {
+    console.error('Failed to load top streets:', topStreetsError);
+  }
+
+  // 4. Load Top 10 Most Consulted Streets
+  const { data: topConsultedData, error: topConsultedError } = await sb
+    .from('top_consulted_streets')
+    .select('name, consultation_count')
+    .order('consultation_count', { ascending: false })
+    .limit(10);
+
+  if (!topConsultedError && topConsultedData) {
+    qs('#stat-top-consulted-tbody').innerHTML = topConsultedData.map(s => `
+      <tr>
+        <td>${escapeHtml(s.name)}</td>
+        <td class="col-actions"><span class="count-badge">${s.consultation_count}</span></td>
+      </tr>
+    `).join('');
+  } else if (topConsultedError) {
+    console.error('Failed to load top consulted streets:', topConsultedError);
+  }
 }
 
 init();

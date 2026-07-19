@@ -1,206 +1,723 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CEE — Gestão de Logradouros de Florianópolis</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<!-- Config banner, shown only if SUPABASE_URL / SUPABASE_ANON_KEY are still placeholders -->
-<div id="config-banner" class="config-banner hidden">
-  <strong>Configuração pendente:</strong> edite <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code>
-  no topo do arquivo <code>app.js</code> com os dados do seu projeto Supabase.
-</div>
-
-<!-- Airmail edge, top of page -->
-
-
-<div class="app-shell">
-
-  <!-- ===== Tabs ===== -->
-  <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
-    <button class="tab-btn active" data-tab="streets" role="tab" aria-selected="true">
-      <span class="tab-index">01</span> Logradouros
-    </button>
-    <button class="tab-btn" data-tab="zips" role="tab" aria-selected="false">
-      <span class="tab-index">02</span> CEPs
-    </button>
-    <button class="tab-btn" data-tab="cepsearch" role="tab" aria-selected="false">
-      <span class="tab-index">03</span> Busca de CEPs
-    </button>
-    <button class="tab-btn" data-tab="ranges" role="tab" aria-selected="false">
-      <span class="tab-index">04</span> Faixas de Numeração
-    </button>
-    <button class="tab-btn" data-tab="numbers" role="tab" aria-selected="false">
-      <span class="tab-index">05</span> Números Únicos
-    </button>
-  </nav>
-
-  <main>
-
-    <!-- ===== STREETS (read-only) ===== -->
-    <section id="panel-streets" class="panel active" aria-labelledby="streets">
-      <div class="panel-toolbar">
-        <div class="search-field">
-          <input type="search" id="streets-search" placeholder="Buscar por nome, bairro, descrição ou CEP vinculado&hellip;">
-        </div>
-      </div>
-      <div class="manifest-frame">
-        <table class="manifest-table">
-          <thead>
-            <tr>
-              <th>Logradouro</th>
-              <th>Bairro</th>
-              <th>Descrição</th>
-              <th>CEPs vinculados</th>
-            </tr>
-          </thead>
-          <tbody id="streets-tbody">
-            <tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>
-          </tbody>
-        </table>
-        <p id="streets-empty" class="empty-state hidden">Nenhum logradouro encontrado para esta busca.</p>
-      </div>
-      <div class="pagination" id="streets-pagination">
-        <button type="button" class="btn btn-secondary btn-icon" id="streets-prev" disabled>&larr; Anterior</button>
-        <span id="streets-page-info" class="pagination-info">Página 1</span>
-        <button type="button" class="btn btn-secondary btn-icon" id="streets-next" disabled>Próxima &rarr;</button>
-      </div>
-    </section>
-
-    <!-- ===== ZIP CODES (CRUD) ===== -->
-    <section id="panel-zips" class="panel" aria-labelledby="zips">
-      <div class="panel-toolbar">
-        <div class="search-field">
-          <input type="search" id="zips-search" placeholder="Buscar por CEP, logradouro, bairro ou descrição&hellip;">
-        </div>
-        <button class="btn btn-primary" id="btn-new-zip">+ Novo CEP</button>
-      </div>
-      <div class="manifest-frame">
-        <table class="manifest-table">
-          <thead>
-            <tr>
-              <th>CEP</th>
-              <th>Logradouro</th>
-              <th>Bairro</th>
-              <th class="col-actions">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="zips-tbody">
-            <tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>
-          </tbody>
-        </table>
-        <p id="zips-empty" class="empty-state hidden">Nenhum CEP encontrado.</p>
-      </div>
-    </section>
-
-    <!-- ===== CEP SEARCH (lookup tool) ===== -->
-    <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
-      <div class="cepsearch-form">
-        <div class="field">
-          <label for="cepsearch-query">CEP, logradouro ou descrição</label>
-          <input type="text" id="cepsearch-query" placeholder="Ex.: 88000-000, Felipe Schmidt, Centro&hellip;" autocomplete="off">
-          <p class="field-hint" id="cepsearch-match-hint">Digite para localizar o logradouro.</p>
-        </div>
-        <div class="field">
-          <label for="cepsearch-number">Número do imóvel</label>
-          <input type="number" id="cepsearch-number" min="0" placeholder="Ex.: 123" disabled>
-          <p class="field-hint">Localize o logradouro primeiro.</p>
-        </div>
-      </div>
-
-      <div id="cepsearch-results" class="cepsearch-results hidden"></div>
-      <p id="cepsearch-empty" class="empty-state">Busque um CEP, logradouro ou descrição para começar.</p>
-    </section>
-
-    <!-- ===== NUMBER RANGES (CRUD) ===== -->
-    <section id="panel-ranges" class="panel" aria-labelledby="ranges">
-      <div class="panel-toolbar">
-        <div class="search-field">
-          <select id="ranges-filter-zip">
-            <option value="">Todos os CEPs</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" id="btn-new-range">+ Nova Faixa</button>
-      </div>
-      <div class="manifest-frame">
-        <table class="manifest-table">
-          <thead>
-            <tr>
-              <th>CEP</th>
-              <th>Logradouro</th>
-              <th>Início</th>
-              <th>Fim</th>
-              <th>Lado</th>
-              <th class="col-actions">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="ranges-tbody">
-            <tr class="loading-row"><td colspan="6">Carregando manifesto&hellip;</td></tr>
-          </tbody>
-        </table>
-        <p id="ranges-empty" class="empty-state hidden">Nenhuma faixa de numeração cadastrada ainda.</p>
-      </div>
-    </section>
-
-    <!-- ===== UNIQUE NUMBERS (CRUD) ===== -->
-    <section id="panel-numbers" class="panel" aria-labelledby="numbers">
-      <div class="panel-toolbar">
-        <div class="search-field">
-          <select id="numbers-filter-zip">
-            <option value="">Todos os CEPs</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" id="btn-new-number">+ Novo Número</button>
-      </div>
-      <div class="manifest-frame">
-        <table class="manifest-table">
-          <thead>
-            <tr>
-              <th>CEP</th>
-              <th>Logradouro</th>
-              <th>Número</th>
-              <th>Descrição</th>
-              <th class="col-actions">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="numbers-tbody">
-            <tr class="loading-row"><td colspan="5">Carregando manifesto&hellip;</td></tr>
-          </tbody>
-        </table>
-        <p id="numbers-empty" class="empty-state hidden">Nenhum número único cadastrado ainda.</p>
-      </div>
-    </section>
-
-  </main>
-
-</div>
-
-
-<!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
-<div id="modal-overlay" class="modal-overlay hidden">
-  <div class="modal-slip" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="airmail-strip airmail-strip--thin" aria-hidden="true"></div>
-    <div class="modal-slip-header">
-      <span class="modal-corner-stamp">CEP</span>
-      <h2 id="modal-title">Título</h2>
-      <button type="button" class="modal-close" id="modal-close" aria-label="Fechar">&times;</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CEE — Gestão de Logradouros de Florianópolis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Config banner, shown only if SUPABASE_URL / SUPABASE_ANON_KEY are still placeholders -->
+    <div id="config-banner" class="config-banner hidden">
+      <strong>Configuração pendente:</strong> edite <code>SUPABASE_URL</code> e
+      <code>SUPABASE_ANON_KEY</code> no topo do arquivo <code>app.js</code> com
+      os dados do seu projeto Supabase.
     </div>
-    <div class="modal-slip-body" id="modal-body">
-      <!-- injected by app.js -->
+
+    <div class="app-shell">
+      <div
+        class="config-banner"
+        style="background: var(--correios-blue); margin-bottom: 20px"
+      >
+        <strong>Dica:</strong> Pressione a tecla <code>F4</code> a qualquer
+        momento para limpar todas as seleções e campos de busca.
+      </div>
+
+      <!-- ===== Tabs ===== -->
+      <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
+        <button
+          class="tab-btn active"
+          data-tab="zips"
+          role="tab"
+          aria-selected="true"
+        >
+          <span class="tab-index">01</span> CEPs
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="cepsearch"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">02</span> Consulta de Endereços
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="rules"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">03</span> Regras de Numeração
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="stats"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">04</span> Estatísticas
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="cee-map"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">05</span> Mapa CEE
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="daily-ops"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">06</span> Registro Diário
+        </button>
+      </nav>
+
+      <main>
+        <!-- ===== ZIP CODES (CRUD) ===== -->
+        <section id="panel-zips" class="panel active" aria-labelledby="zips">
+          <div class="panel-toolbar">
+            <div class="search-field">
+              <input
+                type="search"
+                id="zips-search"
+                placeholder="Buscar por CEP ou logradouro&hellip;"
+              />
+            </div>
+            <div style="display: flex; gap: 10px">
+              <button class="btn btn-secondary" id="btn-new-street">
+                + Novo Logradouro
+              </button>
+              <button class="btn btn-primary" id="btn-new-zip">
+                + Novo CEP
+              </button>
+            </div>
+          </div>
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>CEP</th>
+                  <th>Logradouro</th>
+                  <th>Bairros</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="zips-tbody">
+                <tr class="loading-row">
+                  <td colspan="4">Carregando manifesto&hellip;</td>
+                </tr>
+              </tbody>
+            </table>
+            <p id="zips-empty" class="empty-state hidden">
+              Nenhum CEP encontrado.
+            </p>
+          </div>
+          <div class="pagination" id="zips-pagination">
+            <button
+              type="button"
+              class="btn btn-secondary btn-icon"
+              id="zips-prev"
+              disabled
+            >
+              &larr; Anterior
+            </button>
+            <span id="zips-page-info" class="pagination-info">Página 1</span>
+            <button
+              type="button"
+              class="btn btn-secondary btn-icon"
+              id="zips-next"
+              disabled
+            >
+              Próxima &rarr;
+            </button>
+          </div>
+        </section>
+
+        <!-- ===== CEP SEARCH (lookup tool) ===== -->
+        <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
+          <div class="cepsearch-form">
+            <div class="field">
+              <label for="cepsearch-query">CEP, logradouro ou descrição</label>
+              <input
+                type="text"
+                id="cepsearch-query"
+                placeholder="Ex.: 88000-000, Felipe Schmidt, Centro&hellip;"
+                autocomplete="off"
+              />
+              <p class="field-hint" id="cepsearch-match-hint">
+                Digite para localizar o logradouro.
+              </p>
+            </div>
+            <div class="field">
+              <label for="cepsearch-number">Número do imóvel</label>
+              <input
+                type="number"
+                id="cepsearch-number"
+                min="0"
+                placeholder="Ex.: 123"
+                disabled
+              />
+              <p class="field-hint">Localize o logradouro primeiro.</p>
+            </div>
+          </div>
+
+          <div id="cepsearch-results" class="cepsearch-results hidden"></div>
+          <p id="cepsearch-empty" class="empty-state">
+            Busque um CEP, logradouro ou descrição para começar.
+          </p>
+        </section>
+
+        <!-- ===== NUMBERING RULES (CRUD) ===== -->
+        <section id="panel-rules" class="panel" aria-labelledby="rules">
+          <div class="panel-toolbar">
+            <div class="rules-filter">
+              <div class="combobox-field" id="rules-filter-street-field">
+                <input
+                  type="text"
+                  id="rules-filter-street-search"
+                  autocomplete="off"
+                  placeholder="Filtrar por logradouro&hellip;"
+                />
+                <div
+                  class="combobox-suggestions hidden"
+                  id="rules-filter-street-suggestions"
+                ></div>
+              </div>
+              <select id="rules-filter-zip" disabled>
+                <option value="">Selecione um logradouro&hellip;</option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="rules-filter-clear"
+              >
+                Limpar filtro
+              </button>
+            </div>
+            <button class="btn btn-primary" id="btn-new-rule">
+              + Nova Regra
+            </button>
+          </div>
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>CEP</th>
+                  <th>Logradouro</th>
+                  <th>Início</th>
+                  <th>Fim</th>
+                  <th>Lado</th>
+                  <th>Descrição</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="rules-tbody">
+                <tr class="loading-row">
+                  <td colspan="7">Carregando manifesto&hellip;</td>
+                </tr>
+              </tbody>
+            </table>
+            <p id="rules-empty" class="empty-state hidden">
+              Nenhuma regra de numeração cadastrada ainda.
+            </p>
+          </div>
+          <!-- Pagination controls for numbering rules -->
+          <div class="pagination" id="rules-pagination">
+            <button
+              type="button"
+              class="btn btn-secondary btn-icon"
+              id="rules-prev"
+              disabled
+            >
+              &larr; Anterior
+            </button>
+            <span id="rules-page-info" class="pagination-info">Página 1</span>
+            <button
+              type="button"
+              class="btn btn-secondary btn-icon"
+              id="rules-next"
+              disabled
+            >
+              Próxima &rarr;
+            </button>
+          </div>
+        </section>
+
+        <!-- ===== STATISTICS DASHBOARD ===== -->
+        <section id="panel-stats" class="panel" aria-labelledby="stats">
+          <div class="stats-grid">
+            <!-- KPI Cards -->
+            <div class="stat-card">
+              <div class="stat-title">Logradouros</div>
+              <div class="stat-value" id="stat-total-streets">...</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">CEPs</div>
+              <div class="stat-value" id="stat-total-zips">...</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Regras de Numeração</div>
+              <div class="stat-value" id="stat-total-rules">...</div>
+            </div>
+          </div>
+          <div class="stats-columns">
+            <!-- Top Neighborhoods Table -->
+            <div class="manifest-frame stats-table-wrapper">
+              <div class="stats-section-header">Top 10 Bairros</div>
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Bairro</th>
+                    <th class="col-actions">Logradouros</th>
+                  </tr>
+                </thead>
+                <tbody id="stat-neighborhoods-tbody">
+                  <tr>
+                    <td
+                      colspan="2"
+                      style="text-align: center; color: var(--ink-soft)"
+                    >
+                      Carregando...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Top Streets Table -->
+            <div class="manifest-frame stats-table-wrapper">
+              <div class="stats-section-header">Top 10 Logradouros</div>
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Logradouro</th>
+                    <th class="col-actions">CEP</th>
+                  </tr>
+                </thead>
+                <tbody id="stat-top-streets-tbody">
+                  <tr>
+                    <td
+                      colspan="2"
+                      style="text-align: center; color: var(--ink-soft)"
+                    >
+                      Carregando...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Top Consulted Streets Table -->
+            <div class="manifest-frame stats-table-wrapper">
+              <div class="stats-section-header">Top 10 Mais Consultados</div>
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Logradouro</th>
+                    <th class="col-actions">Consultas</th>
+                  </tr>
+                </thead>
+                <tbody id="stat-top-consulted-tbody">
+                  <tr>
+                    <td
+                      colspan="2"
+                      style="text-align: center; color: var(--ink-soft)"
+                    >
+                      Carregando...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- CEE Internal Floorplan Map Panel -->
+        <section id="panel-cee-map" class="panel" aria-labelledby="cee-map">
+          <!-- Sector numbering offset controls -->
+          <div class="cee-offset-panel">
+            <h3>Offset de Numeração por Setor</h3>
+            <p class="field-hint">
+              O offset soma (ou subtrai, se negativo) a quantidade informada
+              aos números de início e fim dos setores marcados abaixo.
+            </p>
+            <div class="cee-offset-controls">
+              <div class="field cee-offset-value-field">
+                <label for="cee-offset-value">Offset</label>
+                <input
+                  type="number"
+                  id="cee-offset-value"
+                  step="1"
+                  placeholder="Ex.: 10 ou -10"
+                />
+              </div>
+              <div class="cee-offset-sectors" id="cee-offset-sectors">
+                <span class="empty-state">Carregando setores&hellip;</span>
+              </div>
+              <div class="cee-offset-actions">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  id="cee-offset-apply"
+                >
+                  Aplicar Offset
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="cee-offset-reset"
+                >
+                  Zerar Selecionados
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="cee-floorplan">
+            <!-- Entrance zone -->
+            <div class="cee-zone cee-entry">
+              ---------- Entrada ------------
+            </div>
+
+            <!-- Main operational sectors grid -->
+            <div class="cee-layout-grid">
+              <!-- Left side: Sectors G/H and E/F -->
+              <div class="cee-side">
+                <h3>Setor G/H &amp; Setor E/F</h3>
+
+                <!-- Table layout for G/H and E/F -->
+                <div class="cee-table">
+                  <div class="cee-table-row">
+                    <div class="cee-cell cee-sector" data-sector="AB">A/B (301-306)</div>
+                    <div class="cee-cell highlight">
+                      Recondicionamento - ME - Caixa Postal
+                    </div>
+                  </div>
+                  <div class="cee-table-row">
+                    <div class="cee-cell cee-sector" data-sector="GH">G/H (330-339)</div>
+                    <div class="cee-cell comp">---- computador A ----</div>
+                  </div>
+                  <div class="cee-table-row">
+                    <div class="cee-cell cee-sector" data-sector="EF">E/F (307-321)</div>
+                    <div class="cee-cell comp">---- computador B ----</div>
+                  </div>
+                  <div class="cee-table-row">
+                    <div class="cee-cell cee-sector" data-sector="CD">C/D (322-329)</div>
+                    <div class="cee-cell empty"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right side: Sectors A/B and C/D -->
+              <div class="cee-side">
+                <h3>Setor A/B &amp; Setor C/D</h3>
+
+                <!-- Table layout for A/B and C/D -->
+                <div class="cee-table">
+                  <div class="cee-table-row">
+                    <div class="cee-cell highlight">
+                      Caixa Postal - ME - Recondicionamento
+                    </div>
+                    <div class="cee-cell cee-sector" data-sector="GH">G/H (330-339)</div>
+                  </div>
+                  <div class="cee-table-row">
+                    <div class="cee-cell comp">---- computador A ----</div>
+                    <div class="cee-cell cee-sector" data-sector="AB">A/B (301-306)</div>
+                  </div>
+                  <div class="cee-table-row">
+                    <div class="cee-cell comp">---- computador B ----</div>
+                    <div class="cee-cell cee-sector" data-sector="CD">C/D (322-329)</div>
+                  </div>
+                  <div class="cee-table-row">
+                    <div class="cee-cell empty"></div>
+                    <div class="cee-cell cee-sector" data-sector="EF">E/F (307-321)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== DAILY OPERATION LOG ===== -->
+        <section id="panel-daily-ops" class="panel" aria-labelledby="daily-ops">
+          <div class="panel-toolbar">
+            <div class="field daily-ops-date-field">
+              <label for="daily-ops-date">Data da operação</label>
+              <input type="date" id="daily-ops-date" />
+            </div>
+            <button type="button" class="btn btn-secondary btn-icon" id="daily-ops-today">
+              Hoje
+            </button>
+          </div>
+
+          <!-- KPI summary for the selected day -->
+          <div class="stats-grid" id="daily-ops-summary">
+            <div class="stat-card">
+              <div class="stat-title">Caminhões</div>
+              <div class="stat-value" id="dops-total-trucks">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">CDLs Recebidos</div>
+              <div class="stat-value" id="dops-total-cdls">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Objetos Processados</div>
+              <div class="stat-value" id="dops-total-objects">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Trocas de Etiqueta</div>
+              <div class="stat-value" id="dops-total-swaps">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Reuniões</div>
+              <div class="stat-value" id="dops-total-meetings">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Malotes</div>
+              <div class="stat-value" id="dops-total-malotes">0</div>
+            </div>
+          </div>
+
+          <!-- Truck arrivals / CDLs -->
+          <div class="daily-ops-section">
+            <div class="daily-ops-section-header">
+              <h3>Chegada de Caminhões &amp; CDLs</h3>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-new-truck">
+                + Registrar Caminhão
+              </button>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Caminhão</th>
+                    <th>CDLs</th>
+                    <th>Obs.</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-trucks-tbody">
+                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                </tbody>
+              </table>
+              <p id="daily-trucks-empty" class="empty-state hidden">
+                Nenhum caminhão registrado nesta data.
+              </p>
+            </div>
+          </div>
+
+          <!-- Object scans at the LOEC computers -->
+          <div class="daily-ops-section">
+            <div class="daily-ops-section-header">
+              <h3>Objetos Passados nos Computadores (LOEC)</h3>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-new-scan">
+                + Registrar Leitura
+              </button>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Estação</th>
+                    <th>Objetos</th>
+                    <th>Obs.</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-scans-tbody">
+                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                </tbody>
+              </table>
+              <p id="daily-scans-empty" class="empty-state hidden">
+                Nenhuma leitura registrada nesta data.
+              </p>
+            </div>
+          </div>
+
+          <!-- Label swaps -->
+          <div class="daily-ops-section">
+            <div class="daily-ops-section-header">
+              <h3>Trocas de Etiqueta</h3>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-new-swap">
+                + Registrar Troca
+              </button>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Quantidade</th>
+                    <th>Obs.</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-swaps-tbody">
+                  <tr class="loading-row"><td colspan="4">Carregando&hellip;</td></tr>
+                </tbody>
+              </table>
+              <p id="daily-swaps-empty" class="empty-state hidden">
+                Nenhuma troca de etiqueta registrada nesta data.
+              </p>
+            </div>
+          </div>
+
+          <!-- Meetings (including union interventions) -->
+          <div class="daily-ops-section">
+            <div class="daily-ops-section-header">
+              <h3>Reuniões &amp; Intervenções do Sindicato</h3>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-new-meeting">
+                + Registrar Reunião
+              </button>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Duração</th>
+                    <th>Tipo</th>
+                    <th>Obs.</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-meetings-tbody">
+                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                </tbody>
+              </table>
+              <p id="daily-meetings-empty" class="empty-state hidden">
+                Nenhuma reunião registrada nesta data.
+              </p>
+            </div>
+          </div>
+
+          <!-- Malotes -->
+          <div class="daily-ops-section">
+            <div class="daily-ops-section-header">
+              <h3>Malotes</h3>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-new-malote">
+                + Registrar Malote
+              </button>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Carteiro</th>
+                    <th>Malotes</th>
+                    <th>Obs.</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-malotes-tbody">
+                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                </tbody>
+              </table>
+              <p id="daily-malotes-empty" class="empty-state hidden">
+                Nenhum malote registrado nesta data.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
-  </div>
-</div>
 
-<!-- ===== Toast / postmark stamp confirmation ===== -->
-<div id="toast-container" class="toast-container" aria-live="polite"></div>
+    <!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+      <div
+        class="modal-slip"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <!-- <div class="airmail-strip airmail-strip--thin" aria-hidden="true"></div> -->
+        <div class="modal-slip-header">
+          <span class="modal-corner-stamp">CEP</span>
+          <h2 id="modal-title">Título</h2>
+          <button
+            type="button"
+            class="modal-close"
+            id="modal-close"
+            aria-label="Fechar"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-slip-body" id="modal-body">
+          <!-- injected by app.js -->
+        </div>
+      </div>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="app.js" defer></script>
-</body>
+    <footer class="postal-footer" style="padding: 24px; text-align: center">
+      <a
+        href="https://github.com/vitortz/cee"
+        style="color: #00447c; text-decoration: none; font-weight: bold"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          style="vertical-align: middle; margin-right: 4px"
+          aria-hidden="true"
+        >
+          <path
+            d="M12 .297c-6.63 0-12 5.373-12 12
+        0 5.303 3.438 9.8 8.205 11.385
+        .6.113.82-.258.82-.577
+        0-.285-.01-1.04-.015-2.04
+        -3.338.724-4.042-1.61-4.042-1.61
+        -.546-1.387-1.333-1.756-1.333-1.756
+        -1.089-.745.084-.729.084-.729
+        1.205.084 1.84 1.237 1.84 1.237
+        1.07 1.835 2.809 1.305 3.495.998
+        .108-.776.417-1.305.762-1.605
+        -2.665-.3-5.466-1.332-5.466-5.93
+        0-1.31.465-2.38 1.235-3.22
+        -.135-.303-.54-1.523.105-3.176
+        0 0 1.005-.322 3.3 1.23
+        .96-.267 1.98-.399 3-.405
+        1.02.006 2.04.138 3 .405
+        2.28-1.552 3.285-1.23 3.285-1.23
+        .645 1.653.24 2.873.12 3.176
+        .765.84 1.23 1.91 1.23 3.22
+        0 4.61-2.805 5.625-5.475 5.92
+        .42.36.81 1.096.81 2.22
+        0 1.606-.015 2.896-.015 3.286
+        0 .315.21.69.825.57
+        C20.565 22.092 24 17.592 24 12.297
+        c0-6.627-5.373-12-12-12z"
+          />
+        </svg>
+        github
+      </a>
+      <div style="margin-top: 16px">
+        <button class="btn btn-danger" id="btn-report-bug">
+          Reportar um Bug
+        </button>
+      </div>
+    </footer>
+    <!-- ===== Toast / postmark stamp confirmation ===== -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+      defer
+    ></script>
+    <script src="app.js" defer></script>
+  </body>
 </html>

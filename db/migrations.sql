@@ -1,45 +1,83 @@
 CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- Enum to handle specific numbering sides (odd numbers, even numbers, or both)
-CREATE TYPE side_type AS ENUM ('odd', 'even', 'both');
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_type
+        WHERE typname = 'side_type'
+    ) THEN
+        CREATE TYPE side_type AS ENUM ('odd', 'even', 'both');
+    END IF;
+END
+$$;
+
+-- Create an IMMUTABLE wrapper function for unaccent
+-- (PostgreSQL requires functions in GENERATED columns to be immutable)
+CREATE OR REPLACE FUNCTION f_unaccent(text)
+RETURNS text
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT unaccent('unaccent', $1);
+$$;
 
 -- Table for the streets
-CREATE TABLE streets (
+CREATE TABLE IF NOT EXISTS streets (
     id SERIAL PRIMARY KEY,
     name CITEXT NOT NULL UNIQUE,
-    neighborhood TEXT NOT NULL,
+    neighborhood TEXT[] NOT NULL,
     descr TEXT,
-    city TEXT DEFAULT 'Florianópolis',
-    state CHAR(2) DEFAULT 'SC'
+    search_text TEXT
 );
 
-CREATE INDEX idx_streets_name_trgm ON streets USING GIN (name gin_trgm_ops);
-CREATE INDEX idx_streets_descr_trgm ON streets USING GIN (descr gin_trgm_ops);
+
+CREATE OR REPLACE FUNCTION update_streets_search_text()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_text := lower(
+    unaccent('unaccent', 
+      NEW.name || ' ' || 
+      array_to_string(NEW.neighborhood, ' ') || ' ' || 
+      COALESCE(NEW.descr, '')
+    )
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_update_streets_search_text
+  BEFORE INSERT OR UPDATE ON streets
+  FOR EACH ROW
+  EXECUTE FUNCTION update_streets_search_text();
+
+CREATE INDEX IF NOT EXISTS idx_streets_name_trgm ON streets USING GIN (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_streets_descr_trgm ON streets USING GIN (descr gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_streets_search_text_trgm ON streets USING GIN (search_text gin_trgm_ops);
 
 -- Table for ZIP codes, allowing multiple ZIP codes per street
-CREATE TABLE zip_codes (
+CREATE TABLE IF NOT EXISTS zip_codes (
     id SERIAL PRIMARY KEY,
     street_id INTEGER NOT NULL REFERENCES streets(id) ON DELETE CASCADE,
     zip_code CHAR(9) NOT NULL,
-    
-    -- Constraint to enforce the Florianópolis Island ZIP code range
-    -- The regex ^880[0-6][0-9]-[0-9]{3}$ strictly allows 88000-000 to 88069-999
+    CONSTRAINT zip_codes_street_id_zip_code_key UNIQUE (street_id, zip_code),
     CONSTRAINT chk_island_zip_code CHECK (
         zip_code ~ '^880[0-6][0-9]-[0-9]{3}$'
     )
 );
 
 -- Index to speed up ZIP code searches
-CREATE INDEX idx_zip_code ON zip_codes(zip_code);
+CREATE INDEX IF NOT EXISTS idx_zip_code ON zip_codes(zip_code);
 
--- Table for continuous number ranges allowed within a specific ZIP code
-CREATE TABLE number_ranges (
+CREATE TABLE IF NOT EXISTS numbering_rules (
     id SERIAL PRIMARY KEY,
     zip_code_id INTEGER NOT NULL REFERENCES zip_codes(id) ON DELETE CASCADE,
     start_number INTEGER, 
     end_number INTEGER,   
     side side_type DEFAULT 'both',
+    description TEXT, -- Used for notes on unique numbers (e.g., 'Hospital') or specific ranges
     
     -- Ensure the starting number is always less than or equal to the ending number
     CONSTRAINT chk_number_order CHECK (
@@ -49,17 +87,22 @@ CREATE TABLE number_ranges (
     )
 );
 
--- New table specifically for unique address numbers linked to a ZIP code
-CREATE TABLE unique_numbers (
+-- Table to store bug reports from users
+CREATE TABLE IF NOT EXISTS bug_reports (
     id SERIAL PRIMARY KEY,
-    zip_code_id INTEGER NOT NULL REFERENCES zip_codes(id) ON DELETE CASCADE,
-    address_number INTEGER NOT NULL,
-    description VARCHAR(255), -- Useful for identifying why this number has a specific rule (e.g., 'Hospital', 'Corporate Building')
-    
-    -- Prevent inserting the exact same unique number multiple times for the same ZIP code
-    CONSTRAINT unq_zip_address_number UNIQUE (zip_code_id, address_number)
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Row Level Security
+ALTER TABLE bug_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "bug_reports_insert_anon" ON bug_reports;
+
+-- Allow anyone to insert a bug report (anon access)
+CREATE POLICY "bug_reports_insert_anon" ON bug_reports
+  FOR INSERT TO anon WITH CHECK (true);
 
 -- View com a contagem de CEPs por logradouro, usada pela aba "Logradouros"
 -- para ordenar (mais CEPs primeiro) e paginar no próprio banco.
@@ -80,25 +123,283 @@ GRANT SELECT ON streets_with_zip_count TO anon, authenticated;
 -- Row Level Security
 ALTER TABLE streets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE zip_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE number_ranges ENABLE ROW LEVEL SECURITY;
-ALTER TABLE unique_numbers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE numbering_rules ENABLE ROW LEVEL SECURITY;
 
--- streets: leitura pública, sem escrita pelo frontend
-CREATE POLICY "streets_select_anon" ON streets
-  FOR SELECT TO anon USING (true);
+-- 1. Streets
+DROP POLICY IF EXISTS "streets_all_anon" ON streets;
 
--- zip_codes / number_ranges / unique_numbers: CRUD completo pelo frontend
+CREATE POLICY "streets_all_anon" ON streets
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- 2. ZIP Codes: Full CRUD access
+-- FOR ALL covers SELECT, INSERT, UPDATE, and DELETE.
+-- 'USING' filters the rows that can be read/deleted.
+-- 'WITH CHECK' validates the rows being inserted/updated.
+DROP POLICY IF EXISTS "zip_codes_all_anon" ON zip_codes;
+
 CREATE POLICY "zip_codes_all_anon" ON zip_codes
   FOR ALL TO anon USING (true) WITH CHECK (true);
 
-CREATE POLICY "number_ranges_all_anon" ON number_ranges
+-- 3. Numbering Rules (The unified table): Full CRUD access
+DROP POLICY IF EXISTS "numbering_rules_all_anon" ON numbering_rules;
+
+CREATE POLICY "numbering_rules_all_anon" ON numbering_rules
   FOR ALL TO anon USING (true) WITH CHECK (true);
 
-CREATE POLICY "unique_numbers_all_anon" ON unique_numbers
-  FOR ALL TO anon USING (true) WITH CHECK (true);
-
--- Opcional, recomendado para bases grandes: acelera buscas e a contagem
--- usada pela paginação/ordenação da aba Logradouros.
 CREATE INDEX IF NOT EXISTS idx_zip_codes_street_id ON zip_codes(street_id);
-CREATE INDEX IF NOT EXISTS idx_number_ranges_zip_code_id ON number_ranges(zip_code_id);
-CREATE INDEX IF NOT EXISTS idx_unique_numbers_zip_code_id ON unique_numbers(zip_code_id);
+CREATE INDEX IF NOT EXISTS idx_numbering_rules_zip_code_id ON numbering_rules(zip_code_id);
+
+
+-- View to quickly fetch global system metrics
+CREATE OR REPLACE VIEW stats_global_counts
+WITH (security_invoker = true) AS
+SELECT
+    (SELECT COUNT(*) FROM streets) AS total_streets,
+    (SELECT COUNT(*) FROM zip_codes) AS total_zips,
+    (SELECT COUNT(*) FROM numbering_rules) AS total_rules,
+    (SELECT COUNT(*) FROM streets WHERE id NOT IN (SELECT street_id FROM zip_codes)) AS streets_without_zips;
+
+GRANT SELECT ON stats_global_counts TO anon, authenticated;
+
+-- View to unnest the neighborhood array and count streets per neighborhood
+CREATE OR REPLACE VIEW stats_neighborhoods
+WITH (security_invoker = true) AS
+SELECT
+    unnest(neighborhood) AS neighborhood_name,
+    COUNT(id) AS street_count
+FROM streets
+GROUP BY 1
+ORDER BY 2 DESC;
+
+GRANT SELECT ON stats_neighborhoods TO anon, authenticated;
+
+
+-- Table to log each time a street is searched
+CREATE TABLE IF NOT EXISTS street_search_logs (
+    id SERIAL PRIMARY KEY,
+    street_id INTEGER NOT NULL REFERENCES streets(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE street_search_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "street_search_logs_insert_anon" ON street_search_logs;
+
+-- Allow anonymous users to insert logs
+CREATE POLICY "street_search_logs_insert_anon" ON street_search_logs
+  FOR INSERT TO anon WITH CHECK (true);
+
+
+DROP POLICY IF EXISTS "street_search_logs_select_anon" ON street_search_logs;
+
+-- Allow anonymous users to read logs (if needed for the statistics dashboard)
+CREATE POLICY "street_search_logs_select_anon" ON street_search_logs
+  FOR SELECT TO anon USING (true);
+
+-- View to aggregate and rank the most consulted streets
+CREATE OR REPLACE VIEW top_consulted_streets
+WITH (security_invoker = true) AS
+SELECT 
+    s.id,
+    s.name,
+    COUNT(l.id) AS consultation_count
+FROM streets s
+JOIN street_search_logs l ON s.id = l.street_id
+GROUP BY s.id, s.name
+ORDER BY consultation_count DESC;
+
+GRANT SELECT ON top_consulted_streets TO anon, authenticated;
+
+
+-- =============================================================================
+-- CEE INTERNAL MAP — SECTOR NUMBERING OFFSETS
+-- =============================================================================
+-- Stores the base numbering range of each operational sector on the CEE
+-- floorplan (A/B, C/D, E/F, G/H), plus a mutable offset that shifts the
+-- displayed range whenever postal routing numbers get renumbered.
+-- Effective range shown to the user = base_start/base_end + current_offset.
+CREATE TABLE IF NOT EXISTS cee_sectors (
+    id SERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,          -- e.g. 'AB', 'CD', 'EF', 'GH'
+    label TEXT NOT NULL,                -- e.g. 'A/B', 'C/D'
+    base_start INTEGER NOT NULL,
+    base_end INTEGER NOT NULL,
+    current_offset INTEGER NOT NULL DEFAULT 0,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_cee_sector_range CHECK (base_start <= base_end)
+);
+
+-- Seed the four operational sectors with their original numbering ranges.
+INSERT INTO cee_sectors (code, label, base_start, base_end, display_order)
+VALUES
+    ('AB', 'A/B', 301, 306, 1),
+    ('CD', 'C/D', 322, 329, 2),
+    ('EF', 'E/F', 307, 321, 3),
+    ('GH', 'G/H', 330, 339, 4)
+ON CONFLICT (code) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION update_cee_sectors_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at := NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_cee_sectors_updated_at
+  BEFORE UPDATE ON cee_sectors
+  FOR EACH ROW
+  EXECUTE FUNCTION update_cee_sectors_updated_at();
+
+ALTER TABLE cee_sectors ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "cee_sectors_all_anon" ON cee_sectors;
+CREATE POLICY "cee_sectors_all_anon" ON cee_sectors
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+
+-- =============================================================================
+-- DAILY OPERATION LOG — CEE shift-by-shift record keeping
+-- =============================================================================
+
+-- Truck arrivals throughout the day and how many CDLs (Container Desmontável
+-- Leve) each one brought in.
+CREATE TABLE IF NOT EXISTS daily_truck_arrivals (
+    id SERIAL PRIMARY KEY,
+    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    arrival_time TIME NOT NULL,
+    truck_identifier TEXT NOT NULL,
+    cdl_count INTEGER NOT NULL CHECK (cdl_count >= 0),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Batches of objects passed through the LOEC computers, logged by the time
+-- and station where the scan happened.
+CREATE TABLE IF NOT EXISTS daily_object_scans (
+    id SERIAL PRIMARY KEY,
+    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    scan_time TIME NOT NULL,
+    station TEXT,
+    object_count INTEGER NOT NULL CHECK (object_count >= 0),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Incidents where package labels were mixed up / swapped.
+CREATE TABLE IF NOT EXISTS daily_label_swaps (
+    id SERIAL PRIMARY KEY,
+    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    occurrence_time TIME NOT NULL,
+    swap_count INTEGER NOT NULL CHECK (swap_count >= 0),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Meetings held during the shift, including union (sindicato) interventions,
+-- which are logged as a meeting flagged with is_union = true.
+CREATE TABLE IF NOT EXISTS daily_meetings (
+    id SERIAL PRIMARY KEY,
+    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    meeting_time TIME NOT NULL,
+    duration_minutes INTEGER NOT NULL CHECK (duration_minutes >= 0),
+    is_union BOOLEAN NOT NULL DEFAULT false,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Malotes (mail pouches) delivered per day, logged by carrier (carteiro).
+CREATE TABLE IF NOT EXISTS daily_malote_deliveries (
+    id SERIAL PRIMARY KEY,
+    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    delivery_time TIME NOT NULL,
+    carteiro_name TEXT NOT NULL,
+    malote_count INTEGER NOT NULL CHECK (malote_count >= 0),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_truck_arrivals_date ON daily_truck_arrivals(log_date);
+CREATE INDEX IF NOT EXISTS idx_daily_object_scans_date ON daily_object_scans(log_date);
+CREATE INDEX IF NOT EXISTS idx_daily_label_swaps_date ON daily_label_swaps(log_date);
+CREATE INDEX IF NOT EXISTS idx_daily_meetings_date ON daily_meetings(log_date);
+CREATE INDEX IF NOT EXISTS idx_daily_malote_deliveries_date ON daily_malote_deliveries(log_date);
+
+-- Row Level Security
+ALTER TABLE daily_truck_arrivals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_object_scans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_label_swaps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_meetings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_malote_deliveries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "daily_truck_arrivals_all_anon" ON daily_truck_arrivals;
+CREATE POLICY "daily_truck_arrivals_all_anon" ON daily_truck_arrivals
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "daily_object_scans_all_anon" ON daily_object_scans;
+CREATE POLICY "daily_object_scans_all_anon" ON daily_object_scans
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "daily_label_swaps_all_anon" ON daily_label_swaps;
+CREATE POLICY "daily_label_swaps_all_anon" ON daily_label_swaps
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "daily_meetings_all_anon" ON daily_meetings;
+CREATE POLICY "daily_meetings_all_anon" ON daily_meetings
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "daily_malote_deliveries_all_anon" ON daily_malote_deliveries;
+CREATE POLICY "daily_malote_deliveries_all_anon" ON daily_malote_deliveries
+  FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- View aggregating daily totals across all operation logs, so the frontend
+-- can pull a single summary row for whichever date the user picks.
+CREATE OR REPLACE VIEW daily_operation_summary
+WITH (security_invoker = true) AS
+SELECT
+    d.log_date,
+    COALESCE(t.total_trucks, 0) AS total_trucks,
+    COALESCE(t.total_cdls, 0) AS total_cdls,
+    COALESCE(o.total_scans, 0) AS total_scan_entries,
+    COALESCE(o.total_objects, 0) AS total_objects,
+    COALESCE(s.total_swap_entries, 0) AS total_swap_entries,
+    COALESCE(s.total_swaps, 0) AS total_swaps,
+    COALESCE(m.total_meetings, 0) AS total_meetings,
+    COALESCE(m.union_meetings, 0) AS union_meetings,
+    COALESCE(m.total_meeting_minutes, 0) AS total_meeting_minutes,
+    COALESCE(ml.total_malote_entries, 0) AS total_malote_entries,
+    COALESCE(ml.total_malotes, 0) AS total_malotes
+FROM (
+    SELECT log_date FROM daily_truck_arrivals
+    UNION SELECT log_date FROM daily_object_scans
+    UNION SELECT log_date FROM daily_label_swaps
+    UNION SELECT log_date FROM daily_meetings
+    UNION SELECT log_date FROM daily_malote_deliveries
+) d
+LEFT JOIN (
+    SELECT log_date, COUNT(*) AS total_trucks, SUM(cdl_count) AS total_cdls
+    FROM daily_truck_arrivals GROUP BY log_date
+) t ON t.log_date = d.log_date
+LEFT JOIN (
+    SELECT log_date, COUNT(*) AS total_scans, SUM(object_count) AS total_objects
+    FROM daily_object_scans GROUP BY log_date
+) o ON o.log_date = d.log_date
+LEFT JOIN (
+    SELECT log_date, COUNT(*) AS total_swap_entries, SUM(swap_count) AS total_swaps
+    FROM daily_label_swaps GROUP BY log_date
+) s ON s.log_date = d.log_date
+LEFT JOIN (
+    SELECT log_date, COUNT(*) AS total_meetings,
+           SUM(CASE WHEN is_union THEN 1 ELSE 0 END) AS union_meetings,
+           SUM(duration_minutes) AS total_meeting_minutes
+    FROM daily_meetings GROUP BY log_date
+) m ON m.log_date = d.log_date
+LEFT JOIN (
+    SELECT log_date, COUNT(*) AS total_malote_entries, SUM(malote_count) AS total_malotes
+    FROM daily_malote_deliveries GROUP BY log_date
+) ml ON ml.log_date = d.log_date
+ORDER BY d.log_date DESC;
+
+GRANT SELECT ON daily_operation_summary TO anon, authenticated;
