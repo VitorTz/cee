@@ -1,3 +1,7 @@
+-- =============================================================================
+-- 01. EXTENSIONS & CUSTOM TYPES
+-- =============================================================================
+
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -15,6 +19,10 @@ BEGIN
 END
 $$;
 
+-- =============================================================================
+-- 02. UTILITY FUNCTIONS
+-- =============================================================================
+
 -- Create an IMMUTABLE wrapper function for unaccent
 -- (PostgreSQL requires functions in GENERATED columns to be immutable)
 CREATE OR REPLACE FUNCTION f_unaccent(text)
@@ -24,7 +32,13 @@ AS $$
   SELECT unaccent('unaccent', $1);
 $$;
 
--- Table for the streets
+-- =============================================================================
+-- 03. CORE TABLES, TRIGGERS & INDEXES
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Streets
+-- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS streets (
     id SERIAL PRIMARY KEY,
     name CITEXT NOT NULL UNIQUE,
@@ -33,14 +47,13 @@ CREATE TABLE IF NOT EXISTS streets (
     search_text TEXT
 );
 
-
 CREATE OR REPLACE FUNCTION update_streets_search_text()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.search_text := lower(
-    unaccent('unaccent', 
-      NEW.name || ' ' || 
-      array_to_string(NEW.neighborhood, ' ') || ' ' || 
+    unaccent('unaccent',
+      NEW.name || ' ' ||
+      array_to_string(NEW.neighborhood, ' ') || ' ' ||
       COALESCE(NEW.descr, '')
     )
   );
@@ -57,7 +70,9 @@ CREATE INDEX IF NOT EXISTS idx_streets_name_trgm ON streets USING GIN (name gin_
 CREATE INDEX IF NOT EXISTS idx_streets_descr_trgm ON streets USING GIN (descr gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_streets_search_text_trgm ON streets USING GIN (search_text gin_trgm_ops);
 
--- Table for ZIP codes, allowing multiple ZIP codes per street
+-- -----------------------------------------------------------------------------
+-- ZIP Codes
+-- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS zip_codes (
     id SERIAL PRIMARY KEY,
     street_id INTEGER NOT NULL REFERENCES streets(id) ON DELETE CASCADE,
@@ -68,9 +83,12 @@ CREATE TABLE IF NOT EXISTS zip_codes (
     )
 );
 
--- Index to speed up ZIP code searches
 CREATE INDEX IF NOT EXISTS idx_zip_code ON zip_codes(zip_code);
+CREATE INDEX IF NOT EXISTS idx_zip_codes_street_id ON zip_codes(street_id);
 
+-- -----------------------------------------------------------------------------
+-- Numbering Rules
+-- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS numbering_rules (
     id SERIAL PRIMARY KEY,
     zip_code_id INTEGER NOT NULL REFERENCES zip_codes(id) ON DELETE CASCADE,
@@ -87,138 +105,11 @@ CREATE TABLE IF NOT EXISTS numbering_rules (
     )
 );
 
--- Table to store bug reports from users
-CREATE TABLE IF NOT EXISTS bug_reports (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Row Level Security
-ALTER TABLE bug_reports ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "bug_reports_insert_anon" ON bug_reports;
-
--- Allow anyone to insert a bug report (anon access)
-CREATE POLICY "bug_reports_insert_anon" ON bug_reports
-  FOR INSERT TO anon WITH CHECK (true);
-
--- View com a contagem de CEPs por logradouro, usada pela aba "Logradouros"
--- para ordenar (mais CEPs primeiro) e paginar no próprio banco.
-CREATE OR REPLACE VIEW streets_with_zip_count
-WITH (security_invoker = true) AS
-SELECT
-    s.id,
-    s.name,
-    s.neighborhood,
-    s.descr,
-    COUNT(z.id)::int AS zip_count
-FROM streets s
-LEFT JOIN zip_codes z ON z.street_id = s.id
-GROUP BY s.id, s.name, s.neighborhood, s.descr;
-
-GRANT SELECT ON streets_with_zip_count TO anon, authenticated;
-
--- Row Level Security
-ALTER TABLE streets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE zip_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE numbering_rules ENABLE ROW LEVEL SECURITY;
-
--- 1. Streets
-DROP POLICY IF EXISTS "streets_all_anon" ON streets;
-
-CREATE POLICY "streets_all_anon" ON streets
-  FOR ALL TO anon USING (true) WITH CHECK (true);
-
--- 2. ZIP Codes: Full CRUD access
--- FOR ALL covers SELECT, INSERT, UPDATE, and DELETE.
--- 'USING' filters the rows that can be read/deleted.
--- 'WITH CHECK' validates the rows being inserted/updated.
-DROP POLICY IF EXISTS "zip_codes_all_anon" ON zip_codes;
-
-CREATE POLICY "zip_codes_all_anon" ON zip_codes
-  FOR ALL TO anon USING (true) WITH CHECK (true);
-
--- 3. Numbering Rules (The unified table): Full CRUD access
-DROP POLICY IF EXISTS "numbering_rules_all_anon" ON numbering_rules;
-
-CREATE POLICY "numbering_rules_all_anon" ON numbering_rules
-  FOR ALL TO anon USING (true) WITH CHECK (true);
-
-CREATE INDEX IF NOT EXISTS idx_zip_codes_street_id ON zip_codes(street_id);
 CREATE INDEX IF NOT EXISTS idx_numbering_rules_zip_code_id ON numbering_rules(zip_code_id);
 
-
--- View to quickly fetch global system metrics
-CREATE OR REPLACE VIEW stats_global_counts
-WITH (security_invoker = true) AS
-SELECT
-    (SELECT COUNT(*) FROM streets) AS total_streets,
-    (SELECT COUNT(*) FROM zip_codes) AS total_zips,
-    (SELECT COUNT(*) FROM numbering_rules) AS total_rules,
-    (SELECT COUNT(*) FROM streets WHERE id NOT IN (SELECT street_id FROM zip_codes)) AS streets_without_zips;
-
-GRANT SELECT ON stats_global_counts TO anon, authenticated;
-
--- View to unnest the neighborhood array and count streets per neighborhood
-CREATE OR REPLACE VIEW stats_neighborhoods
-WITH (security_invoker = true) AS
-SELECT
-    unnest(neighborhood) AS neighborhood_name,
-    COUNT(id) AS street_count
-FROM streets
-GROUP BY 1
-ORDER BY 2 DESC;
-
-GRANT SELECT ON stats_neighborhoods TO anon, authenticated;
-
-
--- Table to log each time a street is searched
-CREATE TABLE IF NOT EXISTS street_search_logs (
-    id SERIAL PRIMARY KEY,
-    street_id INTEGER NOT NULL REFERENCES streets(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE street_search_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "street_search_logs_insert_anon" ON street_search_logs;
-
--- Allow anonymous users to insert logs
-CREATE POLICY "street_search_logs_insert_anon" ON street_search_logs
-  FOR INSERT TO anon WITH CHECK (true);
-
-
-DROP POLICY IF EXISTS "street_search_logs_select_anon" ON street_search_logs;
-
--- Allow anonymous users to read logs (if needed for the statistics dashboard)
-CREATE POLICY "street_search_logs_select_anon" ON street_search_logs
-  FOR SELECT TO anon USING (true);
-
--- View to aggregate and rank the most consulted streets
-CREATE OR REPLACE VIEW top_consulted_streets
-WITH (security_invoker = true) AS
-SELECT 
-    s.id,
-    s.name,
-    COUNT(l.id) AS consultation_count
-FROM streets s
-JOIN street_search_logs l ON s.id = l.street_id
-GROUP BY s.id, s.name
-ORDER BY consultation_count DESC;
-
-GRANT SELECT ON top_consulted_streets TO anon, authenticated;
-
-
--- =============================================================================
--- CEE INTERNAL MAP — SECTOR NUMBERING OFFSETS
--- =============================================================================
--- Stores the base numbering range of each operational sector on the CEE
--- floorplan (A/B, C/D, E/F, G/H), plus a mutable offset that shifts the
--- displayed range whenever postal routing numbers get renumbered.
--- Effective range shown to the user = base_start/base_end + current_offset.
+-- -----------------------------------------------------------------------------
+-- CEE Sectors
+-- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cee_sectors (
     id SERIAL PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,          -- e.g. 'AB', 'CD', 'EF', 'GH'
@@ -231,7 +122,6 @@ CREATE TABLE IF NOT EXISTS cee_sectors (
     CONSTRAINT chk_cee_sector_range CHECK (base_start <= base_end)
 );
 
--- Seed the four operational sectors with their original numbering ranges.
 INSERT INTO cee_sectors (code, label, base_start, base_end, display_order)
 VALUES
     ('AB', 'A/B', 301, 306, 1),
@@ -253,19 +143,10 @@ CREATE OR REPLACE TRIGGER trg_cee_sectors_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_cee_sectors_updated_at();
 
-ALTER TABLE cee_sectors ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "cee_sectors_all_anon" ON cee_sectors;
-CREATE POLICY "cee_sectors_all_anon" ON cee_sectors
-  FOR ALL TO anon USING (true) WITH CHECK (true);
-
-
 -- =============================================================================
--- DAILY OPERATION LOG — CEE shift-by-shift record keeping
+-- 04. DAILY OPERATIONS TABLES & INDEXES
 -- =============================================================================
 
--- Truck arrivals throughout the day and how many CDLs (Container Desmontável
--- Leve) each one brought in.
 CREATE TABLE IF NOT EXISTS daily_truck_arrivals (
     id SERIAL PRIMARY KEY,
     log_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -275,9 +156,8 @@ CREATE TABLE IF NOT EXISTS daily_truck_arrivals (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_daily_truck_arrivals_date ON daily_truck_arrivals(log_date);
 
--- Batches of objects passed through the LOEC computers, logged by the time
--- and station where the scan happened.
 CREATE TABLE IF NOT EXISTS daily_object_scans (
     id SERIAL PRIMARY KEY,
     log_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -287,8 +167,8 @@ CREATE TABLE IF NOT EXISTS daily_object_scans (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_daily_object_scans_date ON daily_object_scans(log_date);
 
--- Incidents where package labels were mixed up / swapped.
 CREATE TABLE IF NOT EXISTS daily_label_swaps (
     id SERIAL PRIMARY KEY,
     log_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -297,9 +177,8 @@ CREATE TABLE IF NOT EXISTS daily_label_swaps (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_daily_label_swaps_date ON daily_label_swaps(log_date);
 
--- Meetings held during the shift, including union (sindicato) interventions,
--- which are logged as a meeting flagged with is_union = true.
 CREATE TABLE IF NOT EXISTS daily_meetings (
     id SERIAL PRIMARY KEY,
     log_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -309,8 +188,8 @@ CREATE TABLE IF NOT EXISTS daily_meetings (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_daily_meetings_date ON daily_meetings(log_date);
 
--- Malotes (mail pouches) delivered per day, logged by carrier (carteiro).
 CREATE TABLE IF NOT EXISTS daily_malote_deliveries (
     id SERIAL PRIMARY KEY,
     log_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -320,42 +199,77 @@ CREATE TABLE IF NOT EXISTS daily_malote_deliveries (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_daily_truck_arrivals_date ON daily_truck_arrivals(log_date);
-CREATE INDEX IF NOT EXISTS idx_daily_object_scans_date ON daily_object_scans(log_date);
-CREATE INDEX IF NOT EXISTS idx_daily_label_swaps_date ON daily_label_swaps(log_date);
-CREATE INDEX IF NOT EXISTS idx_daily_meetings_date ON daily_meetings(log_date);
 CREATE INDEX IF NOT EXISTS idx_daily_malote_deliveries_date ON daily_malote_deliveries(log_date);
 
--- Row Level Security
-ALTER TABLE daily_truck_arrivals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_object_scans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_label_swaps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_meetings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_malote_deliveries ENABLE ROW LEVEL SECURITY;
+-- =============================================================================
+-- 05. SYSTEM LOGGING & FEEDBACK
+-- =============================================================================
 
-DROP POLICY IF EXISTS "daily_truck_arrivals_all_anon" ON daily_truck_arrivals;
-CREATE POLICY "daily_truck_arrivals_all_anon" ON daily_truck_arrivals
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE TABLE IF NOT EXISTS bug_reports (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-DROP POLICY IF EXISTS "daily_object_scans_all_anon" ON daily_object_scans;
-CREATE POLICY "daily_object_scans_all_anon" ON daily_object_scans
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE TABLE IF NOT EXISTS street_search_logs (
+    id SERIAL PRIMARY KEY,
+    street_id INTEGER NOT NULL REFERENCES streets(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-DROP POLICY IF EXISTS "daily_label_swaps_all_anon" ON daily_label_swaps;
-CREATE POLICY "daily_label_swaps_all_anon" ON daily_label_swaps
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+-- =============================================================================
+-- 06. VIEWS & PERMISSIONS
+-- =============================================================================
 
-DROP POLICY IF EXISTS "daily_meetings_all_anon" ON daily_meetings;
-CREATE POLICY "daily_meetings_all_anon" ON daily_meetings
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE OR REPLACE VIEW streets_with_zip_count
+WITH (security_invoker = true) AS
+SELECT
+    s.id,
+    s.name,
+    s.neighborhood,
+    s.descr,
+    COUNT(z.id)::int AS zip_count
+FROM streets s
+LEFT JOIN zip_codes z ON z.street_id = s.id
+GROUP BY s.id, s.name, s.neighborhood, s.descr;
 
-DROP POLICY IF EXISTS "daily_malote_deliveries_all_anon" ON daily_malote_deliveries;
-CREATE POLICY "daily_malote_deliveries_all_anon" ON daily_malote_deliveries
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+GRANT SELECT ON streets_with_zip_count TO anon, authenticated;
 
--- View aggregating daily totals across all operation logs, so the frontend
--- can pull a single summary row for whichever date the user picks.
+CREATE OR REPLACE VIEW stats_global_counts
+WITH (security_invoker = true) AS
+SELECT
+    (SELECT COUNT(*) FROM streets) AS total_streets,
+    (SELECT COUNT(*) FROM zip_codes) AS total_zips,
+    (SELECT COUNT(*) FROM numbering_rules) AS total_rules,
+    (SELECT COUNT(*) FROM streets WHERE id NOT IN (SELECT street_id FROM zip_codes)) AS streets_without_zips;
+
+GRANT SELECT ON stats_global_counts TO anon, authenticated;
+
+CREATE OR REPLACE VIEW stats_neighborhoods
+WITH (security_invoker = true) AS
+SELECT
+    unnest(neighborhood) AS neighborhood_name,
+    COUNT(id) AS street_count
+FROM streets
+GROUP BY 1
+ORDER BY 2 DESC;
+
+GRANT SELECT ON stats_neighborhoods TO anon, authenticated;
+
+CREATE OR REPLACE VIEW top_consulted_streets
+WITH (security_invoker = true) AS
+SELECT 
+    s.id,
+    s.name,
+    COUNT(l.id) AS consultation_count
+FROM streets s
+JOIN street_search_logs l ON s.id = l.street_id
+GROUP BY s.id, s.name
+ORDER BY consultation_count DESC;
+
+GRANT SELECT ON top_consulted_streets TO anon, authenticated;
+
 CREATE OR REPLACE VIEW daily_operation_summary
 WITH (security_invoker = true) AS
 SELECT
@@ -403,3 +317,52 @@ LEFT JOIN (
 ORDER BY d.log_date DESC;
 
 GRANT SELECT ON daily_operation_summary TO anon, authenticated;
+
+-- =============================================================================
+-- 07. ROW LEVEL SECURITY (RLS) & POLICIES
+-- =============================================================================
+
+-- Enable RLS on all applicable tables
+ALTER TABLE streets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE zip_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE numbering_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bug_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE street_search_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cee_sectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_truck_arrivals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_object_scans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_label_swaps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_meetings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_malote_deliveries ENABLE ROW LEVEL SECURITY;
+
+-- Clear any existing policies before recreation
+DROP POLICY IF EXISTS "streets_all_anon" ON streets;
+DROP POLICY IF EXISTS "zip_codes_all_anon" ON zip_codes;
+DROP POLICY IF EXISTS "numbering_rules_all_anon" ON numbering_rules;
+DROP POLICY IF EXISTS "bug_reports_insert_anon" ON bug_reports;
+DROP POLICY IF EXISTS "street_search_logs_insert_anon" ON street_search_logs;
+DROP POLICY IF EXISTS "street_search_logs_select_anon" ON street_search_logs;
+DROP POLICY IF EXISTS "cee_sectors_all_anon" ON cee_sectors;
+DROP POLICY IF EXISTS "daily_truck_arrivals_all_anon" ON daily_truck_arrivals;
+DROP POLICY IF EXISTS "daily_object_scans_all_anon" ON daily_object_scans;
+DROP POLICY IF EXISTS "daily_label_swaps_all_anon" ON daily_label_swaps;
+DROP POLICY IF EXISTS "daily_meetings_all_anon" ON daily_meetings;
+DROP POLICY IF EXISTS "daily_malote_deliveries_all_anon" ON daily_malote_deliveries;
+
+-- Core policies
+CREATE POLICY "streets_all_anon" ON streets FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "zip_codes_all_anon" ON zip_codes FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "numbering_rules_all_anon" ON numbering_rules FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "cee_sectors_all_anon" ON cee_sectors FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- Logging & Feedback policies
+CREATE POLICY "bug_reports_insert_anon" ON bug_reports FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "street_search_logs_insert_anon" ON street_search_logs FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "street_search_logs_select_anon" ON street_search_logs FOR SELECT TO anon USING (true);
+
+-- Daily Operations policies
+CREATE POLICY "daily_truck_arrivals_all_anon" ON daily_truck_arrivals FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "daily_object_scans_all_anon" ON daily_object_scans FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "daily_label_swaps_all_anon" ON daily_label_swaps FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "daily_meetings_all_anon" ON daily_meetings FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "daily_malote_deliveries_all_anon" ON daily_malote_deliveries FOR ALL TO anon USING (true) WITH CHECK (true);

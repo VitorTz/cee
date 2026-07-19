@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CEE — Gestão de Logradouros de Florianópolis</title>
+    <title>CEE — Florianópolis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -347,8 +347,8 @@
           <div class="cee-offset-panel">
             <h3>Offset de Numeração por Setor</h3>
             <p class="field-hint">
-              O offset soma (ou subtrai, se negativo) a quantidade informada
-              aos números de início e fim dos setores marcados abaixo.
+              O offset soma (ou subtrai, se negativo) a quantidade informada aos
+              números de início e fim dos setores marcados abaixo.
             </p>
             <div class="cee-offset-controls">
               <div class="field cee-offset-value-field">
@@ -397,21 +397,29 @@
                 <!-- Table layout for G/H and E/F -->
                 <div class="cee-table">
                   <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="AB">A/B (301-306)</div>
+                    <div class="cee-cell cee-sector" data-sector="AB">
+                      A/B (301-306)
+                    </div>
                     <div class="cee-cell highlight">
                       Recondicionamento - ME - Caixa Postal
                     </div>
                   </div>
                   <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="GH">G/H (330-339)</div>
+                    <div class="cee-cell cee-sector" data-sector="GH">
+                      G/H (330-339)
+                    </div>
                     <div class="cee-cell comp">---- computador A ----</div>
                   </div>
                   <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="EF">E/F (307-321)</div>
+                    <div class="cee-cell cee-sector" data-sector="EF">
+                      E/F (307-321)
+                    </div>
                     <div class="cee-cell comp">---- computador B ----</div>
                   </div>
                   <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="CD">C/D (322-329)</div>
+                    <div class="cee-cell cee-sector" data-sector="CD">
+                      C/D (322-329)
+                    </div>
                     <div class="cee-cell empty"></div>
                   </div>
                 </div>
@@ -427,19 +435,27 @@
                     <div class="cee-cell highlight">
                       Caixa Postal - ME - Recondicionamento
                     </div>
-                    <div class="cee-cell cee-sector" data-sector="GH">G/H (330-339)</div>
+                    <div class="cee-cell cee-sector" data-sector="GH">
+                      G/H (330-339)
+                    </div>
                   </div>
                   <div class="cee-table-row">
                     <div class="cee-cell comp">---- computador A ----</div>
-                    <div class="cee-cell cee-sector" data-sector="AB">A/B (301-306)</div>
+                    <div class="cee-cell cee-sector" data-sector="AB">
+                      A/B (301-306)
+                    </div>
                   </div>
                   <div class="cee-table-row">
                     <div class="cee-cell comp">---- computador B ----</div>
-                    <div class="cee-cell cee-sector" data-sector="CD">C/D (322-329)</div>
+                    <div class="cee-cell cee-sector" data-sector="CD">
+                      C/D (322-329)
+                    </div>
                   </div>
                   <div class="cee-table-row">
                     <div class="cee-cell empty"></div>
-                    <div class="cee-cell cee-sector" data-sector="EF">E/F (307-321)</div>
+                    <div class="cee-cell cee-sector" data-sector="EF">
+                      E/F (307-321)
+                    </div>
                   </div>
                 </div>
               </div>
@@ -454,7 +470,11 @@
               <label for="daily-ops-date">Data da operação</label>
               <input type="date" id="daily-ops-date" />
             </div>
-            <button type="button" class="btn btn-secondary btn-icon" id="daily-ops-today">
+            <button
+              type="button"
+              class="btn btn-secondary btn-icon"
+              id="daily-ops-today"
+            >
               Hoje
             </button>
           </div>
@@ -491,7 +511,11 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Chegada de Caminhões &amp; CDLs</h3>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-new-truck">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-new-truck"
+              >
                 + Registrar Caminhão
               </button>
             </div>
@@ -507,7 +531,9 @@
                   </tr>
                 </thead>
                 <tbody id="daily-trucks-tbody">
-                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                  <tr class="loading-row">
+                    <td colspan="5">Carregando&hellip;</td>
+                  </tr>
                 </tbody>
               </table>
               <p id="daily-trucks-empty" class="empty-state hidden">
@@ -520,7 +546,11 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Objetos Passados nos Computadores (LOEC)</h3>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-new-scan">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-new-scan"
+              >
                 + Registrar Leitura
               </button>
             </div>
@@ -536,7 +566,9 @@
                   </tr>
                 </thead>
                 <tbody id="daily-scans-tbody">
-                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                  <tr class="loading-row">
+                    <td colspan="5">Carregando&hellip;</td>
+                  </tr>
                 </tbody>
               </table>
               <p id="daily-scans-empty" class="empty-state hidden">
@@ -549,7 +581,11 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Trocas de Etiqueta</h3>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-new-swap">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-new-swap"
+              >
                 + Registrar Troca
               </button>
             </div>
@@ -564,7 +600,9 @@
                   </tr>
                 </thead>
                 <tbody id="daily-swaps-tbody">
-                  <tr class="loading-row"><td colspan="4">Carregando&hellip;</td></tr>
+                  <tr class="loading-row">
+                    <td colspan="4">Carregando&hellip;</td>
+                  </tr>
                 </tbody>
               </table>
               <p id="daily-swaps-empty" class="empty-state hidden">
@@ -577,7 +615,11 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Reuniões &amp; Intervenções do Sindicato</h3>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-new-meeting">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-new-meeting"
+              >
                 + Registrar Reunião
               </button>
             </div>
@@ -593,7 +635,9 @@
                   </tr>
                 </thead>
                 <tbody id="daily-meetings-tbody">
-                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                  <tr class="loading-row">
+                    <td colspan="5">Carregando&hellip;</td>
+                  </tr>
                 </tbody>
               </table>
               <p id="daily-meetings-empty" class="empty-state hidden">
@@ -606,7 +650,11 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Malotes</h3>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-new-malote">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-new-malote"
+              >
                 + Registrar Malote
               </button>
             </div>
@@ -622,7 +670,9 @@
                   </tr>
                 </thead>
                 <tbody id="daily-malotes-tbody">
-                  <tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>
+                  <tr class="loading-row">
+                    <td colspan="5">Carregando&hellip;</td>
+                  </tr>
                 </tbody>
               </table>
               <p id="daily-malotes-empty" class="empty-state hidden">
@@ -713,7 +763,8 @@
     </footer>
     <!-- ===== Toast / postmark stamp confirmation ===== -->
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
-
+    <!-- Load environment variables dynamically -->
+    <script src="config.js"></script>
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
       defer
