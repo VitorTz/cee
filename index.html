@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEE — Gestão de Logradouros de Florianópolis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Config banner, shown only if SUPABASE_URL / SUPABASE_ANON_KEY are still placeholders -->
+<div id="config-banner" class="config-banner hidden">
+  <strong>Configuração pendente:</strong> edite <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code>
+  no topo do arquivo <code>app.js</code> com os dados do seu projeto Supabase.
+</div>
+
+<!-- Airmail edge, top of page -->
+
+
+<div class="app-shell">
+
+  <!-- ===== Tabs ===== -->
+  <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
+    <button class="tab-btn active" data-tab="streets" role="tab" aria-selected="true">
+      <span class="tab-index">01</span> Logradouros
+    </button>
+    <button class="tab-btn" data-tab="zips" role="tab" aria-selected="false">
+      <span class="tab-index">02</span> CEPs
+    </button>
+    <button class="tab-btn" data-tab="cepsearch" role="tab" aria-selected="false">
+      <span class="tab-index">03</span> Busca de CEPs
+    </button>
+    <button class="tab-btn" data-tab="ranges" role="tab" aria-selected="false">
+      <span class="tab-index">04</span> Faixas de Numeração
+    </button>
+    <button class="tab-btn" data-tab="numbers" role="tab" aria-selected="false">
+      <span class="tab-index">05</span> Números Únicos
+    </button>
+  </nav>
+
+  <main>
+
+    <!-- ===== STREETS (read-only) ===== -->
+    <section id="panel-streets" class="panel active" aria-labelledby="streets">
+      <div class="panel-toolbar">
+        <div class="search-field">
+          <input type="search" id="streets-search" placeholder="Buscar por nome, bairro, descrição ou CEP vinculado&hellip;">
+        </div>
+      </div>
+      <div class="manifest-frame">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th>Logradouro</th>
+              <th>Bairro</th>
+              <th>Descrição</th>
+              <th>CEPs vinculados</th>
+            </tr>
+          </thead>
+          <tbody id="streets-tbody">
+            <tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>
+          </tbody>
+        </table>
+        <p id="streets-empty" class="empty-state hidden">Nenhum logradouro encontrado para esta busca.</p>
+      </div>
+      <div class="pagination" id="streets-pagination">
+        <button type="button" class="btn btn-secondary btn-icon" id="streets-prev" disabled>&larr; Anterior</button>
+        <span id="streets-page-info" class="pagination-info">Página 1</span>
+        <button type="button" class="btn btn-secondary btn-icon" id="streets-next" disabled>Próxima &rarr;</button>
+      </div>
+    </section>
+
+    <!-- ===== ZIP CODES (CRUD) ===== -->
+    <section id="panel-zips" class="panel" aria-labelledby="zips">
+      <div class="panel-toolbar">
+        <div class="search-field">
+          <input type="search" id="zips-search" placeholder="Buscar por CEP, logradouro, bairro ou descrição&hellip;">
+        </div>
+        <button class="btn btn-primary" id="btn-new-zip">+ Novo CEP</button>
+      </div>
+      <div class="manifest-frame">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th>CEP</th>
+              <th>Logradouro</th>
+              <th>Bairro</th>
+              <th class="col-actions">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="zips-tbody">
+            <tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>
+          </tbody>
+        </table>
+        <p id="zips-empty" class="empty-state hidden">Nenhum CEP encontrado.</p>
+      </div>
+    </section>
+
+    <!-- ===== CEP SEARCH (lookup tool) ===== -->
+    <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
+      <div class="cepsearch-form">
+        <div class="field">
+          <label for="cepsearch-query">CEP, logradouro ou descrição</label>
+          <input type="text" id="cepsearch-query" placeholder="Ex.: 88000-000, Felipe Schmidt, Centro&hellip;" autocomplete="off">
+          <p class="field-hint" id="cepsearch-match-hint">Digite para localizar o logradouro.</p>
+        </div>
+        <div class="field">
+          <label for="cepsearch-number">Número do imóvel</label>
+          <input type="number" id="cepsearch-number" min="0" placeholder="Ex.: 123" disabled>
+          <p class="field-hint">Localize o logradouro primeiro.</p>
+        </div>
+      </div>
+
+      <div id="cepsearch-results" class="cepsearch-results hidden"></div>
+      <p id="cepsearch-empty" class="empty-state">Busque um CEP, logradouro ou descrição para começar.</p>
+    </section>
+
+    <!-- ===== NUMBER RANGES (CRUD) ===== -->
+    <section id="panel-ranges" class="panel" aria-labelledby="ranges">
+      <div class="panel-toolbar">
+        <div class="search-field">
+          <select id="ranges-filter-zip">
+            <option value="">Todos os CEPs</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btn-new-range">+ Nova Faixa</button>
+      </div>
+      <div class="manifest-frame">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th>CEP</th>
+              <th>Logradouro</th>
+              <th>Início</th>
+              <th>Fim</th>
+              <th>Lado</th>
+              <th class="col-actions">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="ranges-tbody">
+            <tr class="loading-row"><td colspan="6">Carregando manifesto&hellip;</td></tr>
+          </tbody>
+        </table>
+        <p id="ranges-empty" class="empty-state hidden">Nenhuma faixa de numeração cadastrada ainda.</p>
+      </div>
+    </section>
+
+    <!-- ===== UNIQUE NUMBERS (CRUD) ===== -->
+    <section id="panel-numbers" class="panel" aria-labelledby="numbers">
+      <div class="panel-toolbar">
+        <div class="search-field">
+          <select id="numbers-filter-zip">
+            <option value="">Todos os CEPs</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btn-new-number">+ Novo Número</button>
+      </div>
+      <div class="manifest-frame">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th>CEP</th>
+              <th>Logradouro</th>
+              <th>Número</th>
+              <th>Descrição</th>
+              <th class="col-actions">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="numbers-tbody">
+            <tr class="loading-row"><td colspan="5">Carregando manifesto&hellip;</td></tr>
+          </tbody>
+        </table>
+        <p id="numbers-empty" class="empty-state hidden">Nenhum número único cadastrado ainda.</p>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+
+<!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal-slip" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="airmail-strip airmail-strip--thin" aria-hidden="true"></div>
+    <div class="modal-slip-header">
+      <span class="modal-corner-stamp">CEP</span>
+      <h2 id="modal-title">Título</h2>
+      <button type="button" class="modal-close" id="modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-slip-body" id="modal-body">
+      <!-- injected by app.js -->
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast / postmark stamp confirmation ===== -->
+<div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
