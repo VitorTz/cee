@@ -1416,7 +1416,6 @@ async function loadDailyOpsSummary(date) {
 
   qs('#dops-total-trucks').textContent = summary.total_trucks;
   qs('#dops-total-cdls').textContent = summary.total_cdls;
-  qs('#dops-total-objects').textContent = summary.total_objects;
   qs('#dops-total-swaps').textContent = summary.total_swaps;
   qs('#dops-total-meetings').textContent = summary.total_meetings;
   qs('#dops-total-malotes').textContent = summary.total_malotes;
@@ -1662,7 +1661,7 @@ function swapFormTemplate() {
         <div class="field"><label for="swap-time">Horário</label><input type="time" id="swap-time" required></div>
         <div class="field"><label for="swap-count">Quantidade de trocas</label><input type="number" id="swap-count" min="0" required></div>
       </div>
-      <div class="field"><label for="swap-notes">Observações (opcional)</label><input type="text" id="swap-notes" placeholder="Ex.: encomendas para endereços diferentes"></div>
+      <div class="field"><label for="swap-notes">Observações (opcional)</label><input type="text" id="swap-notes" placeholder="Ex.: falta de atenção"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="swap-cancel">Cancelar</button>
         <button type="submit" class="btn btn-primary">Registrar Troca</button>
