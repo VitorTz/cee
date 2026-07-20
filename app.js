@@ -1454,7 +1454,7 @@ function truckFormTemplate() {
         <div class="field"><label for="truck-time">Horário de chegada</label><input type="time" id="truck-time" required></div>
         <div class="field"><label for="truck-cdl-count">Quantidade de CDLs</label><input type="number" id="truck-cdl-count" min="0" required></div>
       </div>
-      <div class="field"><label for="truck-identifier">Caminhão (placa, rota ou transportadora)</label><input type="text" id="truck-identifier" required placeholder="Ex.: ABC-1234 ou Rota Norte"></div>
+      <div class="field"><label for="truck-identifier">Caminhão (placa, rota ou transportadora)</label><input type="text" id="truck-identifier" placeholder="Ex.: ABC-1234 ou Rota Norte"></div>
       <div class="field"><label for="truck-notes">Observações (opcional)</label><input type="text" id="truck-notes" placeholder="Opcional"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="truck-cancel">Cancelar</button>
@@ -1472,13 +1472,14 @@ function openTruckForm() {
 
 async function submitTruckForm(e) {
   e.preventDefault();
-  const payload = {
+  let payload = {
     log_date: getDailyOpsDate(),
     arrival_time: qs('#truck-time').value,
     truck_identifier: qs('#truck-identifier').value.trim(),
     cdl_count: Number(qs('#truck-cdl-count').value),
     notes: qs('#truck-notes').value.trim() || null,
   };
+  payload.truck_identifier = !payload.truck_identifier ? null : payload.truck_identifier;
 
   const { error } = await sb.from('daily_truck_arrivals').insert(payload);
   if (error) { showToast(`Erro ao registrar caminhão: ${error.message}`, 'error'); return; }
@@ -1505,7 +1506,7 @@ async function loadDailyScans(date) {
   const { data, error } = await sb.from('daily_object_scans').select('*').eq('log_date', date).order('scan_time');
 
   if (error) {
-    tbody.innerHTML = `<tr class="error-row"><td colspan="4">Error loading records: ${escapeHtml(error.message)}</td></tr>`; 
+    tbody.innerHTML = `<tr class="error-row"><td colspan="4">Erro ao carregar dados: ${escapeHtml(error.message)}</td></tr>`; 
     return;
   }
 
@@ -1518,7 +1519,7 @@ async function loadDailyScans(date) {
       <td>${formatTimeShort(s.scan_time)}</td>
       <td><span class="count-badge">${s.object_count}</span></td>
       <td>${escapeHtml(s.notes || '')}</td>
-      <td class="col-actions"><button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Delete</button></td>
+      <td class="col-actions"><button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button></td>
     </tr>
   `).join('');
 

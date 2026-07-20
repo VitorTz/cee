@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS daily_truck_arrivals (
     id SERIAL PRIMARY KEY,
     log_date DATE NOT NULL DEFAULT CURRENT_DATE,
     arrival_time TIME NOT NULL,
-    truck_identifier TEXT NOT NULL,
+    truck_identifier TEXT,
     cdl_count INTEGER NOT NULL CHECK (cdl_count >= 0),
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
