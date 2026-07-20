@@ -1454,7 +1454,7 @@ function truckFormTemplate() {
         <div class="field"><label for="truck-time">Horário de chegada</label><input type="time" id="truck-time" required></div>
         <div class="field"><label for="truck-cdl-count">Quantidade de CDLs</label><input type="number" id="truck-cdl-count" min="0" required></div>
       </div>
-      <div class="field"><label for="truck-identifier">Caminhão (placa, rota ou transportadora)</label><input type="text" id="truck-identifier" placeholder="Ex.: ABC-1234 ou Rota Norte"></div>
+      <div class="field"><label for="truck-identifier">Identificação (opcional)</label><input type="text" id="truck-identifier" placeholder="Ex.: ABC-1234 ou Rota Norte"></div>
       <div class="field"><label for="truck-notes">Observações (opcional)</label><input type="text" id="truck-notes" placeholder="Opcional"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="truck-cancel">Cancelar</button>
@@ -1544,7 +1544,7 @@ function renderLoecChart(records) {
     data: {
       labels: labels,
       datasets: [{
-        label: 'Objects in Suspended LOEC',
+        label: 'Objetos na LOECs',
         data: dataPoints,
         borderColor: '#00447c',
         backgroundColor: 'rgba(0, 68, 124, 0.1)',
@@ -1582,24 +1582,24 @@ function scanFormTemplate() {
           <input type="time" id="scan-time" required>
         </div>
         <div class="field">
-          <label for="scan-object-count">Suspended Objects</label>
+          <label for="scan-object-count">Objetos</label>
           <input type="number" id="scan-object-count" min="0" required>
         </div>
       </div>
       <div class="field">
-        <label for="scan-notes">Notes (optional)</label>
-        <input type="text" id="scan-notes" placeholder="Optional notes">
+        <label for="scan-notes">Anotações (opcional)</label>
+        <input type="text" id="scan-notes" placeholder="">
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="scan-cancel">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Record</button>
+        <button type="button" class="btn btn-secondary" id="scan-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
       </div>
     </form>
   `;
 }
 
 function openScanForm() {
-  openModal('Registrar Leitura de Objetos', scanFormTemplate());
+  openModal('Registrar LOECs', scanFormTemplate());
   qs('#scan-cancel').addEventListener('click', closeModal);
   qs('#scan-form').addEventListener('submit', submitScanForm);
 }
