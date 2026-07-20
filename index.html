@@ -723,7 +723,64 @@
       </div>
     </div>
 
-    <footer class="postal-footer" style="padding: 32px 24px; text-align: center; background: var(--paper-raised); border-top: 2px solid var(--paper-line);">
+    <!-- Updated Footer with Detailed Sedex Van -->
+    <footer class="postal-footer" style="position: relative; padding: 32px 24px; text-align: center; background: var(--paper-raised); border-top: 2px solid var(--paper-line);">
+      
+      <!-- Invisible track for the animation -->
+      <div class="van-track" aria-hidden="true">
+        
+        <!-- Detailed Delivery Van SVG with Smoke -->
+        <svg class="sedex-van" viewBox="0 0 250 100" xmlns="http://www.w3.org/2000/svg">
+          <!-- Wind/Speed lines for motion effect -->
+          <g stroke="var(--ink-soft)" stroke-width="2.5" stroke-linecap="round" opacity="0.5">
+            <line x1="10" y1="50" x2="35" y2="50" />
+            <line x1="20" y1="70" x2="45" y2="70" />
+            <line x1="5" y1="30" x2="25" y2="30" />
+          </g>
+
+          <!-- Exhaust Pipe -->
+          <rect x="42" y="80" width="8" height="4" rx="1" fill="var(--correios-blue-deep)" />
+
+          <!-- Smoke Puffs (colored using the soft grey variable) -->
+          <g fill="var(--ink-soft)">
+            <circle cx="40" cy="82" r="4" class="smoke-puff puff-1" />
+            <circle cx="40" cy="82" r="5" class="smoke-puff puff-2" />
+            <circle cx="40" cy="82" r="3" class="smoke-puff puff-3" />
+          </g>
+
+          <!-- Main Cargo Body (Yellow) -->
+          <path d="M 50 20 H 160 V 80 H 50 Z" fill="var(--correios-yellow)" stroke="var(--correios-blue-deep)" stroke-width="3" stroke-linejoin="round"/>
+          
+          <!-- Front Cabin (Yellow) -->
+          <path d="M 160 45 H 190 L 210 65 V 80 H 160 Z" fill="var(--correios-yellow)" stroke="var(--correios-blue-deep)" stroke-width="3" stroke-linejoin="round"/>
+          
+          <!-- Cabin Window (Blue) -->
+          <path d="M 165 50 H 185 L 198 65 H 165 Z" fill="var(--correios-blue-deep)" />
+
+          <!-- Details: Headlight and Bumpers -->
+          <path d="M 205 68 H 212 V 75 H 205 Z" fill="#ffffff" stroke="var(--correios-blue-deep)" stroke-width="1.5"/>
+          <rect x="45" y="72" width="10" height="8" rx="2" fill="var(--correios-blue-deep)" />
+          <rect x="208" y="74" width="8" height="6" rx="1" fill="var(--correios-blue-deep)" />
+
+          <!-- Back Door Seam Line -->
+          <line x1="55" y1="20" x2="55" y2="80" stroke="var(--correios-blue-deep)" stroke-width="2" opacity="0.3"/>
+
+          <!-- Brand Texts (SEDEX & CORREIOS) -->
+          <text x="65" y="65" font-family="Arial, sans-serif" font-weight="900" font-style="italic" font-size="28" fill="var(--correios-blue-deep)" letter-spacing="1">SEDEX</text>
+          <text x="66" y="38" font-family="Arial, sans-serif" font-weight="800" font-size="10" fill="var(--correios-blue-deep)">CORREIOS</text>
+
+          <!-- Wheels Assembly -->
+          <!-- Back Wheel -->
+          <circle cx="85" cy="85" r="14" fill="var(--correios-blue-deep)" />
+          <circle cx="85" cy="85" r="6" fill="#ffffff" />
+          <!-- Front Wheel -->
+          <circle cx="175" cy="85" r="14" fill="var(--correios-blue-deep)" />
+          <circle cx="175" cy="85" r="6" fill="#ffffff" />
+        </svg>
+
+      </div>
+
+      <!-- Footer Content -->
       <div style="margin-bottom: 8px;">
         <h3 style="margin: 0; font-family: var(--font-display); color: var(--correios-blue-deep); font-size: 1.8rem; letter-spacing: 1px;">
           CEE Florianópolis
@@ -736,7 +793,7 @@
         Developed by <strong>Vitor Fernando da Silva</strong>
       </div>
       <a
-        href="https://github.com/vitortz"
+        href="https://github.com/vitortz/cee"
         target="_blank"
         style="color: #00447c; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center;"
       >
@@ -753,11 +810,11 @@
             d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.237 1.84 1.237 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12z"
           />
         </svg>
-        github.com/vitortz
+        github.com/vitortz/cee
       </a>
       <div style="margin-top: 24px;">
         <button class="btn btn-danger" id="btn-report-bug">
-          Report a Bug
+          Reportar um Bug
         </button>
       </div>
     </footer>

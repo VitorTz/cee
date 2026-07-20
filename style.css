@@ -225,7 +225,7 @@ body {
 
 .app-shell {
   width: 100%; /* Forces the container to use the full width of the screen */
-  padding: 0 2.5% 2.5%; /* Keeps the minimum padding on the sides and bottom */
+  padding: 0 2.5% 5%; /* Keeps the minimum padding on the sides and bottom */
 }
 
 main {
@@ -1712,5 +1712,67 @@ main {
   .cee-sector-offset-badge {
     font-size: 0.75rem;
     padding: 2px 6px;
+  }
+}
+
+/* =========================================================================
+   DETAILED SEDEX VAN & SMOKE ANIMATION
+   ========================================================================= */
+
+.van-track {
+  position: absolute;
+  top: -65px; 
+  left: 0;
+  width: 100%;
+  height: 65px; 
+  pointer-events: none; 
+  overflow: hidden; 
+}
+
+.sedex-van {
+  width: 140px; 
+  height: auto;
+  position: absolute;
+  bottom: -2px; 
+  left: -150px; 
+  
+  /* Combines forward movement across the X axis with a bouncing Y axis */
+  animation: 
+    driveVan 14s linear infinite, 
+    bumpVan 0.3s ease-in-out infinite alternate;
+}
+
+/* Moves the van from left to right across the screen */
+@keyframes driveVan {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(100vw + 160px)); }
+}
+
+/* Creates a subtle suspension bounce effect */
+@keyframes bumpVan {
+  0% { padding-bottom: 0; }
+  100% { padding-bottom: 2px; }
+}
+
+/* --- Smoke Puff Animation --- */
+.smoke-puff {
+  opacity: 0;
+  transform-origin: 40px 82px; /* Origin matches the exhaust pipe coordinates */
+}
+
+/* Stagger the animation delays so the smoke is continuous */
+.smoke-puff.puff-1 { animation: smokeTrail 1.2s infinite ease-out; }
+.smoke-puff.puff-2 { animation: smokeTrail 1.2s infinite ease-out 0.4s; }
+.smoke-puff.puff-3 { animation: smokeTrail 1.2s infinite ease-out 0.8s; }
+
+/* Smoke expands, moves left (behind the van) and fades out */
+@keyframes smokeTrail {
+  0% {
+    transform: translate(0, 0) scale(0.3);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-30px, -10px) scale(2.5);
+    opacity: 0;
   }
 }
