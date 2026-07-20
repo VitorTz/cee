@@ -1,85 +1,48 @@
-# CEP Ilha — Gestão de Logradouros de Florianópolis
+## Funcionalidades Principais
 
-Site estático (HTML + CSS + JavaScript puro, sem build step) para gerenciar a
-base de CEPs da ilha de Florianópolis hospedada no Supabase. Visual com a
-identidade dos Correios: amarelo/azul postal, borda "aerograma" listrada,
-manifesto perfurado nas tabelas e formulários em estilo declaração aduaneira.
+### 1. Gestão de CEPs e Logradouros
+Módulo dedicado à organização da base de endereços.
+* **Consulta e Cadastro:** Visualize, pesquise e cadastre novos logradouros e CEPs facilmente.
+* **Busca Inteligente:** Pesquise rapidamente pelo nome da rua, bairro ou número do CEP.
+* **Integração:** Ao clicar em "Consultar" ao lado de um CEP, você é levado diretamente para a ferramenta de busca detalhada.
 
-- **Logradouros (`streets`)** — somente leitura, paginado, ordenado por quem
-  tem mais CEPs vinculados, com busca por nome/bairro/descrição/CEP.
-- **CEPs (`zip_codes`)** — CRUD completo, busca combinada por CEP, logradouro,
-  bairro ou descrição, com botão "Ver detalhes" que abre a aba de busca.
-- **Busca de CEPs** — localize o logradouro (por CEP, nome ou descrição) e
-  informe um número de imóvel para descobrir qual CEP o atende.
-- **Faixas de Numeração (`number_ranges`)** — CRUD completo, vinculada a um CEP.
-- **Números Únicos (`unique_numbers`)** — CRUD completo, vinculado a um CEP.
+### 2. Consulta de Endereços (Localizador Inteligente)
+Uma ferramenta avançada para descobrir qual CEP atende a um número de imóvel específico.
+* **Como funciona:** Digite o nome da rua ou um CEP para localizar o logradouro. Em seguida, informe o número da residência ou prédio.
+* **Destaque Automático:** O sistema cruza o número informado com as regras de numeração da rua e destaca o CEP correto com um carimbo de "CEP correto".
+* **Diagnóstico Visual:** Se o número não pertencer a nenhuma faixa cadastrada, o sistema emite um alerta claro, permitindo a conferência manual de todas as regras daquela rua.
 
-## 1. Configurar as credenciais do Supabase
+### 3. Regras de Numeração
+Controle detalhado de como os números dos imóveis se distribuem pelos CEPs de uma rua.
+* **Definição de Faixas:** Estabeleça o número de início e fim para um determinado CEP.
+* **Lado da Rua:** Especifique se a regra se aplica apenas ao lado Ímpar, Par ou a Ambos os lados da via.
+* **Casos Específicos:** Adicione descrições para regras exclusivas, como "Hospital", "Condomínio" ou "Prédio Comercial".
 
-Abra `app.js` e edite as duas constantes no topo do arquivo:
+### 4. Estatísticas
+Um painel gerencial para visualizar o volume de dados do sistema.
+* **Métricas Gerais:** Total de logradouros, CEPs e regras de numeração cadastradas.
+* **Rankings:** Tabelas atualizadas com os top 10 bairros com mais logradouros, ruas com maior quantidade de CEPs e os endereços mais consultados pela equipe.
 
-```js
-const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
-```
+### 5. Mapa CEE
+Espaço dedicado à organização física e logística do centro de distribuição.
+* **Planta Baixa Virtual:** Visualização das ilhas de trabalho (Setores A/B, C/D, E/F, G/H) e áreas de apoio (Caixa Postal, ME, Recondicionamento).
+* **Controle de Offset:** Ferramenta para ajustar dinamicamente a numeração dos setores. É possível aplicar um "offset" (adicionar ou subtrair um valor) na numeração de setores específicos para adaptar a distribuição de carga do dia, atualizando os intervalos de cada bancada instantaneamente.
 
-Você encontra esses valores em **Project Settings → API** no painel do
-Supabase. Use sempre a chave **anon public**, nunca a `service_role`.
+### 6. Registro Diário
+Um diário de bordo completo para acompanhamento da operação do CEE. Ao selecionar uma data, você pode registrar e consultar:
+* **Caminhões e CDLs:** Horário de chegada de veículos e volume de carga (CDLs).
+* **LOEC Suspensa:** Acompanhe a quantidade de objetos retidos em LOEC Suspensa ao longo do dia, com a geração de um **gráfico visual automático** da evolução temporal.
+* **Trocas de Etiqueta:** Registro de anomalias e trocas de endereço.
+* **Reuniões e Sindicato:** Controle de tempo gasto em reuniões da equipe ou intervenções sindicais.
+* **Malotes:** Controle da entrega de malotes pelos carteiros.
 
+---
 
-## 3. Rodar localmente
+## Facilidades e Atalhos do Sistema
 
-Não há dependências de build — basta servir os três arquivos estáticos:
+Para agilizar o atendimento e o trabalho interno, o sistema conta com ferramentas de produtividade invisíveis:
 
-```bash
-cd correios-cep
-python3 -m http.server 8000
-# abra http://localhost:8000
-```
-
-Ou publique `index.html`, `style.css` e `app.js` em qualquer host estático
-(Netlify, Vercel, GitHub Pages, Cloudflare Pages etc.).
-
-## Estrutura dos arquivos
-
-| Arquivo      | Conteúdo                                                          |
-|--------------|---------------------------------------------------------------------|
-| `index.html` | Estrutura das cinco abas, tabelas, modal e header com o "carimbo" postal |
-| `style.css`  | Tokens de cor/tipografia e todo o visual temático dos Correios     |
-| `app.js`     | Cliente Supabase + toda a lógica de CRUD, busca, paginação e o localizador de CEP |
-
-## Normalização de CEP
-
-Como todo CEP da ilha começa com `880`, qualquer campo de CEP (cadastro ou
-busca) aceita que você digite só os 5 últimos números — o prefixo `880` é
-adicionado automaticamente antes de validar, salvar ou buscar. Por exemplo,
-digitar `06999` é equivalente a digitar `88006-999`.
-
-## Como funciona a aba "Busca de CEPs"
-
-1. No primeiro campo, digite um CEP, o nome do logradouro ou um trecho da
-   descrição. O logradouro correspondente (o resultado mais relevante) é
-   localizado automaticamente e todos os CEPs dele são exibidos, cada um com
-   suas faixas de numeração e números únicos.
-2. No segundo campo, digite o número do imóvel. O CEP correto é destacado
-   com um carimbo "CEP confirmado" — a checagem primeiro procura um número
-   único exato e, se não encontrar, procura uma faixa de numeração compatível
-   (considerando também o lado da rua: ímpar, par ou ambos).
-3. Se nenhum CEP cobrir o número informado, nada é destacado e aparece um
-   carimbo "CEP não identificado", mantendo visível toda a informação do
-   logradouro para conferência manual.
-
-O botão **Ver detalhes** na aba CEPs leva direto para essa busca já com o CEP
-preenchido, focando o campo de número para você completar a consulta.
-
-## Validações aplicadas no frontend
-
-- **CEP**: máscara automática e normalização do prefixo `880`, com regex que
-  só aceita a faixa `88000-000`–`88069-999` (a mesma constraint do banco).
-- **Faixas de numeração**: impede salvar se número inicial > número final.
-- **Exclusão de CEP**: aviso de que a exclusão em cascata remove faixas de
-  numeração e números únicos vinculados (reflete o `ON DELETE CASCADE` do
-  schema).
-
-Essas validações não substituem as constraints do banco — elas só evitam
-round-trips desnecessários; o Postgres continua sendo a fonte da verdade.
+* **Preenchimento Automático de CEP:** Como os CEPs da ilha começam com `880`, você só precisa digitar os 5 últimos números em qualquer campo do sistema. O prefixo `880` é adicionado automaticamente.
+* **Atalho de Limpeza (F4):** Pressione a tecla `F4` no teclado a qualquer momento para limpar todos os campos de busca, formulários e seleções, retornando o sistema ao estado inicial.
+* **Navegação por Teclado:** Utilize os números de `1` a `6` no teclado (quando não estiver digitando em nenhum campo) para alternar rapidamente entre as abas do sistema.
+* **Cópia Rápida:** Na aba de buscas, basta clicar no botão "Copiar" ao lado de um resultado para levar o CEP direto para a área de transferência.

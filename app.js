@@ -157,6 +157,7 @@ function switchTab(tab) {
   if (tab === 'stats') loadStatistics();
   if (tab === 'cee-map') loadCeeSectors();
   if (tab === 'daily-ops') loadDailyOps();
+  if (tab === 'about') loadAboutPage();
 }
 
 // --- Global Hotkeys ---
@@ -205,7 +206,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-const tabKeyMap = { '1': 'zips', '2': 'cepsearch', '3': 'rules', '4': 'stats', '5': 'cee-map', '6': 'daily-ops' };
+const tabKeyMap = { '1': 'zips', '2': 'cepsearch', '3': 'rules', '4': 'stats', '5': 'cee-map', '6': 'daily-ops', '7': 'about' };
 
 document.addEventListener('keydown', (e) => {
   const activeElement = document.activeElement;
@@ -1493,50 +1494,105 @@ async function deleteDailyTruck(id) {
   });
 }
 
-// --- Scans ---
+// --- LOEC Records ---
+
+let loecChartInstance = null;
+
 async function loadDailyScans(date) {
   const tbody = qs('#daily-scans-tbody');
   const emptyEl = qs('#daily-scans-empty');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Carregando&hellip;</td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="4">Loading&hellip;</td></tr>';
 
   const { data, error } = await sb.from('daily_object_scans').select('*').eq('log_date', date).order('scan_time');
 
   if (error) {
-    tbody.innerHTML = `<tr class="error-row"><td colspan="5">Erro ao carregar: ${escapeHtml(error.message)}</td></tr>`; return;
+    tbody.innerHTML = `<tr class="error-row"><td colspan="4">Error loading records: ${escapeHtml(error.message)}</td></tr>`; 
+    return;
   }
 
   dailyScansCache = data || [];
   emptyEl.classList.toggle('hidden', dailyScansCache.length > 0);
+  
+  // Render Table
   tbody.innerHTML = dailyScansCache.map((s) => `
     <tr>
       <td>${formatTimeShort(s.scan_time)}</td>
-      <td>${escapeHtml(s.station || '&mdash;')}</td>
       <td><span class="count-badge">${s.object_count}</span></td>
       <td>${escapeHtml(s.notes || '')}</td>
-      <td class="col-actions"><button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button></td>
+      <td class="col-actions"><button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Delete</button></td>
     </tr>
   `).join('');
+
+  // Render Chart
+  renderLoecChart(dailyScansCache);
+}
+
+function renderLoecChart(records) {
+  const ctx = qs('#loec-chart');
+  if (!ctx) return;
+
+  // Destroy previous chart instance if it exists to avoid overlapping renders
+  if (loecChartInstance) {
+    loecChartInstance.destroy();
+  }
+
+  const labels = records.map(r => formatTimeShort(r.scan_time));
+  const dataPoints = records.map(r => r.object_count);
+
+  loecChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Objects in Suspended LOEC',
+        data: dataPoints,
+        borderColor: '#00447c',
+        backgroundColor: 'rgba(0, 68, 124, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3, // Adds a slight curve to the line
+        pointBackgroundColor: '#ffcc00',
+        pointBorderColor: '#00447c',
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { 
+          beginAtZero: true,
+          ticks: { precision: 0 } 
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
 }
 
 function scanFormTemplate() {
   return `
     <form id="scan-form">
       <div class="field-row">
-        <div class="field"><label for="scan-time">Horário</label><input type="time" id="scan-time" required></div>
-        <div class="field"><label for="scan-object-count">Quantidade de objetos</label><input type="number" id="scan-object-count" min="0" required></div>
+        <div class="field">
+          <label for="scan-time">Time</label>
+          <input type="time" id="scan-time" required>
+        </div>
+        <div class="field">
+          <label for="scan-object-count">Suspended Objects</label>
+          <input type="number" id="scan-object-count" min="0" required>
+        </div>
       </div>
       <div class="field">
-        <label for="scan-station">Estação (opcional)</label>
-        <select id="scan-station">
-          <option value="">Não especificado</option>
-          <option value="Computador A">Computador A</option>
-          <option value="Computador B">Computador B</option>
-        </select>
+        <label for="scan-notes">Notes (optional)</label>
+        <input type="text" id="scan-notes" placeholder="Optional notes">
       </div>
-      <div class="field"><label for="scan-notes">Observações (opcional)</label><input type="text" id="scan-notes" placeholder="Opcional"></div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="scan-cancel">Cancelar</button>
-        <button type="submit" class="btn btn-primary">Registrar Leitura</button>
+        <button type="button" class="btn btn-secondary" id="scan-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Record</button>
       </div>
     </form>
   `;
@@ -1550,15 +1606,23 @@ function openScanForm() {
 
 async function submitScanForm(e) {
   e.preventDefault();
+  
   const payload = {
-    log_date: getDailyOpsDate(), scan_time: qs('#scan-time').value,
-    station: qs('#scan-station').value || null, object_count: Number(qs('#scan-object-count').value),
+    log_date: getDailyOpsDate(), 
+    scan_time: qs('#scan-time').value,
+    object_count: Number(qs('#scan-object-count').value),
     notes: qs('#scan-notes').value.trim() || null,
   };
 
   const { error } = await sb.from('daily_object_scans').insert(payload);
-  if (error) { showToast(`Erro ao registrar leitura: ${error.message}`, 'error'); return; }
-  closeModal(); showToast('Leitura registrada com sucesso!'); await loadDailyOps();
+  if (error) { 
+    showToast(`Error saving record: ${error.message}`, 'error'); 
+    return; 
+  }
+  
+  closeModal(); 
+  showToast('LOEC record saved successfully!'); 
+  await loadDailyOps();
 }
 
 async function deleteDailyScan(id) {
@@ -1908,6 +1972,43 @@ async function submitBugReportForm(e) {
 const btnReportBug = qs('#btn-report-bug');
 if (btnReportBug) {
   btnReportBug.addEventListener('click', openBugReportForm);
+}
+
+// =============================================================================
+// MODULE: MANUAL / ABOUT PAGE (MARKDOWN RENDERER)
+// =============================================================================
+
+async function loadAboutPage() {
+  const container = qs('#about-content');
+
+  // Prevent fetching the file again if it's already loaded
+  if (container.dataset.loaded === 'true') return;
+
+  try {
+    // Fetch the README.md file from the root directory
+    // Since it's on GitHub Pages, './README.md' points to the public file
+    const response = await fetch('./README.md');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const markdownText = await response.text();
+
+    // Convert Markdown to HTML using marked.js
+    container.innerHTML = marked.parse(markdownText);
+
+    // Flag as loaded to avoid unnecessary network requests on future tab clicks
+    container.dataset.loaded = 'true';
+    
+  } catch (error) {
+    console.error('Failed to load README.md:', error);
+    container.innerHTML = `
+      <div class="field-error" style="display: block; padding: 20px; text-align: center;">
+        <strong>Error loading the manual.</strong><br> 
+        Please check if README.md exists at the project root.
+      </div>`;
+  }
 }
 
 

@@ -11,6 +11,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -72,6 +74,14 @@
           aria-selected="false"
         >
           <span class="tab-index">06</span> Registro Diário
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="about"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">07</span> Manual
         </button>
       </nav>
 
@@ -333,6 +343,7 @@
               </table>
             </div>
           </div>
+          
         </section>
 
         <!-- CEE Internal Floorplan Map Panel -->
@@ -534,21 +545,25 @@
           <!-- Object scans at the LOEC computers -->
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
-              <h3>Objetos Passados nos Computadores (LOEC)</h3>
+              <h3>Objetos em LOEC Suspensa</h3>
               <button
                 type="button"
                 class="btn btn-primary btn-icon"
                 id="btn-new-scan"
               >
-                + Registrar Leitura
+                + Registrar LOECs
               </button>
+            </div>
+            
+            <!-- Chart Container -->
+            <div style="background: var(--paper-raised); padding: 16px; border: 2px solid var(--paper-line); border-radius: var(--radius); margin-bottom: 16px;">
+                <canvas id="loec-chart" height="80"></canvas>
             </div>
             <div class="manifest-frame">
               <table class="manifest-table">
                 <thead>
                   <tr>
                     <th>Horário</th>
-                    <th>Estação</th>
                     <th>Objetos</th>
                     <th>Obs.</th>
                     <th class="col-actions">Ações</th>
@@ -556,12 +571,12 @@
                 </thead>
                 <tbody id="daily-scans-tbody">
                   <tr class="loading-row">
-                    <td colspan="5">Carregando&hellip;</td>
+                    <td colspan="4">Carregandohellip;</td>
                   </tr>
                 </tbody>
               </table>
               <p id="daily-scans-empty" class="empty-state hidden">
-                Nenhuma leitura registrada nesta data.
+                Sem registro de LOECs para esta data.
               </p>
             </div>
           </div>
@@ -670,6 +685,14 @@
             </div>
           </div>
         </section>
+        <!-- ===== MANUAL / ABOUT PAGE ===== -->
+        <section id="panel-about" class="panel" aria-labelledby="about">
+          <div id="about-content" class="manual-content">
+            <div style="text-align: center; color: var(--ink-soft); padding: 40px;">
+              Loading manual&hellip;
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -700,53 +723,41 @@
       </div>
     </div>
 
-    <footer class="postal-footer" style="padding: 24px; text-align: center">
+    <footer class="postal-footer" style="padding: 32px 24px; text-align: center; background: var(--paper-raised); border-top: 2px solid var(--paper-line);">
+      <div style="margin-bottom: 8px;">
+        <h3 style="margin: 0; font-family: var(--font-display); color: var(--correios-blue-deep); font-size: 1.8rem; letter-spacing: 1px;">
+          CEE Florianópolis
+        </h3>
+        <p style="margin: 4px 0 16px; font-size: 0.9rem; color: var(--ink-soft);">
+          Centro de Entrega de Encomendas
+        </p>
+      </div>
+      <div style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft);">
+        Developed by <strong>Vitor Fernando da Silva</strong>
+      </div>
       <a
-        href="https://github.com/vitortz/cee"
-        style="color: #00447c; text-decoration: none; font-weight: bold"
+        href="https://github.com/vitortz"
+        target="_blank"
+        style="color: #00447c; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center;"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="currentColor"
-          style="vertical-align: middle; margin-right: 4px"
+          style="margin-right: 6px;"
           aria-hidden="true"
         >
           <path
-            d="M12 .297c-6.63 0-12 5.373-12 12
-        0 5.303 3.438 9.8 8.205 11.385
-        .6.113.82-.258.82-.577
-        0-.285-.01-1.04-.015-2.04
-        -3.338.724-4.042-1.61-4.042-1.61
-        -.546-1.387-1.333-1.756-1.333-1.756
-        -1.089-.745.084-.729.084-.729
-        1.205.084 1.84 1.237 1.84 1.237
-        1.07 1.835 2.809 1.305 3.495.998
-        .108-.776.417-1.305.762-1.605
-        -2.665-.3-5.466-1.332-5.466-5.93
-        0-1.31.465-2.38 1.235-3.22
-        -.135-.303-.54-1.523.105-3.176
-        0 0 1.005-.322 3.3 1.23
-        .96-.267 1.98-.399 3-.405
-        1.02.006 2.04.138 3 .405
-        2.28-1.552 3.285-1.23 3.285-1.23
-        .645 1.653.24 2.873.12 3.176
-        .765.84 1.23 1.91 1.23 3.22
-        0 4.61-2.805 5.625-5.475 5.92
-        .42.36.81 1.096.81 2.22
-        0 1.606-.015 2.896-.015 3.286
-        0 .315.21.69.825.57
-        C20.565 22.092 24 17.592 24 12.297
-        c0-6.627-5.373-12-12-12z"
+            d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.237 1.84 1.237 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12z"
           />
         </svg>
-        github
+        github.com/vitortz
       </a>
-      <div style="margin-top: 16px">
+      <div style="margin-top: 24px;">
         <button class="btn btn-danger" id="btn-report-bug">
-          Reportar um Bug
+          Report a Bug
         </button>
       </div>
     </footer>
