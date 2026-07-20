@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CEE — Florianópolis</title>
+    <title>CEE - FNS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,16 +13,10 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- Config banner, shown only if SUPABASE_URL / SUPABASE_ANON_KEY are still placeholders -->
-    <div id="config-banner" class="config-banner hidden">
-      <strong>Configuração pendente:</strong> edite <code>SUPABASE_URL</code> e
-      <code>SUPABASE_ANON_KEY</code> no topo do arquivo <code>app.js</code> com
-      os dados do seu projeto Supabase.
-    </div>
-
     <div class="app-shell">
       <div
         class="config-banner"
+        id="f4-tip"
         style="background: var(--correios-blue); margin-bottom: 20px"
       >
         <strong>Dica:</strong> Pressione a tecla <code>F4</code> a qualquer
@@ -383,11 +377,6 @@
           </div>
 
           <div class="cee-floorplan">
-            <!-- Entrance zone -->
-            <div class="cee-zone cee-entry">
-              ---------- Entrada ------------
-            </div>
-
             <!-- Main operational sectors grid -->
             <div class="cee-layout-grid">
               <!-- Left side: Sectors G/H and E/F -->
@@ -400,21 +389,21 @@
                     <div class="cee-cell cee-sector" data-sector="AB">
                       A/B (301-306)
                     </div>
-                    <div class="cee-cell highlight">
-                      Recondicionamento - ME - Caixa Postal
-                    </div>
+                    <div class="cee-cell support-zone">Recondicionamento</div>
+                    <div class="cee-cell support-zone">ME</div>
+                    <div class="cee-cell support-zone">Caixa Postal</div>
                   </div>
                   <div class="cee-table-row">
                     <div class="cee-cell cee-sector" data-sector="GH">
                       G/H (330-339)
                     </div>
-                    <div class="cee-cell comp">---- computador A ----</div>
+                    <div class="cee-cell comp">Computador 1</div>
                   </div>
                   <div class="cee-table-row">
                     <div class="cee-cell cee-sector" data-sector="EF">
                       E/F (307-321)
                     </div>
-                    <div class="cee-cell comp">---- computador B ----</div>
+                    <div class="cee-cell comp">Computador 2</div>
                   </div>
                   <div class="cee-table-row">
                     <div class="cee-cell cee-sector" data-sector="CD">
@@ -432,21 +421,21 @@
                 <!-- Table layout for A/B and C/D -->
                 <div class="cee-table">
                   <div class="cee-table-row">
-                    <div class="cee-cell highlight">
-                      Caixa Postal - ME - Recondicionamento
-                    </div>
+                    <div class="cee-cell support-zone">Caixa Postal</div>
+                    <div class="cee-cell support-zone">ME</div>
+                    <div class="cee-cell support-zone">Recondicionamento</div>
                     <div class="cee-cell cee-sector" data-sector="GH">
                       G/H (330-339)
                     </div>
                   </div>
                   <div class="cee-table-row">
-                    <div class="cee-cell comp">---- computador A ----</div>
+                    <div class="cee-cell comp">Computador 1</div>
                     <div class="cee-cell cee-sector" data-sector="AB">
                       A/B (301-306)
                     </div>
                   </div>
                   <div class="cee-table-row">
-                    <div class="cee-cell comp">---- computador B ----</div>
+                    <div class="cee-cell comp">Computador 2</div>
                     <div class="cee-cell cee-sector" data-sector="CD">
                       C/D (322-329)
                     </div>

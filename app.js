@@ -411,7 +411,7 @@ if (btnNewStreet) btnNewStreet.addEventListener('click', openStreetForm);
 // 06. MODULE: ZIP CODES (CRUD)
 // =============================================================================
 
-const ZIPS_PAGE_SIZE = 25;
+const ZIPS_PAGE_SIZE = 32;
 let zipsSearchTerm = '';
 let zipsPage = 0;
 let zipsTotalCount = 0;
