@@ -13,17 +13,23 @@
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet" />
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
   </head>
   <body>
+    <div id="supabase-ping" class="ping-overlay">
+      <span id="ping-dot" class="ping-dot"></span>
+      <span id="ping-text">-- ms</span>
+    </div>
     <div class="app-shell">
-      <div
+      <!-- <div
         class="config-banner"
         id="f4-tip"
         style="background: var(--correios-blue); margin-bottom: 20px"
       >
         <strong>Dica:</strong> Pressione a tecla <code>F4</code> a qualquer
         momento para limpar todas as seleções e campos de busca.
-      </div>
+      </div> -->
 
       <!-- ===== Tabs ===== -->
       <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
@@ -343,7 +349,6 @@
               </table>
             </div>
           </div>
-          
         </section>
 
         <!-- CEE Internal Floorplan Map Panel -->
@@ -490,14 +495,6 @@
               <div class="stat-value" id="dops-total-cdls">0</div>
             </div>
             <div class="stat-card">
-              <div class="stat-title">Trocas de Etiqueta</div>
-              <div class="stat-value" id="dops-total-swaps">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Reuniões</div>
-              <div class="stat-value" id="dops-total-meetings">0</div>
-            </div>
-            <div class="stat-card">
               <div class="stat-title">Malotes</div>
               <div class="stat-value" id="dops-total-malotes">0</div>
             </div>
@@ -542,18 +539,35 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Objetos em LOEC Suspensa</h3>
-              <button
+              <div>
+                <button
                 type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-new-scan"
+                class="btn btn-secondary btn-icon"
+                id="btn-paste-loec"
               >
-                + Registrar LOECs
+                + Colar LOECs
               </button>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-icon"
+                  id="btn-new-scan"
+                >
+                  + Registrar LOECs
+                </button>
+              </div>
             </div>
-            
+
             <!-- Chart Container -->
-            <div style="background: var(--paper-raised); padding: 16px; border: 2px solid var(--paper-line); border-radius: var(--radius); margin-bottom: 16px;">
-                <canvas id="loec-chart" height="160"></canvas>
+            <div
+              style="
+                background: var(--paper-raised);
+                padding: 16px;
+                border: 2px solid var(--paper-line);
+                border-radius: var(--radius);
+                margin-bottom: 16px;
+              "
+            >
+              <canvas id="loec-chart" height="160"></canvas>
             </div>
             <div class="manifest-frame">
               <table class="manifest-table">
@@ -578,73 +592,6 @@
           </div>
 
           <!-- Label swaps -->
-          <div class="daily-ops-section">
-            <div class="daily-ops-section-header">
-              <h3>Trocas de Etiqueta</h3>
-              <button
-                type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-new-swap"
-              >
-                + Registrar Troca
-              </button>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Horário</th>
-                    <th>Quantidade</th>
-                    <th>Obs.</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="daily-swaps-tbody">
-                  <tr class="loading-row">
-                    <td colspan="4">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="daily-swaps-empty" class="empty-state hidden">
-                Nenhuma troca de etiqueta registrada nesta data.
-              </p>
-            </div>
-          </div>
-
-          <!-- Meetings (including union interventions) -->
-          <div class="daily-ops-section">
-            <div class="daily-ops-section-header">
-              <h3>Reuniões &amp; Intervenções do Sindicato</h3>
-              <button
-                type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-new-meeting"
-              >
-                + Registrar Reunião
-              </button>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Horário</th>
-                    <th>Duração</th>
-                    <th>Tipo</th>
-                    <th>Obs.</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="daily-meetings-tbody">
-                  <tr class="loading-row">
-                    <td colspan="5">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="daily-meetings-empty" class="empty-state hidden">
-                Nenhuma reunião registrada nesta data.
-              </p>
-            </div>
-          </div>
 
           <!-- Malotes -->
           <div class="daily-ops-section">
@@ -680,11 +627,27 @@
               </p>
             </div>
           </div>
+          <div class="daily-ops-section">
+  <div class="daily-ops-section-header">
+    <h3>Anotações da Operação</h3>
+  </div>
+  <div class="manifest-frame" style="padding: 16px; background: var(--paper-raised);">
+    <!-- Quill Editor Container -->
+    <div class="editor-wrapper">
+      <div id="daily-notes-editor"></div>
+    </div>
+    <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+      <button type="button" class="btn btn-primary" id="btn-save-notes">Salvar Anotações</button>
+    </div>
+  </div>
+</div>
         </section>
         <!-- ===== MANUAL / ABOUT PAGE ===== -->
         <section id="panel-about" class="panel" aria-labelledby="about">
           <div id="about-content" class="manual-content">
-            <div style="text-align: center; color: var(--ink-soft); padding: 40px;">
+            <div
+              style="text-align: center; color: var(--ink-soft); padding: 40px"
+            >
               Loading manual&hellip;
             </div>
           </div>
@@ -719,78 +682,50 @@
     </div>
 
     <!-- Updated Footer with Detailed Sedex Van -->
-    <footer class="postal-footer" style="position: relative; padding: 32px 24px; text-align: center; background: var(--paper-raised); border-top: 2px solid var(--paper-line);">
-      
-      <!-- Invisible track for the animation -->
-      <div class="van-track" aria-hidden="true">
-        
-        <!-- Detailed Delivery Van SVG with Smoke -->
-        <svg class="sedex-van" viewBox="0 0 250 100" xmlns="http://www.w3.org/2000/svg">
-          <!-- Wind/Speed lines for motion effect -->
-          <g stroke="var(--ink-soft)" stroke-width="2.5" stroke-linecap="round" opacity="0.5">
-            <line x1="10" y1="50" x2="35" y2="50" />
-            <line x1="20" y1="70" x2="45" y2="70" />
-            <line x1="5" y1="30" x2="25" y2="30" />
-          </g>
-
-          <!-- Exhaust Pipe -->
-          <rect x="42" y="80" width="8" height="4" rx="1" fill="var(--correios-blue-deep)" />
-
-          <!-- Smoke Puffs (colored using the soft grey variable) -->
-          <g fill="var(--ink-soft)">
-            <circle cx="40" cy="82" r="4" class="smoke-puff puff-1" />
-            <circle cx="40" cy="82" r="5" class="smoke-puff puff-2" />
-            <circle cx="40" cy="82" r="3" class="smoke-puff puff-3" />
-          </g>
-
-          <!-- Main Cargo Body (Yellow) -->
-          <path d="M 50 20 H 160 V 80 H 50 Z" fill="var(--correios-yellow)" stroke="var(--correios-blue-deep)" stroke-width="3" stroke-linejoin="round"/>
-          
-          <!-- Front Cabin (Yellow) -->
-          <path d="M 160 45 H 190 L 210 65 V 80 H 160 Z" fill="var(--correios-yellow)" stroke="var(--correios-blue-deep)" stroke-width="3" stroke-linejoin="round"/>
-          
-          <!-- Cabin Window (Blue) -->
-          <path d="M 165 50 H 185 L 198 65 H 165 Z" fill="var(--correios-blue-deep)" />
-
-          <!-- Details: Headlight and Bumpers -->
-          <path d="M 205 68 H 212 V 75 H 205 Z" fill="#ffffff" stroke="var(--correios-blue-deep)" stroke-width="1.5"/>
-          <rect x="45" y="72" width="10" height="8" rx="2" fill="var(--correios-blue-deep)" />
-          <rect x="208" y="74" width="8" height="6" rx="1" fill="var(--correios-blue-deep)" />
-
-          <!-- Back Door Seam Line -->
-          <line x1="55" y1="20" x2="55" y2="80" stroke="var(--correios-blue-deep)" stroke-width="2" opacity="0.3"/>
-
-          <!-- Brand Texts (SEDEX & CORREIOS) -->
-          <text x="65" y="65" font-family="Arial, sans-serif" font-weight="900" font-style="italic" font-size="28" fill="var(--correios-blue-deep)" letter-spacing="1">SEDEX</text>
-          <text x="66" y="38" font-family="Arial, sans-serif" font-weight="800" font-size="10" fill="var(--correios-blue-deep)">CORREIOS</text>
-
-          <!-- Wheels Assembly -->
-          <!-- Back Wheel -->
-          <circle cx="85" cy="85" r="14" fill="var(--correios-blue-deep)" />
-          <circle cx="85" cy="85" r="6" fill="#ffffff" />
-          <!-- Front Wheel -->
-          <circle cx="175" cy="85" r="14" fill="var(--correios-blue-deep)" />
-          <circle cx="175" cy="85" r="6" fill="#ffffff" />
-        </svg>
-
-      </div>
-
+    <footer
+      class="postal-footer"
+      style="
+        position: relative;
+        padding: 32px 24px;
+        text-align: center;
+        background: var(--paper-raised);
+        border-top: 2px solid var(--paper-line);
+      "
+    >
       <!-- Footer Content -->
-      <div style="margin-bottom: 8px;">
-        <h3 style="margin: 0; font-family: var(--font-display); color: var(--correios-blue-deep); font-size: 1.8rem; letter-spacing: 1px;">
-          CEE Florianópolis
+      <div style="margin-bottom: 8px">
+        <h3
+          style="
+            margin: 0;
+            font-family: var(--font-display);
+            color: var(--correios-blue-deep);
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+          "
+        >
+          Sistema de Endereçamento
         </h3>
-        <p style="margin: 4px 0 16px; font-size: 0.9rem; color: var(--ink-soft);">
-          Centro de Entrega de Encomendas
+        <p
+          style="margin: 4px 0 16px; font-size: 0.9rem; color: var(--ink-soft)"
+        >
+          Plataforma Operacional
         </p>
       </div>
-      <div style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft);">
+      <div
+        style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)"
+      >
         Developed by <strong>Vitor Fernando da Silva</strong>
       </div>
       <a
         href="https://github.com/vitortz/cee"
         target="_blank"
-        style="color: #00447c; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center;"
+        style="
+          color: #00447c;
+          text-decoration: none;
+          font-weight: bold;
+          display: inline-flex;
+          align-items: center;
+        "
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -798,7 +733,7 @@
           height="18"
           viewBox="0 0 24 24"
           fill="currentColor"
-          style="margin-right: 6px;"
+          style="margin-right: 6px"
           aria-hidden="true"
         >
           <path
@@ -807,7 +742,7 @@
         </svg>
         github.com/vitortz/cee
       </a>
-      <div style="margin-top: 24px;">
+      <div style="margin-top: 24px">
         <button class="btn btn-danger" id="btn-report-bug">
           Reportar um Bug
         </button>

@@ -318,6 +318,37 @@ ORDER BY d.log_date DESC;
 
 GRANT SELECT ON daily_operation_summary TO anon, authenticated;
 
+-- Create table to store daily operation notes
+CREATE TABLE IF NOT EXISTS daily_operation_notes (
+    id SERIAL PRIMARY KEY,
+    log_date DATE NOT NULL UNIQUE DEFAULT CURRENT_DATE,
+    notes TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Reuse existing trigger function to automatically update the timestamp
+CREATE TRIGGER trg_daily_operation_notes_updated_at
+  BEFORE UPDATE ON daily_operation_notes
+  FOR EACH ROW
+  EXECUTE FUNCTION update_cee_sectors_updated_at();
+
+-- Apply Row Level Security (RLS) policies
+ALTER TABLE daily_operation_notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "daily_operation_notes_all_anon" ON daily_operation_notes FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- Function to retrieve the PostgreSQL version
+CREATE OR REPLACE FUNCTION get_pg_version()
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT version();
+$$;
+
+-- Grant execution permission to anonymous and authenticated users
+GRANT EXECUTE ON FUNCTION get_pg_version() TO anon, authenticated;
+
 -- =============================================================================
 -- 07. ROW LEVEL SECURITY (RLS) & POLICIES
 -- =============================================================================
@@ -366,3 +397,4 @@ CREATE POLICY "daily_object_scans_all_anon" ON daily_object_scans FOR ALL TO ano
 CREATE POLICY "daily_label_swaps_all_anon" ON daily_label_swaps FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "daily_meetings_all_anon" ON daily_meetings FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "daily_malote_deliveries_all_anon" ON daily_malote_deliveries FOR ALL TO anon USING (true) WITH CHECK (true);
+

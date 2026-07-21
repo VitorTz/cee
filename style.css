@@ -1776,3 +1776,144 @@ main {
     opacity: 0;
   }
 }
+
+
+/* Supabase Ping Overlay */
+.ping-overlay {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper-raised);
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1.5px solid var(--paper-line);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  z-index: 1000;
+}
+
+.ping-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+
+.ping-green { background: var(--success-green); box-shadow: 0 0 6px var(--success-green); }
+.ping-yellow { background: var(--correios-yellow-deep); box-shadow: 0 0 6px var(--correios-yellow-deep); }
+.ping-red { background: var(--stamp-red); box-shadow: 0 0 6px var(--stamp-red); }
+
+
+/* =========================================================================
+   QUILL RICH TEXT EDITOR CUSTOMIZATION
+   ========================================================================= */
+
+.editor-wrapper {
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--paper-raised);
+}
+
+/* Style the toolbar */
+.ql-toolbar.ql-snow {
+  border: none !important;
+  border-bottom: 1.5px solid var(--paper-line) !important;
+  background: #fdfbf5;
+  font-family: var(--font-body);
+  padding: 10px !important;
+}
+
+/* Style the text area */
+.ql-container.ql-snow {
+  border: none !important;
+  font-family: var(--font-body);
+  font-size: 1.15rem; /* Larger, more readable font size */
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.ql-editor {
+  min-height: 220px; /* Good initial height */
+  line-height: 1.6;
+  padding: 16px 20px;
+}
+
+.ql-editor p {
+  margin-bottom: 0.6em;
+}
+
+/* Custom placeholder styling */
+.ql-editor.ql-blank::before {
+  color: var(--ink-soft);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+/* =========================================================================
+   STREET MAP EMBED & SPLIT LAYOUT (TAB 2)
+   ========================================================================= */
+
+/* Mobile & Tablet First: Default stacked layout (1 column) */
+.cepsearch-split-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.cepsearch-results-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.cepsearch-map-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.street-map-container {
+  width: 100%;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: 0 4px 12px -4px rgba(0, 43, 84, 0.1);
+  display: flex; /* Added to allow the iframe to stretch */
+}
+
+.street-map-container iframe {
+  display: block;
+  width: 100%;
+  height: 320px; /* Base height for mobile and tablets */
+  border: none;
+  flex: 1; /* Allow the iframe to grow if container is taller */
+}
+
+/* Desktop: 2 columns layout */
+@media (min-width: 992px) {
+  .cepsearch-split-layout {
+    grid-template-columns: 1fr 1fr; /* Split exactly 50/50 */
+    align-items: stretch; /* FIX: Force both columns to share the exact same height */
+  }
+
+  .cepsearch-map-col {
+    height: 100%; /* Inherit the stretched height from the grid */
+  }
+
+  .street-map-container {
+    flex: 1; /* Stretch the container to fill the .cepsearch-map-col */
+    height: 100%; 
+    min-height: 400px; /* Safe minimum height in case the left column has very few items */
+  }
+  
+  .street-map-container iframe {
+    height: 100%; /* Force the iframe to fill the newly stretched container */
+  }
+}
