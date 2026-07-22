@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS numbering_rules (
         start_number IS NULL OR 
         end_number IS NULL OR 
         start_number <= end_number
-    )
+    ),
+    CONSTRAINT numbering_rules_start_or_end_required check (((start_number is not null) or (end_number is not null)))
 );
 
 CREATE INDEX IF NOT EXISTS idx_numbering_rules_zip_code_id ON numbering_rules(zip_code_id);
@@ -165,7 +166,11 @@ CREATE TABLE IF NOT EXISTS daily_object_scans (
     station TEXT,
     object_count INTEGER NOT NULL CHECK (object_count >= 0),
     notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    source_type text NOT NULL DEFAULT 'manual',
+    raw_text text,
+    report jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT daily_object_scans_source_type_check CHECK (source_type IN ('manual', 'loec_paste'))
 );
 CREATE INDEX IF NOT EXISTS idx_daily_object_scans_date ON daily_object_scans(log_date);
 
