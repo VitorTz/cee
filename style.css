@@ -128,7 +128,7 @@ body {
   min-width: 22px;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--correios-blue-deep);
   background: #fff2b8;
@@ -562,7 +562,7 @@ main {
 }
 
 .field-hint {
-  font-size: 0.78rem;
+  font-size: 1rem;
   color: var(--ink-soft);
   margin-top: 5px;
 }
@@ -1387,6 +1387,161 @@ main {
   font-size: 1.3rem;
   letter-spacing: 0.5px;
   color: var(--correios-blue-deep);
+}
+
+.loec-source-tag {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--correios-blue-deep);
+  background: #eaf1fb;
+  border: 1px solid var(--correios-blue);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+/* --- LOEC Paste Report Modal --- */
+.modal-slip-wide {
+  max-width: 900px;
+}
+
+.loec-report {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.loec-report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.loec-report-summary-compact {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: 4px;
+}
+
+.loec-report-stat {
+  background: var(--paper-raised);
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.loec-report-stat-title {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.loec-report-stat-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--correios-blue-deep);
+  line-height: 1;
+}
+
+.loec-report-highlight-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.loec-report-highlight-chip {
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: #fff8e1;
+  border: 1px solid var(--correios-yellow-deep);
+  border-radius: 20px;
+  padding: 6px 12px;
+}
+
+.loec-report-highlight-chip strong {
+  color: var(--correios-blue-deep);
+}
+
+.loec-report-chart-box {
+  background: var(--paper-raised);
+  padding: 14px;
+  border: 2px solid var(--paper-line);
+  border-radius: var(--radius);
+}
+
+.loec-report-sectors-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.5px;
+  color: var(--correios-blue-deep);
+}
+
+.loec-report-sector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1.5px dashed var(--paper-line);
+  border-radius: var(--radius);
+  background: #fffdf7;
+}
+
+.loec-report-sector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.loec-report-sector-header h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  letter-spacing: 0.4px;
+  color: var(--correios-blue-deep);
+}
+
+.loec-report-unmatched {
+  border-color: var(--stamp-red);
+  background: #fbeae7;
+}
+
+.loec-code-cell {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.loec-report-raw summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--correios-blue-deep);
+  font-weight: 700;
+}
+
+.loec-report-raw pre {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 /* --- Manual (Markdown Book Style) --- */

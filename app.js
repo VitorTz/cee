@@ -104,15 +104,21 @@ const modalOverlay = qs("#modal-overlay");
 const modalTitleEl = qs("#modal-title");
 const modalBodyEl = qs("#modal-body");
 
-function openModal(title, bodyHtml) {
-  modalTitleEl.textContent = title;
+function openModal(title, bodyHtml, options = {}) {
+  modalTitleEl.innerHTML = title;
   modalBodyEl.innerHTML = bodyHtml;
+  qs(".modal-slip").classList.toggle("modal-slip-wide", Boolean(options.wide));
   modalOverlay.classList.remove("hidden");
 }
 
 function closeModal() {
   modalOverlay.classList.add("hidden");
   modalBodyEl.innerHTML = "";
+  qs(".modal-slip").classList.remove("modal-slip-wide");
+  if (typeof loecReportChartInstances !== "undefined" && loecReportChartInstances.length) {
+    loecReportChartInstances.forEach((chart) => chart.destroy());
+    loecReportChartInstances = [];
+  }
 }
 
 qs("#modal-close").addEventListener("click", closeModal);
@@ -911,6 +917,7 @@ function ruleFormTemplate(record) {
           <input id="rule-end" type="number" min="0" placeholder="Opcional" value="${record && record.end_number !== null ? record.end_number : ""}">
         </div>
       </div>
+      <p class="field-error" id="rule-empty-error">Informe ao menos o número inicial ou o número final.</p>
       <p class="field-error" id="rule-order-error">O número inicial deve ser menor ou igual ao final.</p>
       
       <div class="field">
@@ -1028,6 +1035,14 @@ async function submitRuleForm(e, record, streetCombobox) {
   } else if (endNumber === null && startNumber !== null) {
     endNumber = startNumber;
   }
+
+  const emptyError = qs("#rule-empty-error");
+
+  if (startNumber === null && endNumber === null) {
+    emptyError.style.display = "block";
+    return;
+  }
+  emptyError.style.display = "none";
 
   const orderError = qs("#rule-order-error");
 
@@ -1758,6 +1773,10 @@ async function deleteDailyTruck(id) {
 // --- LOEC Records ---
 
 let loecChartInstance = null;
+// Chart.js instances created inside the LOEC report modal (total + per-sector charts).
+// closeModal() destroys these whenever the modal is dismissed, regardless of which
+// modal is currently open, so it's safe to just keep pushing into this array.
+let loecReportChartInstances = [];
 
 async function loadDailyScans(date) {
   const tbody = qs("#daily-scans-tbody");
@@ -1769,7 +1788,7 @@ async function loadDailyScans(date) {
     .from("daily_object_scans")
     .select("*")
     .eq("log_date", date)
-    .order("scan_time");
+    .order("scan_time", { ascending: false });
 
   if (error) {
     tbody.innerHTML = `<tr class="error-row"><td colspan="4">Erro ao carregar dados: ${escapeHtml(error.message)}</td></tr>`;
@@ -1779,22 +1798,33 @@ async function loadDailyScans(date) {
   dailyScansCache = data || [];
   emptyEl.classList.toggle("hidden", dailyScansCache.length > 0);
 
-  // Render Table
+  // Render Table (most recent scan first)
   tbody.innerHTML = dailyScansCache
     .map(
       (s) => `
     <tr>
       <td>${formatTimeShort(s.scan_time)}</td>
       <td><span class="count-badge">${s.object_count}</span></td>
-      <td>${escapeHtml(s.notes || "")}</td>
-      <td class="col-actions"><button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button></td>
+      <td>
+        ${escapeHtml(s.notes || "")}
+        ${s.source_type === "loec_paste" ? '<span class="loec-source-tag">LOEC colada</span>' : ""}
+      </td>
+      <td class="col-actions">
+        <span class="row-actions">
+          <button class="btn btn-secondary btn-icon" data-view-scan="${s.id}">Detalhes</button>
+          <button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button>
+        </span>
+      </td>
     </tr>
   `,
     )
     .join("");
 
-  // Render Chart
-  renderLoecChart(dailyScansCache);
+  // Render Chart (chronological order, oldest to newest, regardless of table sort order)
+  const chronological = [...dailyScansCache].sort((a, b) =>
+    a.scan_time.localeCompare(b.scan_time),
+  );
+  renderLoecChart(chronological);
 }
 
 function renderLoecChart(records) {
@@ -1916,6 +1946,7 @@ function loecPasteFormTemplate() {
       <div class="field">
         <label for="loec-paste-area">Cole o texto do sistema aqui</label>
         <textarea id="loec-paste-area" rows="10" required placeholder="Ex:\n302 A  2  2  0  0  2  0...\n303 A  6  5  0  2..."></textarea>
+        <p class="field-hint">Pode colar com ou sem a linha de cabeçalho (Distrito, T.Obj, T.Pontos...). Um relatório completo por distrito e por setor será gerado automaticamente.</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="loec-paste-cancel">Cancelar</button>
@@ -1931,26 +1962,231 @@ function openLoecPasteForm() {
   qs('#loec-paste-form').addEventListener('submit', submitLoecPasteForm);
 }
 
-async function submitLoecPasteForm(e) {
-  e.preventDefault();
-  const text = qs('#loec-paste-area').value;
-  const lines = text.split('\n');
-  let totalObjects = 0;
+// Parses a block of text copied from the LOEC system into a list of per-district
+// records. Accepts text both with and without the header row (Distrito / T.Obj /
+// T.Pontos / ...), since it's whitespace-agnostic: it splits on any run of
+// whitespace (tabs or spaces), so it works whether the source was copied with
+// tab-separated columns or plain spaces.
+//
+// Row shape (9+ whitespace-separated tokens):
+//   <district> <side letter> <T.Obj> <T.Pontos> <Vencidos> <Hoje> <A vencer> <T.AR> <Carteiro...> <Loec>
+// The carteiro name can contain multiple words, so it's reconstructed as
+// everything between the fixed numeric columns and the trailing Loec code.
+function parseLoecPasteText(text) {
+  const lines = (text || "").split("\n");
+  const districts = [];
 
-  lines.forEach(line => {
-    // Split line by whitespaces/tabs
-    const parts = line.trim().split(/\s+/);
-    // Identify valid district LOEC rows: <district_number> <A> <loec_objects>
-    if (parts.length >= 3 && parts[1] === 'A') {
-      const objCount = parseInt(parts[2], 10);
-      if (!isNaN(objCount)) totalObjects += objCount;
-    }
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+
+    const tokens = line.split(/\s+/).filter(Boolean);
+    if (tokens.length < 9) return;
+
+    // First token must be the numeric district code (this also skips header rows).
+    if (!/^\d+$/.test(tokens[0])) return;
+    // Second token is the single-letter side/track indicator (e.g. "A").
+    if (!/^[A-Za-z]$/.test(tokens[1])) return;
+
+    const objects = parseInt(tokens[2], 10);
+    const points = parseInt(tokens[3], 10);
+    const overdue = parseInt(tokens[4], 10);
+    const today = parseInt(tokens[5], 10);
+    const upcoming = parseInt(tokens[6], 10);
+    const tAr = parseInt(tokens[7], 10);
+    const loec = tokens[tokens.length - 1];
+
+    if (
+      [objects, points, overdue, today, upcoming, tAr].some((n) =>
+        Number.isNaN(n),
+      )
+    )
+      return;
+    // Loec is a numeric barcode; if the last token isn't numeric this line
+    // doesn't match the expected shape, so skip it rather than guess.
+    if (!/^\d+$/.test(loec)) return;
+
+    const carteiro = tokens.slice(8, tokens.length - 1).join(" ");
+    if (!carteiro) return;
+
+    districts.push({
+      district: tokens[0],
+      side: tokens[1].toUpperCase(),
+      objects,
+      points,
+      overdue,
+      today,
+      upcoming,
+      t_ar: tAr,
+      carteiro,
+      loec,
+    });
   });
 
-  if (totalObjects === 0) {
-    showToast('Nenhum objeto LOEC encontrado no texto colado.', 'error');
+  return { districts };
+}
+
+// Finds which CEE sector a district number falls into, based on the sector's
+// current effective range (base_start/base_end shifted by current_offset).
+function findSectorForDistrict(districtNumber, sectors) {
+  for (const sector of sectors) {
+    const start = sector.base_start + sector.current_offset;
+    const end = sector.base_end + sector.current_offset;
+    if (districtNumber >= start && districtNumber <= end) return sector;
+  }
+  return null;
+}
+
+// Builds the full LOEC report: overall totals, plus one breakdown per CEE
+// sector (average points/objects per district, which district has the most
+// overdue and most due-today objects, and the full per-district rows).
+// Districts whose number doesn't fall inside any known sector range are kept
+// in `unmatched_districts` instead of being silently dropped.
+function buildLoecReport(districts, sectors) {
+  const total = districts.reduce(
+    (acc, d) => {
+      acc.objects += d.objects;
+      acc.points += d.points;
+      acc.overdue += d.overdue;
+      acc.today += d.today;
+      acc.upcoming += d.upcoming;
+      acc.t_ar += d.t_ar;
+      return acc;
+    },
+    { objects: 0, points: 0, overdue: 0, today: 0, upcoming: 0, t_ar: 0 },
+  );
+  total.district_count = districts.length;
+  total.carteiro_count = new Set(districts.map((d) => d.carteiro)).size;
+
+  const overallMostOverdue = districts.reduce(
+    (max, d) => (!max || d.overdue > max.overdue ? d : max),
+    null,
+  );
+  const overallMostToday = districts.reduce(
+    (max, d) => (!max || d.today > max.today ? d : max),
+    null,
+  );
+  total.district_most_overdue = overallMostOverdue
+    ? {
+      district: overallMostOverdue.district,
+      side: overallMostOverdue.side,
+      value: overallMostOverdue.overdue,
+    }
+    : null;
+  total.district_most_today = overallMostToday
+    ? {
+      district: overallMostToday.district,
+      side: overallMostToday.side,
+      value: overallMostToday.today,
+    }
+    : null;
+
+  const bySector = new Map();
+  const unmatched = [];
+
+  districts.forEach((d) => {
+    const sector = findSectorForDistrict(Number(d.district), sectors);
+    const enriched = {
+      ...d,
+      sector_code: sector ? sector.code : null,
+      sector_label: sector ? sector.label : null,
+    };
+    if (!sector) {
+      unmatched.push(enriched);
+      return;
+    }
+    if (!bySector.has(sector.code)) {
+      bySector.set(sector.code, {
+        code: sector.code,
+        label: sector.label,
+        range: `${sector.base_start + sector.current_offset}-${sector.base_end + sector.current_offset}`,
+        districts: [],
+      });
+    }
+    bySector.get(sector.code).districts.push(enriched);
+  });
+
+  const sectorReports = Array.from(bySector.values())
+    .map((s) => {
+      const n = s.districts.length;
+      const sums = s.districts.reduce(
+        (acc, d) => {
+          acc.objects += d.objects;
+          acc.points += d.points;
+          acc.overdue += d.overdue;
+          acc.today += d.today;
+          acc.upcoming += d.upcoming;
+          acc.t_ar += d.t_ar;
+          return acc;
+        },
+        { objects: 0, points: 0, overdue: 0, today: 0, upcoming: 0, t_ar: 0 },
+      );
+
+      const mostOverdue = s.districts.reduce(
+        (max, d) => (!max || d.overdue > max.overdue ? d : max),
+        null,
+      );
+      const mostToday = s.districts.reduce(
+        (max, d) => (!max || d.today > max.today ? d : max),
+        null,
+      );
+
+      return {
+        code: s.code,
+        label: s.label,
+        range: s.range,
+        district_count: n,
+        totals: sums,
+        avg_objects_per_district: n ? +(sums.objects / n).toFixed(1) : 0,
+        avg_points_per_district: n ? +(sums.points / n).toFixed(1) : 0,
+        district_most_overdue: mostOverdue
+          ? {
+            district: mostOverdue.district,
+            side: mostOverdue.side,
+            value: mostOverdue.overdue,
+          }
+          : null,
+        district_most_today: mostToday
+          ? {
+            district: mostToday.district,
+            side: mostToday.side,
+            value: mostToday.today,
+          }
+          : null,
+        districts: s.districts.sort(
+          (a, b) => Number(a.district) - Number(b.district),
+        ),
+      };
+    })
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  return { total, sectors: sectorReports, unmatched_districts: unmatched };
+}
+
+async function submitLoecPasteForm(e) {
+  e.preventDefault();
+  const rawText = qs('#loec-paste-area').value;
+  const { districts } = parseLoecPasteText(rawText);
+
+  if (districts.length === 0) {
+    showToast('Nenhum registro de distrito válido encontrado no texto colado.', 'error');
     return;
   }
+
+  // Pull the current sector ranges straight from cee_sectors so the report
+  // always reflects the live offsets, regardless of whether the CEE Map tab
+  // has been opened in this session.
+  const { data: sectors, error: sectorsError } = await sb
+    .from('cee_sectors')
+    .select('id, code, label, base_start, base_end, current_offset')
+    .order('display_order');
+
+  if (sectorsError) {
+    showToast(`Erro ao carregar setores: ${sectorsError.message}`, 'error');
+    return;
+  }
+
+  const report = buildLoecReport(districts, sectors || []);
 
   // Get local system time
   const now = new Date();
@@ -1959,8 +2195,11 @@ async function submitLoecPasteForm(e) {
   const payload = {
     log_date: getDailyOpsDate(),
     scan_time: timeStr,
-    object_count: totalObjects,
-    notes: 'Somado automaticamente'
+    object_count: report.total.objects,
+    notes: `${report.total.district_count} distritos colados`,
+    source_type: 'loec_paste',
+    raw_text: rawText,
+    report,
   };
 
   const { error } = await sb.from('daily_object_scans').insert(payload);
@@ -1970,8 +2209,265 @@ async function submitLoecPasteForm(e) {
   }
 
   closeModal();
-  showToast(`${totalObjects} objetos registrados com sucesso!`);
+  showToast(`${report.total.objects} objetos em ${report.total.district_count} distritos registrados com sucesso!`);
   await loadDailyOps();
+}
+
+// --- LOEC Report Details Modal ---
+
+function loecReportStatCard(title, value) {
+  return `
+    <div class="loec-report-stat">
+      <div class="loec-report-stat-title">${title}</div>
+      <div class="loec-report-stat-value">${value}</div>
+    </div>
+  `;
+}
+
+function loecReportHighlightChip(label, info, unit) {
+  if (!info) return "";
+  return `
+    <span class="loec-report-highlight-chip">
+      ${label}: <strong>${escapeHtml(info.district)}</strong> (${info.value} ${unit})
+    </span>
+  `;
+}
+
+function loecDistrictRowsTemplate(districts) {
+  return districts
+    .map(
+      (d) => `
+    <tr>
+      <td class="zip-code-cell">${escapeHtml(d.district)}</td>
+      <td><span class="count-badge">${d.objects}</span></td>
+      <td>${d.points}</td>
+      <td>${d.overdue}</td>
+      <td>${d.today}</td>
+      <td>${d.upcoming}</td>
+      <td>${d.t_ar}</td>
+      <td>${escapeHtml(d.carteiro)}</td>
+      <td class="loec-code-cell">${escapeHtml(d.loec)}</td>
+    </tr>
+  `,
+    )
+    .join("");
+}
+
+function loecSectorSectionTemplate(sector) {
+  const chartId = `loec-report-chart-sector-${sector.code}`;
+  return `
+    <div class="loec-report-sector">
+      <div class="loec-report-sector-header">
+        <h4>${escapeHtml(sector.label)} <span class="field-hint">(${sector.range})</span></h4>
+        <span class="count-badge">${sector.district_count} distrito${sector.district_count === 1 ? "" : "s"}</span>
+      </div>
+      <div class="loec-report-summary loec-report-summary-compact">
+        ${loecReportStatCard("Objetos", sector.totals.objects)}
+        ${loecReportStatCard("Pontos", sector.totals.points)}
+        ${loecReportStatCard("Média obj./distrito", sector.avg_objects_per_district)}
+        ${loecReportStatCard("Média pts./distrito", sector.avg_points_per_district)}
+      </div>
+      <div class="loec-report-highlight-row">
+        ${loecReportHighlightChip("Mais atrasados", sector.district_most_overdue, "vencidos")}
+        ${loecReportHighlightChip("Mais vencendo hoje", sector.district_most_today, "hoje")}
+      </div>
+      <div class="loec-report-chart-box">
+        <canvas id="${chartId}" height="180"></canvas>
+      </div>
+      <div class="manifest-frame">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th>Distrito</th>
+              <th>T.Obj</th>
+              <th>T.Pontos</th>
+              <th>Vencidos</th>
+              <th>Hoje</th>
+              <th>A vencer</th>
+              <th>T.AR</th>
+              <th>Carteiro</th>
+              <th>Loec</th>
+            </tr>
+          </thead>
+          <tbody>${loecDistrictRowsTemplate(sector.districts)}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function loecReportTemplate(record, report) {
+  const unmatchedSection =
+    report.unmatched_districts && report.unmatched_districts.length > 0
+      ? `
+    <div class="loec-report-sector loec-report-unmatched">
+      <div class="loec-report-sector-header">
+        <h4>Distritos fora dos setores</h4>
+        <span class="count-badge">${report.unmatched_districts.length}</span>
+      </div>
+      <div class="manifest-frame">
+        <table class="manifest-table">
+          <thead>
+            <tr>
+              <th>Distrito</th><th>T.Obj</th><th>T.Pontos</th><th>Vencidos</th><th>Hoje</th><th>A vencer</th><th>T.AR</th><th>Carteiro</th><th>Loec</th>
+            </tr>
+          </thead>
+          <tbody>${loecDistrictRowsTemplate(report.unmatched_districts)}</tbody>
+        </table>
+      </div>
+    </div>
+  `
+      : "";
+
+  return `
+    <div class="loec-report">
+      <div class="loec-report-summary">
+        ${loecReportStatCard("Total de objetos", report.total.objects)}
+        ${loecReportStatCard("Total de pontos", report.total.points)}
+        ${loecReportStatCard("Distritos", report.total.district_count)}
+        ${loecReportStatCard("Carteiros", report.total.carteiro_count)}
+        ${loecReportStatCard("Vencidos", report.total.overdue)}
+        ${loecReportStatCard("Vencendo hoje", report.total.today)}
+        ${loecReportStatCard("A vencer", report.total.upcoming)}
+        ${loecReportStatCard("T.AR", report.total.t_ar)}
+      </div>
+      <div class="loec-report-chart-box">
+        <canvas id="loec-report-chart-total" height="180"></canvas>
+      </div>
+
+      ${report.sectors.map(loecSectorSectionTemplate).join("")}
+      ${unmatchedSection}
+
+      ${record.raw_text
+      ? `
+      <details class="loec-report-raw">
+        <summary>Ver texto original colado</summary>
+        <pre>${escapeHtml(record.raw_text)}</pre>
+      </details>`
+      : ""
+    }
+    </div>
+  `;
+}
+
+function loecSimpleReportTemplate(record) {
+  return `
+    <div class="loec-report">
+      <p class="field-hint">Registrado às ${formatTimeShort(record.scan_time)}</p>
+      <div class="loec-report-summary">
+        ${loecReportStatCard("Total de objetos", record.object_count)}
+      </div>
+      ${record.notes ? `<p>${escapeHtml(record.notes)}</p>` : ""}
+      <p class="field-hint">Este registro não possui detalhamento por distrito (lançamento manual, ou registrado antes desta atualização).</p>
+    </div>
+  `;
+}
+
+function loecSectorChartColors() {
+  return {
+    objects: { border: "#00447c", bg: "rgba(0, 68, 124, 0.65)" },
+    overdue: { border: "#c6432e", bg: "rgba(198, 67, 46, 0.65)" },
+    today: { border: "#f0b90b", bg: "rgba(240, 185, 11, 0.75)" },
+  };
+}
+
+function renderLoecReportCharts(report) {
+  const colors = loecSectorChartColors();
+
+  // Overview chart: total objects per sector (+ "Sem setor" bucket if any).
+  const totalCtx = qs("#loec-report-chart-total");
+  if (totalCtx) {
+    const labels = report.sectors.map((s) => `${s.label} (${s.range})`);
+    const data = report.sectors.map((s) => s.totals.objects);
+    if (report.unmatched_districts && report.unmatched_districts.length > 0) {
+      labels.push("Sem setor");
+      data.push(
+        report.unmatched_districts.reduce((sum, d) => sum + d.objects, 0),
+      );
+    }
+    loecReportChartInstances.push(
+      new Chart(totalCtx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Objetos por setor",
+              data,
+              backgroundColor: colors.objects.bg,
+              borderColor: colors.objects.border,
+              borderWidth: 1.5,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+          plugins: { legend: { display: false } },
+        },
+      }),
+    );
+  }
+
+  // Per-sector chart: objects / overdue / due-today per district.
+  report.sectors.forEach((sector) => {
+    const ctx = qs(`#loec-report-chart-sector-${sector.code}`);
+    if (!ctx) return;
+    const labels = sector.districts.map((d) => `${d.district}`);
+    loecReportChartInstances.push(
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Objetos",
+              data: sector.districts.map((d) => d.objects),
+              backgroundColor: colors.objects.bg,
+              borderColor: colors.objects.border,
+              borderWidth: 1,
+            },
+            {
+              label: "Vencidos",
+              data: sector.districts.map((d) => d.overdue),
+              backgroundColor: colors.overdue.bg,
+              borderColor: colors.overdue.border,
+              borderWidth: 1,
+            },
+            {
+              label: "Vencendo hoje",
+              data: sector.districts.map((d) => d.today),
+              backgroundColor: colors.today.bg,
+              borderColor: colors.today.border,
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+          plugins: { legend: { position: "bottom" } },
+        },
+      }),
+    );
+  });
+}
+
+function openLoecReportModal(record) {
+  const hasFullReport = record.source_type === "loec_paste" && record.report;
+  const title = `LOECs &middot; ${formatTimeShort(record.scan_time)}`;
+
+  openModal(
+    title,
+    hasFullReport
+      ? loecReportTemplate(record, record.report)
+      : loecSimpleReportTemplate(record),
+    hasFullReport ? { wide: true } : {},
+  );
+
+  if (hasFullReport) renderLoecReportCharts(record.report);
 }
 
 
@@ -2145,8 +2641,15 @@ qs("#daily-trucks-tbody").addEventListener("click", (e) => {
 
 qs("#btn-new-scan").addEventListener("click", openScanForm);
 qs("#daily-scans-tbody").addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-delete-scan]");
-  if (btn) deleteDailyScan(btn.dataset.deleteScan);
+  const deleteBtn = e.target.closest("[data-delete-scan]");
+  const viewBtn = e.target.closest("[data-view-scan]");
+  if (deleteBtn) deleteDailyScan(deleteBtn.dataset.deleteScan);
+  if (viewBtn) {
+    const record = dailyScansCache.find(
+      (s) => String(s.id) === viewBtn.dataset.viewScan,
+    );
+    if (record) openLoecReportModal(record);
+  }
 });
 
 qs("#btn-new-malote").addEventListener("click", openMaloteForm);
