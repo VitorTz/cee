@@ -149,10 +149,10 @@ function openDeleteConfirm(label, warning, onConfirm) {
 
 // --- Tabs ---
 qsa(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab, true, true));
 });
 
-function switchTab(tab) {
+function switchTab(tab, isManualClick = false, shouldFocus = true) {
   qsa(".tab-btn").forEach((btn) => {
     const active = btn.dataset.tab === tab;
     btn.classList.toggle("active", active);
@@ -164,6 +164,41 @@ function switchTab(tab) {
   );
 
   switch (tab) {
+    case "cepsearch":
+      if (isManualClick) {
+        const queryInput = qs("#cepsearch-query");
+        const numInput = qs("#cepsearch-number");
+
+        if (queryInput) queryInput.value = "";
+        if (numInput) {
+          numInput.value = "";
+          numInput.disabled = true;
+        }
+
+        const hintEl = qs("#cepsearch-match-hint");
+        if (hintEl) hintEl.textContent = "Digite para localizar o logradouro.";
+
+        const resultsEl = qs("#cepsearch-results");
+        if (resultsEl) resultsEl.classList.add("hidden");
+
+        const emptyEl = qs("#cepsearch-empty");
+        if (emptyEl) emptyEl.classList.remove("hidden");
+
+        cepSearchState = {
+          streetId: null,
+          street: null,
+          breakdown: [],
+          searchLogged: false,
+        };
+
+        // Only trigger autofocus if explicitly allowed
+        if (shouldFocus) {
+          setTimeout(() => {
+            if (queryInput) queryInput.focus();
+          }, 50);
+        }
+      }
+      break;
     case "stats":
       loadStatistics();
       break;
@@ -281,7 +316,7 @@ document.addEventListener("keydown", (e) => {
   const targetTab = tabKeyMap[e.key];
   if (targetTab) {
     e.preventDefault();
-    switchTab(targetTab);
+    switchTab(targetTab, true, false);
   }
 });
 
@@ -836,7 +871,7 @@ async function loadRules(page = 0) {
   let query = sb
     .from("numbering_rules")
     .select(
-      "id, start_number, end_number, side, description, zip_code_id, zip_codes(id, zip_code, street_id, streets(name))",
+      "id, start_number, end_number, side, description, zip_code_id, zip_codes!inner(id, zip_code, street_id, streets(name))",
       { count: "exact" },
     )
     .order("id");
@@ -855,7 +890,7 @@ async function loadRules(page = 0) {
       renderRulesPagination();
       return;
     }
-    query = query.in("zip_code_id", zipIds);
+    query = query.eq("zip_codes.street_id", rulesFilterStreetId);
   }
 
   query = query.range(from, to);
@@ -1020,6 +1055,7 @@ async function submitRuleForm(e, record, streetCombobox) {
 
   const selectedStreet = streetCombobox.getSelected();
   const streetField = qs("#rule-street-search").closest(".field");
+
   if (!selectedStreet) {
     streetField.classList.add("has-error");
     return;
@@ -1043,6 +1079,7 @@ async function submitRuleForm(e, record, streetCombobox) {
   if (Number.isNaN(startNumber)) startNumber = null;
   if (Number.isNaN(endNumber)) endNumber = null;
 
+  // Auto-fill logic if one of the boundaries is empty
   if (startNumber === null && endNumber !== null) {
     startNumber = endNumber;
   } else if (endNumber === null && startNumber !== null) {
@@ -1050,7 +1087,6 @@ async function submitRuleForm(e, record, streetCombobox) {
   }
 
   const emptyError = qs("#rule-empty-error");
-
   if (startNumber === null && endNumber === null) {
     emptyError.style.display = "block";
     return;
@@ -1058,48 +1094,39 @@ async function submitRuleForm(e, record, streetCombobox) {
   emptyError.style.display = "none";
 
   const orderError = qs("#rule-order-error");
-
   if (startNumber !== null && endNumber !== null && startNumber > endNumber) {
     orderError.style.display = "block";
     return;
   }
   orderError.style.display = "none";
 
+  // Build payload mapping directly to the RPC parameters
   const payload = {
-    zip_code_id: zipCodeId,
-    start_number: startNumber,
-    end_number: endNumber,
-    side,
-    description
+    p_id: record ? record.id : null,
+    p_zip_code_id: parseInt(zipCodeId, 10),
+    p_start_number: startNumber,
+    p_end_number: endNumber,
+    p_side: side,
+    p_description: description
   };
-  if (record) {
-    // Normal update
-    const { error } = await sb.from('numbering_rules').update(payload).eq('id', record.id);
-    if (error) { showToast(`Error saving rule: ${error.message}`, 'error'); return; }
-  } else {
-    // Check for duplicates to perform a manual upsert
-    let query = sb.from('numbering_rules').select('id')
-      .eq('zip_code_id', zipCodeId)
-      .eq('side', side);
 
-    query = startNumber === null ? query.is('start_number', null) : query.eq('start_number', startNumber);
-    query = endNumber === null ? query.is('end_number', null) : query.eq('end_number', endNumber);
+  // Execute the RPC call
+  const { error } = await sb.rpc('upsert_numbering_rule', payload);
 
-    const { data: duplicates } = await query;
-
-    if (duplicates && duplicates.length > 0) {
-      // Update the duplicated rule silently
-      const { error } = await sb.from('numbering_rules').update(payload).eq('id', duplicates[0].id);
-      if (error) { showToast(`Error updating rule: ${error.message}`, 'error'); return; }
+  if (error) {
+    // If the user tries to update an existing rule into a conflict, Postgres will still block it
+    if (error.code === '23505') {
+      console.log("Erro: Conflito de regra já existente.", "error")
+      showToast("Erro: Conflito de regra já existente.", "error");
     } else {
-      // Insert new rule
-      const { error } = await sb.from('numbering_rules').insert(payload);
-      if (error) { showToast(`Error creating rule: ${error.message}`, 'error'); return; }
+      console.log(`Error saving rule: ${error.message}`, "error")
+      showToast(`Error saving rule: ${error.message}`, "error");
     }
+    return;
   }
 
+  showToast(record ? "Regra atualizada." : "Regra cadastrada.");
   closeModal();
-  showToast(record ? 'Regra atualizada.' : 'Regra cadastrada/atualizada.');
   await loadRules(rulesPage);
 }
 
@@ -1257,9 +1284,14 @@ async function resolveStreetForQuery(term, opts = {}) {
       ? `Correspondência: <strong>${escapeHtml(chosen.name)}</strong> &middot; ${candidates.length} logradouros encontrados, refine a busca se necessário.`
       : `Correspondência: <strong>${escapeHtml(chosen.name)}</strong>`;
 
+  // A "new" match is a different street than whatever was matched before,
+  // so retyping within the same street (e.g. adding more characters that
+  // still resolve to it) won't keep stealing focus away from the query field.
+  const isNewMatch = cepSearchState.streetId !== chosen.id;
+
   await loadStreetBreakdown(chosen);
   numberInput.disabled = false;
-  if (opts.focusNumber) numberInput.focus();
+  if (opts.focusNumber || isNewMatch) numberInput.focus();
   renderCepSearchResults();
 }
 
@@ -1409,6 +1441,7 @@ function renderCepSearchResults() {
   const mapHtml = `
     <div class="street-map-container">
       <iframe 
+        style="width: 100%; height: 100%; min-height: 480px; border: none; display: block;"
         src="https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=16&ie=UTF8&iwloc=&output=embed"
         title="Google Maps: ${escapeHtml(street.name)}"
         loading="lazy">
@@ -1607,20 +1640,20 @@ async function resetCeeOffset() {
     return;
   }
 
-  for (const code of codes) {
-    const sector = ceeSectorsCache.find((s) => s.code === code);
-    if (!sector) continue;
-    const { error } = await sb
-      .from("cee_sectors")
-      .update({ current_offset: 0 })
-      .eq("id", sector.id);
-    if (error) {
-      showToast(
-        `Erro ao zerar offset do setor ${sector.label}: ${error.message}`,
-        "error",
-      );
-      return;
-    }
+  // Extract the specific IDs to update
+  const idsToUpdate = codes
+    .map((code) => ceeSectorsCache.find((s) => s.code === code)?.id)
+    .filter(Boolean);
+
+  // Perform a single update query for all selected IDs
+  const { error } = await sb
+    .from("cee_sectors")
+    .update({ current_offset: 0 })
+    .in("id", idsToUpdate);
+
+  if (error) {
+    showToast(`Erro ao zerar offsets: ${error.message}`, "error");
+    return;
   }
 
   showToast("Offset zerado para os setores selecionados.");
@@ -1815,21 +1848,22 @@ async function loadDailyScans(date) {
   tbody.innerHTML = dailyScansCache
     .map(
       (s) => `
-    <tr>
-      <td>${formatTimeShort(s.scan_time)}</td>
-      <td><span class="count-badge">${s.object_count}</span></td>
-      <td>
-        ${escapeHtml(s.notes || "")}
-        ${s.source_type === "loec_paste" ? '<span class="loec-source-tag">LOEC colada</span>' : ""}
-      </td>
-      <td class="col-actions">
-        <span class="row-actions">
-          <button class="btn btn-secondary btn-icon" data-view-scan="${s.id}">Detalhes</button>
-          <button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button>
-        </span>
-      </td>
-    </tr>
-  `,
+  <tr>
+    <td>${formatTimeShort(s.scan_time)}</td>
+    <td><span class="count-badge">${s.object_count}</span></td>
+    <td>
+      ${escapeHtml(s.notes || "")}
+      ${s.source_type === "loec_paste" ? '<span class="loec-source-tag">LOEC colada</span>' : ""}
+    </td>
+    <td class="col-actions">
+      <span class="row-actions">
+        <button class="btn btn-secondary btn-icon" data-view-scan="${s.id}">Detalhes</button>
+        ${s.source_type === "loec_paste" ? `<button class="btn btn-secondary btn-icon" data-export-scan="${s.id}">Excel</button>` : ""}
+        <button class="btn btn-danger btn-icon" data-delete-scan="${s.id}">Excluir</button>
+      </span>
+    </td>
+  </tr>
+`,
     )
     .join("");
 
@@ -1839,6 +1873,107 @@ async function loadDailyScans(date) {
   );
   renderLoecChart(chronological);
 }
+
+// =============================================================================
+// EXPORT LOEC TO EXCEL (CSV)
+// =============================================================================
+function exportLoecToExcel(record) {
+  if (!record || !record.report) {
+    showToast("No report data available to export.", "error");
+    return;
+  }
+
+  const report = record.report;
+
+  // Start CSV content string
+  let csvContent = "";
+
+  // 1. GENERAL SUMMARY BLOCK
+  csvContent += "=== RESUMO GERAL ===\n";
+  csvContent += "Metrica;Valor\n";
+  csvContent += `Total de objetos;${report.total.objects}\n`;
+  csvContent += `Total de pontos;${report.total.points}\n`;
+  csvContent += `Distritos;${report.total.district_count}\n`;
+  csvContent += `Carteiros;${report.total.carteiro_count}\n`;
+  csvContent += `Vencidos;${report.total.overdue}\n`;
+  csvContent += `Vencendo hoje;${report.total.today}\n`;
+  csvContent += `A vencer;${report.total.upcoming}\n`;
+  csvContent += `T.AR;${report.total.t_ar}\n\n`;
+
+  // 2. SECTOR SUMMARY BLOCK
+  csvContent += "=== RESUMO POR SETOR ===\n";
+  csvContent += "Setor;Faixa;Distritos;T.Obj;T.Pontos;Media Obj/Dist;Media Pts/Dist;Mais Atrasados;Mais Vencendo Hoje\n";
+
+  if (report.sectors && report.sectors.length > 0) {
+    report.sectors.forEach(sec => {
+      // Format the highlights (e.g., "305 (15)")
+      const mostOverdue = sec.district_most_overdue ? `${sec.district_most_overdue.district} (${sec.district_most_overdue.value})` : "-";
+      const mostToday = sec.district_most_today ? `${sec.district_most_today.district} (${sec.district_most_today.value})` : "-";
+
+      csvContent += `${sec.label};${sec.range};${sec.district_count};${sec.totals.objects};${sec.totals.points};${sec.avg_objects_per_district};${sec.avg_points_per_district};${mostOverdue};${mostToday}\n`;
+    });
+  }
+  csvContent += "\n";
+
+  // 3. DISTRICT DETAILS BLOCK
+  csvContent += "=== DETALHAMENTO POR DISTRITO ===\n";
+  csvContent += "Distrito;T.Obj;T.Pontos;Vencidos;Hoje;A Vencer;T.AR;Carteiro;LOEC;Setor\n";
+
+  const allDistricts = [];
+
+  // Group matched districts
+  if (report.sectors) {
+    report.sectors.forEach((sec) => {
+      if (sec.districts) {
+        sec.districts.forEach((d) => {
+          allDistricts.push({ ...d, sector_label: sec.label });
+        });
+      }
+    });
+  }
+
+  // Group unmatched districts
+  if (report.unmatched_districts) {
+    report.unmatched_districts.forEach((d) => {
+      allDistricts.push({ ...d, sector_label: "Sem Setor" });
+    });
+  }
+
+  // Write each district row
+  allDistricts.forEach((d) => {
+    csvContent += `${d.district};${d.objects};${d.points};${d.overdue};${d.today};${d.upcoming};${d.t_ar};${d.carteiro};${d.loec};${d.sector_label}\n`;
+  });
+
+  // Create Blob with UTF-8 BOM to preserve accents in Excel
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `LOEC_${record.log_date}_${record.scan_time.replace(":", "")}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Ensure the table click handler processes the export button click
+qs("#daily-scans-tbody").addEventListener("click", (e) => {
+  const deleteBtn = e.target.closest("[data-delete-scan]");
+  const viewBtn = e.target.closest("[data-view-scan]");
+  const exportBtn = e.target.closest("[data-export-scan]"); // Added export selector
+
+  if (deleteBtn) deleteDailyScan(deleteBtn.dataset.deleteScan);
+
+  if (viewBtn) {
+    const record = dailyScansCache.find((s) => String(s.id) === viewBtn.dataset.viewScan);
+    if (record) openLoecReportModal(record);
+  }
+
+  if (exportBtn) {
+    const record = dailyScansCache.find((s) => String(s.id) === exportBtn.dataset.exportScan);
+    if (record) exportLoecToExcel(record); // Trigger Excel export
+  }
+});
 
 function renderLoecChart(records) {
   const ctx = qs("#loec-chart");
@@ -1983,6 +2118,8 @@ function openLoecPasteForm() {
 //
 // Row shape (9+ whitespace-separated tokens):
 //   <district> <side letter> <T.Obj> <T.Pontos> <Vencidos> <Hoje> <A vencer> <T.AR> <Carteiro...> <Loec>
+// The side letter isn't meaningful to us; it's only used positionally, to
+// locate and skip past it, and is not stored or sent to the database.
 // The carteiro name can contain multiple words, so it's reconstructed as
 // everything between the fixed numeric columns and the trailing Loec code.
 function parseLoecPasteText(text) {
@@ -2024,7 +2161,6 @@ function parseLoecPasteText(text) {
 
     districts.push({
       district: tokens[0],
-      side: tokens[1].toUpperCase(),
       objects,
       points,
       overdue,
@@ -2082,14 +2218,12 @@ function buildLoecReport(districts, sectors) {
   total.district_most_overdue = overallMostOverdue
     ? {
       district: overallMostOverdue.district,
-      side: overallMostOverdue.side,
       value: overallMostOverdue.overdue,
     }
     : null;
   total.district_most_today = overallMostToday
     ? {
       district: overallMostToday.district,
-      side: overallMostToday.side,
       value: overallMostToday.today,
     }
     : null;
@@ -2155,14 +2289,12 @@ function buildLoecReport(districts, sectors) {
         district_most_overdue: mostOverdue
           ? {
             district: mostOverdue.district,
-            side: mostOverdue.side,
             value: mostOverdue.overdue,
           }
           : null,
         district_most_today: mostToday
           ? {
             district: mostToday.district,
-            side: mostToday.side,
             value: mostToday.today,
           }
           : null,
@@ -2253,7 +2385,7 @@ function loecDistrictRowsTemplate(districts) {
     <tr>
       <td class="zip-code-cell">${escapeHtml(d.district)}</td>
       <td><span class="count-badge">${d.objects}</span></td>
-      <td>${d.points}</td>
+      <td><span class="points-badge">${d.points}</span></td>
       <td>${d.overdue}</td>
       <td>${d.today}</td>
       <td>${d.upcoming}</td>
@@ -2334,6 +2466,10 @@ function loecReportTemplate(record, report) {
 
   return `
     <div class="loec-report">
+      <div class="loec-legend">
+        <span class="loec-legend-item"><span class="count-badge legend-swatch">00</span> Objetos (T.Obj)</span>
+        <span class="loec-legend-item"><span class="points-badge legend-swatch">00</span> Pontos (T.Pontos)</span>
+      </div>
       <div class="loec-report-summary">
         ${loecReportStatCard("Total de objetos", report.total.objects)}
         ${loecReportStatCard("Total de pontos", report.total.points)}
@@ -2694,73 +2830,96 @@ if (btnDailyOpsToday) {
 // 11. MODULE: STATISTICS DASHBOARD
 // =============================================================================
 
+let statsSearchChartInstance = null;
+let statsOpsChartInstance = null;
+// Flag to prevent multiple unnecessary fetches
+let isStatsLoaded = false;
+
 async function loadStatistics() {
-  const { data: globalData, error: globalError } = await sb
-    .from("stats_global_counts")
-    .select("*")
-    .single();
-  if (!globalError && globalData) {
+  // Prevent duplicate database queries if already loaded
+  if (isStatsLoaded) return;
+
+  // Fire all queries in parallel
+  const [
+    { data: globalData },
+    { data: qualityData },
+    { data: missingZipsData },
+    { data: missingRulesData },
+    { data: neighborhoodData },
+    { data: topStreetsData },
+    { data: topConsultedData }
+  ] = await Promise.all([
+    sb.from("stats_global_counts").select("*").single(),
+    sb.from("stats_data_quality").select("*").single(),
+    sb.from("stats_streets_missing_zips").select("name, neighborhood").limit(10),
+    sb.from("stats_zips_missing_rules").select("zip_code, street_name").limit(10),
+    sb.from("stats_neighborhoods").select("*").limit(10),
+    sb.from("streets_with_zip_count").select("name, zip_count").order("zip_count", { ascending: false }).limit(10),
+    sb.from("top_consulted_streets").select("name, consultation_count").order("consultation_count", { ascending: false }).limit(10)
+  ]);
+
+
+  if (globalData) {
     qs("#stat-total-streets").textContent = globalData.total_streets;
     qs("#stat-total-zips").textContent = globalData.total_zips;
     qs("#stat-total-rules").textContent = globalData.total_rules;
-  } else if (globalError)
-    console.error("Failed to load global stats:", globalError);
+  } else {
+    console.error("Failed to load global stats");
+  }
 
-  const { data: neighborhoodData, error: neighborhoodError } = await sb
-    .from("stats_neighborhoods")
-    .select("*")
-    .limit(10);
-  if (!neighborhoodError && neighborhoodData) {
+  if (qualityData) {
+    qs("#stat-streets-missing-zips").textContent = qualityData.streets_missing_zips;
+    qs("#stat-zips-missing-rules").textContent = qualityData.zips_missing_rules;
+  } else {
+    console.error("Failed to load data quality stats:", qualityError);
+  }
+
+  if (missingZipsData) {
+    qs("#stat-streets-missing-zips-tbody").innerHTML = missingZipsData.length
+      ? missingZipsData
+        .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td class="col-actions">${escapeHtml(formatNeighborhoods(s.neighborhood))}</td></tr>`)
+        .join("")
+      : '<tr><td colspan="2" class="empty-state">Todos os logradouros têm CEP cadastrado.</td></tr>';
+  } else {
+    console.error("Failed to load streets missing zips:", missingZipsError);
+  }
+
+  if (missingRulesData) {
+    qs("#stat-zips-missing-rules-tbody").innerHTML = missingRulesData.length
+      ? missingRulesData
+        .map((z) => `<tr><td class="zip-code-cell">${escapeHtml(z.zip_code)}</td><td class="col-actions">${escapeHtml(z.street_name)}</td></tr>`)
+        .join("")
+      : '<tr><td colspan="2" class="empty-state">Todos os CEPs têm regras cadastradas.</td></tr>';
+  } else {
+    console.error("Failed to load zips missing rules:", missingRulesError);
+  }
+
+  if (neighborhoodData) {
     qs("#stat-neighborhoods-tbody").innerHTML = neighborhoodData
-      .map(
-        (n) => `
-      <tr>
-        <td>${escapeHtml(n.neighborhood_name)}</td>
-        <td class="col-actions"><span class="count-badge">${n.street_count}</span></td>
-      </tr>
-    `,
-      )
+      .map((n) => `<tr><td>${escapeHtml(n.neighborhood_name)}</td><td class="col-actions"><span class="count-badge">${n.street_count}</span></td></tr>`)
       .join("");
-  } else if (neighborhoodError)
+  } else {
     console.error("Failed to load top neighborhoods:", neighborhoodError);
+  }
 
-  const { data: topStreetsData, error: topStreetsError } = await sb
-    .from("streets_with_zip_count")
-    .select("name, zip_count")
-    .order("zip_count", { ascending: false })
-    .limit(10);
-  if (!topStreetsError && topStreetsData) {
+  if (topStreetsData) {
     qs("#stat-top-streets-tbody").innerHTML = topStreetsData
-      .map(
-        (s) => `
-      <tr>
-        <td>${escapeHtml(s.name)}</td>
-        <td class="col-actions"><span class="count-badge">${s.zip_count}</span></td>
-      </tr>
-    `,
-      )
+      .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td class="col-actions"><span class="count-badge">${s.zip_count}</span></td></tr>`)
       .join("");
-  } else if (topStreetsError)
-    console.error("Failed to load top streets:", topStreetsError);
+  } else {
+    console.error("Failed to load top streets");
+  }
 
-  const { data: topConsultedData, error: topConsultedError } = await sb
-    .from("top_consulted_streets")
-    .select("name, consultation_count")
-    .order("consultation_count", { ascending: false })
-    .limit(10);
-  if (!topConsultedError && topConsultedData) {
+  if (topConsultedData) {
     qs("#stat-top-consulted-tbody").innerHTML = topConsultedData
-      .map(
-        (s) => `
-      <tr>
-        <td>${escapeHtml(s.name)}</td>
-        <td class="col-actions"><span class="count-badge">${s.consultation_count}</span></td>
-      </tr>
-    `,
-      )
+      .map((s) => `<tr><td>${escapeHtml(s.name)}</td><td class="col-actions"><span class="count-badge">${s.consultation_count}</span></td></tr>`)
       .join("");
-  } else if (topConsultedError)
-    console.error("Failed to load top consulted streets:", topConsultedError);
+  } else {
+    console.error("Failed to load top consulted streets");
+  }
+
+  // Mark as loaded so it doesn't fetch again on tab switch
+  isStatsLoaded = true;
 }
 
 // =============================================================================

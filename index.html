@@ -79,7 +79,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">06</span> Registro Diário
+          <span class="tab-index">06</span> Registros
         </button>
         <button
           class="tab-btn"
@@ -278,7 +278,17 @@
               <div class="stat-title">Regras de Numeração</div>
               <div class="stat-value" id="stat-total-rules">...</div>
             </div>
+            <div class="stat-card">
+              <div class="stat-title">Logradouros sem CEP</div>
+              <div class="stat-value" id="stat-streets-missing-zips">...</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">CEPs sem Regras</div>
+              <div class="stat-value" id="stat-zips-missing-rules">...</div>
+            </div>
           </div>
+
+          <!-- Activity Charts -->
           <div class="stats-columns">
             <!-- Top Neighborhoods Table -->
             <div class="manifest-frame stats-table-wrapper">
@@ -337,6 +347,52 @@
                   </tr>
                 </thead>
                 <tbody id="stat-top-consulted-tbody">
+                  <tr>
+                    <td
+                      colspan="2"
+                      style="text-align: center; color: var(--ink-soft)"
+                    >
+                      Carregando...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Streets Missing Zip Codes Table -->
+            <div class="manifest-frame stats-table-wrapper">
+              <div class="stats-section-header">Logradouros sem CEP cadastrado</div>
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Logradouro</th>
+                    <th class="col-actions">Bairro</th>
+                  </tr>
+                </thead>
+                <tbody id="stat-streets-missing-zips-tbody">
+                  <tr>
+                    <td
+                      colspan="2"
+                      style="text-align: center; color: var(--ink-soft)"
+                    >
+                      Carregando...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Zips Missing Numbering Rules Table -->
+            <div class="manifest-frame stats-table-wrapper">
+              <div class="stats-section-header">CEPs sem regras de numeração</div>
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>CEP</th>
+                    <th class="col-actions">Logradouro</th>
+                  </tr>
+                </thead>
+                <tbody id="stat-zips-missing-rules-tbody">
                   <tr>
                     <td
                       colspan="2"

@@ -107,6 +107,47 @@ CREATE TABLE IF NOT EXISTS numbering_rules (
 );
 
 CREATE INDEX IF NOT EXISTS idx_numbering_rules_zip_code_id ON numbering_rules(zip_code_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_rule ON numbering_rules (zip_code_id, side, COALESCE(start_number, -1), COALESCE(end_number, -1));
+
+
+-- =============================================================================
+-- RPC: Upsert Numbering Rule
+-- Safely handles inserts and updates using the expression-based unique index
+-- =============================================================================
+CREATE OR REPLACE FUNCTION upsert_numbering_rule(
+    p_id INTEGER,
+    p_zip_code_id INTEGER,
+    p_start_number INTEGER,
+    p_end_number INTEGER,
+    p_side TEXT,
+    p_description TEXT
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    IF p_id IS NOT NULL THEN
+        -- Standard update when an ID is provided (editing an existing rule)
+        UPDATE numbering_rules
+        SET zip_code_id = p_zip_code_id,
+            start_number = p_start_number,
+            end_number = p_end_number,
+            side = p_side::side_type,
+            description = p_description
+        WHERE id = p_id;
+    ELSE
+        -- Upsert logic using the exact expression from the unique index
+        INSERT INTO numbering_rules (zip_code_id, start_number, end_number, side, description)
+        VALUES (p_zip_code_id, p_start_number, p_end_number, p_side::side_type, p_description)
+        ON CONFLICT (zip_code_id, side, COALESCE(start_number, -1), COALESCE(end_number, -1))
+        DO UPDATE SET 
+            description = EXCLUDED.description;
+    END IF;
+END;
+$$;
+
+-- Grant execution permissions
+GRANT EXECUTE ON FUNCTION upsert_numbering_rule(INTEGER, INTEGER, INTEGER, INTEGER, TEXT, TEXT) TO anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- CEE Sectors
