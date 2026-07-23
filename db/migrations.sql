@@ -174,26 +174,6 @@ CREATE TABLE IF NOT EXISTS daily_object_scans (
 );
 CREATE INDEX IF NOT EXISTS idx_daily_object_scans_date ON daily_object_scans(log_date);
 
-CREATE TABLE IF NOT EXISTS daily_label_swaps (
-    id SERIAL PRIMARY KEY,
-    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    occurrence_time TIME NOT NULL,
-    swap_count INTEGER NOT NULL CHECK (swap_count >= 0),
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_daily_label_swaps_date ON daily_label_swaps(log_date);
-
-CREATE TABLE IF NOT EXISTS daily_meetings (
-    id SERIAL PRIMARY KEY,
-    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    meeting_time TIME NOT NULL,
-    duration_minutes INTEGER NOT NULL CHECK (duration_minutes >= 0),
-    is_union BOOLEAN NOT NULL DEFAULT false,
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_daily_meetings_date ON daily_meetings(log_date);
 
 CREATE TABLE IF NOT EXISTS daily_malote_deliveries (
     id SERIAL PRIMARY KEY,
@@ -283,18 +263,11 @@ SELECT
     COALESCE(t.total_cdls, 0) AS total_cdls,
     COALESCE(o.total_scans, 0) AS total_scan_entries,
     COALESCE(o.total_objects, 0) AS total_objects,
-    COALESCE(s.total_swap_entries, 0) AS total_swap_entries,
-    COALESCE(s.total_swaps, 0) AS total_swaps,
-    COALESCE(m.total_meetings, 0) AS total_meetings,
-    COALESCE(m.union_meetings, 0) AS union_meetings,
-    COALESCE(m.total_meeting_minutes, 0) AS total_meeting_minutes,
     COALESCE(ml.total_malote_entries, 0) AS total_malote_entries,
     COALESCE(ml.total_malotes, 0) AS total_malotes
 FROM (
     SELECT log_date FROM daily_truck_arrivals
     UNION SELECT log_date FROM daily_object_scans
-    UNION SELECT log_date FROM daily_label_swaps
-    UNION SELECT log_date FROM daily_meetings
     UNION SELECT log_date FROM daily_malote_deliveries
 ) d
 LEFT JOIN (
@@ -305,16 +278,6 @@ LEFT JOIN (
     SELECT log_date, COUNT(*) AS total_scans, SUM(object_count) AS total_objects
     FROM daily_object_scans GROUP BY log_date
 ) o ON o.log_date = d.log_date
-LEFT JOIN (
-    SELECT log_date, COUNT(*) AS total_swap_entries, SUM(swap_count) AS total_swaps
-    FROM daily_label_swaps GROUP BY log_date
-) s ON s.log_date = d.log_date
-LEFT JOIN (
-    SELECT log_date, COUNT(*) AS total_meetings,
-           SUM(CASE WHEN is_union THEN 1 ELSE 0 END) AS union_meetings,
-           SUM(duration_minutes) AS total_meeting_minutes
-    FROM daily_meetings GROUP BY log_date
-) m ON m.log_date = d.log_date
 LEFT JOIN (
     SELECT log_date, COUNT(*) AS total_malote_entries, SUM(malote_count) AS total_malotes
     FROM daily_malote_deliveries GROUP BY log_date
@@ -333,14 +296,10 @@ CREATE TABLE IF NOT EXISTS daily_operation_notes (
 );
 
 -- Reuse existing trigger function to automatically update the timestamp
-CREATE TRIGGER trg_daily_operation_notes_updated_at
+CREATE OR REPLACE TRIGGER trg_daily_operation_notes_updated_at
   BEFORE UPDATE ON daily_operation_notes
   FOR EACH ROW
   EXECUTE FUNCTION update_cee_sectors_updated_at();
-
--- Apply Row Level Security (RLS) policies
-ALTER TABLE daily_operation_notes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "daily_operation_notes_all_anon" ON daily_operation_notes FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- Function to retrieve the PostgreSQL version
 CREATE OR REPLACE FUNCTION get_pg_version()
@@ -355,6 +314,59 @@ $$;
 GRANT EXECUTE ON FUNCTION get_pg_version() TO anon, authenticated;
 
 -- =============================================================================
+-- 07-B. DATA QUALITY & EXTENDED STATISTICS VIEWS
+-- =============================================================================
+
+-- Speeds up grouping street_search_logs by day for the activity chart below.
+CREATE INDEX IF NOT EXISTS idx_street_search_logs_created_at ON street_search_logs(created_at);
+
+-- Quick counts for the two data-quality KPI cards on the Statistics dashboard:
+-- how many streets still have no zip code registered, and how many zip codes
+-- still have no numbering rule registered. Both flag gaps in the catalog.
+CREATE OR REPLACE VIEW stats_data_quality
+WITH (security_invoker = true) AS
+SELECT
+    (SELECT COUNT(*) FROM streets s LEFT JOIN zip_codes z ON z.street_id = s.id WHERE z.id IS NULL) AS streets_missing_zips,
+    (SELECT COUNT(*) FROM zip_codes z LEFT JOIN numbering_rules nr ON nr.zip_code_id = z.id WHERE nr.id IS NULL) AS zips_missing_rules;
+
+GRANT SELECT ON stats_data_quality TO anon, authenticated;
+
+-- Detail list backing the "streets_missing_zips" KPI above.
+CREATE OR REPLACE VIEW stats_streets_missing_zips
+WITH (security_invoker = true) AS
+SELECT s.id, s.name, s.neighborhood
+FROM streets s
+LEFT JOIN zip_codes z ON z.street_id = s.id
+WHERE z.id IS NULL
+ORDER BY s.name;
+
+GRANT SELECT ON stats_streets_missing_zips TO anon, authenticated;
+
+-- Detail list backing the "zips_missing_rules" KPI above.
+CREATE OR REPLACE VIEW stats_zips_missing_rules
+WITH (security_invoker = true) AS
+SELECT z.id, z.zip_code, s.name AS street_name
+FROM zip_codes z
+JOIN streets s ON s.id = z.street_id
+LEFT JOIN numbering_rules nr ON nr.zip_code_id = z.id
+WHERE nr.id IS NULL
+ORDER BY z.zip_code;
+
+GRANT SELECT ON stats_zips_missing_rules TO anon, authenticated;
+
+-- Daily count of CEP lookups, used to chart search activity over time.
+CREATE OR REPLACE VIEW stats_search_activity_daily
+WITH (security_invoker = true) AS
+SELECT
+    created_at::date AS search_date,
+    COUNT(*) AS search_count
+FROM street_search_logs
+GROUP BY 1
+ORDER BY 1 DESC;
+
+GRANT SELECT ON stats_search_activity_daily TO anon, authenticated;
+
+-- =============================================================================
 -- 07. ROW LEVEL SECURITY (RLS) & POLICIES
 -- =============================================================================
 
@@ -367,12 +379,13 @@ ALTER TABLE street_search_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cee_sectors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_truck_arrivals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_object_scans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_label_swaps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_meetings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_malote_deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_operation_notes ENABLE ROW LEVEL SECURITY;
+
 
 -- Clear any existing policies before recreation
 DROP POLICY IF EXISTS "streets_all_anon" ON streets;
+DROP POLICY IF EXISTS "daily_operation_notes_all_anon" ON daily_operation_notes;
 DROP POLICY IF EXISTS "zip_codes_all_anon" ON zip_codes;
 DROP POLICY IF EXISTS "numbering_rules_all_anon" ON numbering_rules;
 DROP POLICY IF EXISTS "bug_reports_insert_anon" ON bug_reports;
@@ -381,12 +394,11 @@ DROP POLICY IF EXISTS "street_search_logs_select_anon" ON street_search_logs;
 DROP POLICY IF EXISTS "cee_sectors_all_anon" ON cee_sectors;
 DROP POLICY IF EXISTS "daily_truck_arrivals_all_anon" ON daily_truck_arrivals;
 DROP POLICY IF EXISTS "daily_object_scans_all_anon" ON daily_object_scans;
-DROP POLICY IF EXISTS "daily_label_swaps_all_anon" ON daily_label_swaps;
-DROP POLICY IF EXISTS "daily_meetings_all_anon" ON daily_meetings;
 DROP POLICY IF EXISTS "daily_malote_deliveries_all_anon" ON daily_malote_deliveries;
 
 -- Core policies
 CREATE POLICY "streets_all_anon" ON streets FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "daily_operation_notes_all_anon" ON daily_operation_notes FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "zip_codes_all_anon" ON zip_codes FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "numbering_rules_all_anon" ON numbering_rules FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "cee_sectors_all_anon" ON cee_sectors FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -399,7 +411,4 @@ CREATE POLICY "street_search_logs_select_anon" ON street_search_logs FOR SELECT 
 -- Daily Operations policies
 CREATE POLICY "daily_truck_arrivals_all_anon" ON daily_truck_arrivals FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "daily_object_scans_all_anon" ON daily_object_scans FOR ALL TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "daily_label_swaps_all_anon" ON daily_label_swaps FOR ALL TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "daily_meetings_all_anon" ON daily_meetings FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "daily_malote_deliveries_all_anon" ON daily_malote_deliveries FOR ALL TO anon USING (true) WITH CHECK (true);
-

@@ -4,7 +4,6 @@
 
 const SUPABASE_URL = window.ENV.SUPABASE_URL;
 const SUPABASE_ANON_KEY = window.ENV.SUPABASE_ANON_KEY;
-
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =============================================================================
@@ -14,6 +13,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // --- DOM Helpers ---
 const qs = (sel, root = document) => root.querySelector(sel);
 const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+let currentTab = '';
 
 // --- Text & Search Normalization ---
 function normalizeSearchTerm(term) {
@@ -163,10 +163,22 @@ function switchTab(tab) {
     panel.classList.toggle("active", panel.id === `panel-${tab}`),
   );
 
-  if (tab === "stats") loadStatistics();
-  if (tab === "cee-map") loadCeeSectors();
-  if (tab === "daily-ops") loadDailyOps();
-  if (tab === "about") loadAboutPage();
+  switch (tab) {
+    case "stats":
+      loadStatistics();
+      break;
+    case "cee-map":
+      loadCeeSectors();
+      break;
+    case "daily-ops":
+      loadDailyOps();
+      break;
+    case "about":
+      loadAboutPage();
+      break;
+    default:
+      break;
+  }
 }
 
 // --- Global Hotkeys ---
@@ -174,6 +186,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "F4") {
     e.preventDefault();
     zipsPage = 0;
+    zipsSearchTerm = ''
 
     qsa("input, select, textarea").forEach((el) => {
       if (el.type === "checkbox" || el.type === "radio") {
@@ -525,7 +538,7 @@ async function loadZips(page = 0) {
   const emptyEl = qs("#zips-empty");
   zipsPage = page;
   tbody.innerHTML =
-    '<tr class="loading-row"><td colspan="4">Carregando manifesto&hellip;</td></tr>';
+    '<tr class="loading-row"><td colspan="4">Carregando logradouros&hellip;</td></tr>';
 
   const term = zipsSearchTerm.trim();
   const from = page * ZIPS_PAGE_SIZE;
@@ -2841,13 +2854,7 @@ async function loadAboutPage() {
 // 13. APP INITIALIZATION
 // =============================================================================
 
-async function init() {
-  const placeholderUrl = SUPABASE_URL.includes("YOUR-PROJECT");
-  const placeholderKey = SUPABASE_ANON_KEY.includes("YOUR-ANON");
-  if (placeholderUrl || placeholderKey) {
-    qs("#config-banner").classList.remove("hidden");
-  }
-
+async function init() {  
   const dailyOpsDateEl = qs("#daily-ops-date");
   if (dailyOpsDateEl && !dailyOpsDateEl.value)
     dailyOpsDateEl.value = todayIsoDate();
