@@ -4,18 +4,222 @@
 
 const SUPABASE_URL = window.ENV.SUPABASE_URL;
 const SUPABASE_ANON_KEY = window.ENV.SUPABASE_ANON_KEY;
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
+
+// --- DOM Helpers (needed by the auth block right below) ---
+const qs = (sel, root = document) => root.querySelector(sel);
+const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+// =============================================================================
+// 01-B. AUTHENTICATION & ROLE-BASED ACCESS CONTROL
+// =============================================================================
+// Every screen in this app requires an authenticated Supabase session.
+// Accounts are created by the admin via the Supabase Auth panel; roles live
+// in the `user_roles` table and are set by the admin in the Table Editor.
+
+let currentUser = null;
+let currentUserRole = null; // 'admin' | 'operador' | 'visualizador'
+let appInitialized = false;
+
+const loginScreenEl = qs("#login-screen");
+const appShellEl = qs("#app-shell");
+const loginFormEl = qs("#login-form");
+const loginIdentifierEl = qs("#login-identifier");
+const loginPasswordEl = qs("#login-password");
+const loginErrorEl = qs("#login-error");
+const loginSubmitEl = qs("#login-submit");
+const userBarEmailEl = qs("#user-bar-email");
+const userBarRoleEl = qs("#user-bar-role");
+const btnLogoutEl = qs("#btn-logout");
+
+// Supabase Auth only understands email (or phone) as an identifier, so
+// numeric-ID ("matrícula") logins are implemented by mapping the number to a
+// deterministic, never-emailed-to synthetic address under this domain.
+// When creating an account for someone who should log in with just a
+// number, the admin must register that user in the Supabase Auth panel
+// using EXACTLY `<numero>@ID_LOGIN_DOMAIN` as the email (any password).
+const ID_LOGIN_DOMAIN = "id.cee.local";
+const NUMERIC_ID_REGEX = /^\d{1,19}$/; // up to a signed 64-bit ("long long") value
+
+// Turns whatever the user typed (an email, or a numeric matrícula) into the
+// actual identifier Supabase Auth expects. Returns { email } on success or
+// { error } if the input matches neither shape.
+function resolveLoginIdentifier(raw) {
+  const value = (raw || "").trim();
+
+  if (!value) {
+    return { error: "Informe seu e-mail ou número de matrícula." };
+  }
+  if (value.includes("@")) {
+    return { email: value.toLowerCase() };
+  }
+  if (NUMERIC_ID_REGEX.test(value)) {
+    return { email: `${value}@${ID_LOGIN_DOMAIN}` };
+  }
+  return {
+    error: "Use um e-mail válido ou uma matrícula somente com números.",
+  };
+}
+
+const ROLE_LABELS = {
+  admin: "Administrador",
+  operador: "Operador",
+  visualizador: "Visualizador",
+};
+
+function setLoginError(message) {
+  if (!loginErrorEl) return;
+  if (message) {
+    loginErrorEl.textContent = message;
+    loginErrorEl.classList.remove("hidden");
+  } else {
+    loginErrorEl.textContent = "";
+    loginErrorEl.classList.add("hidden");
+  }
+}
+
+function setLoginLoading(isLoading) {
+  if (!loginSubmitEl) return;
+  loginSubmitEl.disabled = isLoading;
+  loginSubmitEl.textContent = isLoading ? "Entrando..." : "Entrar";
+}
+
+// Fetches the role for the currently logged-in user from user_roles.
+// Defaults to 'visualizador' (read-only) if no row exists yet, or if the
+// lookup fails for any reason, so a misconfigured account never gets more
+// access than the safest default.
+async function fetchCurrentUserRole() {
+  const { data, error } = await sb
+    .from("user_roles")
+    .select("role")
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error("Failed to load user role:", error);
+    return "visualizador";
+  }
+  return data.role;
+}
+
+// Applies UI-level restrictions based on the user's role. This is a
+// convenience layer only: the actual enforcement happens server-side via
+// PostgreSQL Row Level Security, so hidden controls can never be re-shown
+// to bypass permissions.
+function applyRolePermissions(role) {
+  document.body.classList.remove("restrict-catalog", "restrict-daily");
+
+  if (role === "operador") {
+    document.body.classList.add("restrict-catalog");
+  } else if (role === "visualizador") {
+    document.body.classList.add("restrict-catalog", "restrict-daily");
+    if (typeof dailyNotesEditor !== "undefined" && dailyNotesEditor) {
+      dailyNotesEditor.disable();
+    }
+  }
+}
+
+function updateUserBar() {
+  if (userBarEmailEl) {
+    const email = currentUser?.email || "";
+    const syntheticSuffix = `@${ID_LOGIN_DOMAIN}`;
+    userBarEmailEl.textContent = email.endsWith(syntheticSuffix)
+      ? `Matrícula: ${email.slice(0, -syntheticSuffix.length)}`
+      : email;
+  }
+  if (userBarRoleEl) {
+    userBarRoleEl.textContent = ROLE_LABELS[currentUserRole] || currentUserRole || "";
+    userBarRoleEl.className = `role-badge role-badge-${currentUserRole || "visualizador"}`;
+  }
+}
+
+async function showApp(session) {
+  currentUser = session.user;
+
+  if (loginScreenEl) loginScreenEl.classList.add("hidden");
+  if (appShellEl) appShellEl.classList.remove("hidden");
+  setLoginError(null);
+  if (loginFormEl) loginFormEl.reset();
+
+  currentUserRole = await fetchCurrentUserRole();
+  applyRolePermissions(currentUserRole);
+  updateUserBar();
+
+  if (!appInitialized) {
+    appInitialized = true;
+    await init();
+    initSupabasePing();
+  }
+}
+
+function showLogin() {
+  currentUser = null;
+  currentUserRole = null;
+  appInitialized = false;
+
+  if (appShellEl) appShellEl.classList.add("hidden");
+  if (loginScreenEl) loginScreenEl.classList.remove("hidden");
+  setLoginLoading(false);
+  if (loginIdentifierEl) setTimeout(() => loginIdentifierEl.focus(), 50);
+}
+
+if (loginFormEl) {
+  loginFormEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    const resolved = resolveLoginIdentifier(loginIdentifierEl.value);
+    if (resolved.error) {
+      setLoginError(resolved.error);
+      return;
+    }
+
+    setLoginLoading(true);
+
+    const { error } = await sb.auth.signInWithPassword({
+      email: resolved.email,
+      password: loginPasswordEl.value,
+    });
+
+    setLoginLoading(false);
+
+    if (error) {
+      setLoginError(
+        error.message === "Invalid login credentials"
+          ? "Credenciais inválidas."
+          : error.message,
+      );
+    }
+  });
+}
+
+if (btnLogoutEl) {
+  btnLogoutEl.addEventListener("click", async () => {
+    btnLogoutEl.disabled = true;
+    await sb.auth.signOut();
+    btnLogoutEl.disabled = false;
+  });
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    showApp(session);
+  } else {
+    showLogin();
+  }
+});
 
 // =============================================================================
 // 02. CORE UTILITIES
 // =============================================================================
 
-// --- DOM Helpers ---
-const qs = (sel, root = document) => root.querySelector(sel);
-const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 let currentTab = '';
 
-// --- Text & Search Normalization ---
 function normalizeSearchTerm(term) {
   const withoutAccents = term
     .trim()
@@ -299,7 +503,8 @@ const tabKeyMap = {
   4: "stats",
   5: "cee-map",
   6: "daily-ops",
-  7: "about",
+  7: "loec-analysis",
+  8: "about",
 };
 
 document.addEventListener("keydown", (e) => {
@@ -349,9 +554,7 @@ async function searchStreetsByTerm(term, limit = 8) {
 
   // Combine text search OR zip code matched IDs
   if (zipStreetIds.length > 0) {
-    query = query.or(
-      `search_text.ilike.%${wildcardTerm}%,id.in.(${zipStreetIds.join(",")})`,
-    );
+    query = query.or(`search_text.ilike.%${wildcardTerm}%,id.in.(${zipStreetIds.join(",")})`,);
   } else {
     query = query.ilike("search_text", `%${wildcardTerm}%`);
   }
@@ -653,8 +856,7 @@ async function loadZips(page = 0) {
 function renderZipsPagination() {
   const totalPages = Math.max(1, Math.ceil(zipsTotalCount / ZIPS_PAGE_SIZE));
   const countLabel = zipsTotalCount === 1 ? "CEP" : "CEPs";
-  qs("#zips-page-info").textContent =
-    `Página ${zipsPage + 1} de ${totalPages} · ${zipsTotalCount} ${countLabel}`;
+  qs("#zips-page-info").textContent = `Página ${zipsPage + 1} de ${totalPages} · ${zipsTotalCount} ${countLabel}`;
   qs("#zips-prev").disabled = zipsPage <= 0;
   qs("#zips-next").disabled = zipsPage + 1 >= totalPages;
 }
@@ -810,7 +1012,7 @@ qs("#zips-tbody").addEventListener("click", (e) => {
 });
 
 // =============================================================================
-// 07. MODULE: NUMBERING RULES (CRUD)
+// 07. MODULE: NUMBERING RULES
 // =============================================================================
 
 const RULES_PAGE_SIZE = 25;
@@ -1045,9 +1247,7 @@ async function openRuleForm(record = null) {
   }
 
   qs("#rule-cancel").addEventListener("click", closeModal);
-  qs("#rule-form").addEventListener("submit", (e) =>
-    submitRuleForm(e, record, streetCombobox),
-  );
+  qs("#rule-form").addEventListener("submit", (e) => submitRuleForm(e, record, streetCombobox),);
 }
 
 async function submitRuleForm(e, record, streetCombobox) {
@@ -2748,7 +2948,10 @@ async function loadDailyNotes(date) {
     .eq('log_date', date)
     .maybeSingle();
 
-  dailyNotesEditor.enable();
+  // Only re-enable editing if the current role is allowed to write daily ops.
+  if (currentUserRole === 'admin' || currentUserRole === 'operador') {
+    dailyNotesEditor.enable();
+  }
 
   if (error) {
     console.error('Failed to load notes:', error);
@@ -3010,6 +3213,447 @@ async function loadAboutPage() {
 }
 
 // =============================================================================
+// 12-B. MODULE: LOEC ANALYSIS (paste & analyze — available to every role)
+// =============================================================================
+// Pure client-side text analysis: no writes happen anywhere, and the only
+// network call is a read-only cross-check against zip_codes (which every
+// authenticated role can already SELECT), so this tab needs no extra RLS.
+
+const LOEC_ANALYSIS_CODE_REGEX = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
+const LOEC_ANALYSIS_CEP_REGEX = /^\d{5}-?\d{3}$/;
+
+let loecAnalysisRecords = [];
+let loecAnalysisIgnoredCount = 0;
+let loecAnalysisSort = { field: "ordem", dir: "asc" };
+let loecAnalysisFilterType = "";
+let loecAnalysisFilterSearch = "";
+let loecAnalysisTypeChart = null;
+let loecAnalysisStreetChart = null;
+
+// Parses the pasted LOEC text. Only lines that carry a valid Correios object
+// code (2 letters + 9 digits + 2 letters, e.g. AN924300185BR) in the format
+// "código  ordem  logradouro  CEP" are kept — every other line (headers,
+// blank lines, notes mixed into the paste, etc.) is silently skipped.
+function parseLoecAnalysisText(text) {
+  const lines = (text || "").split(/\r?\n/);
+  const records = [];
+  let ignored = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // The native paste format is tab-separated; fall back to runs of 2+
+    // spaces in case the tabs got collapsed by the source/clipboard.
+    let cols = line
+      .split("\t")
+      .map((c) => c.trim())
+      .filter((c) => c !== "");
+    if (cols.length < 4) {
+      cols = line
+        .split(/\s{2,}/)
+        .map((c) => c.trim())
+        .filter((c) => c !== "");
+    }
+    if (cols.length < 4) continue;
+
+    const code = cols[0].toUpperCase();
+    if (!LOEC_ANALYSIS_CODE_REGEX.test(code)) continue;
+
+    const cepRaw = cols[cols.length - 1];
+    if (!LOEC_ANALYSIS_CEP_REGEX.test(cepRaw)) {
+      ignored++;
+      continue;
+    }
+
+    const ordemRaw = cols[1];
+    const ordemNum = parseInt(ordemRaw, 10);
+    const logradouro = cols.slice(2, cols.length - 1).join(" ").trim() || "—";
+    const cep = cepRaw.includes("-")
+      ? cepRaw
+      : `${cepRaw.slice(0, 5)}-${cepRaw.slice(5)}`;
+
+    records.push({
+      code,
+      type: code.slice(0, 2),
+      ordemRaw,
+      ordem: Number.isFinite(ordemNum) ? ordemNum : null,
+      logradouro,
+      cep,
+    });
+  }
+
+  return { records, ignored };
+}
+
+function loecAnalysisTypeCounts() {
+  const counts = new Map();
+  loecAnalysisRecords.forEach((r) => {
+    counts.set(r.type, (counts.get(r.type) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function loecAnalysisStreetCounts(limit = 10) {
+  const counts = new Map();
+  loecAnalysisRecords.forEach((r) => {
+    counts.set(r.logradouro, (counts.get(r.logradouro) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([logradouro, count]) => ({ logradouro, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+function renderLoecAnalysisKpis() {
+  const records = loecAnalysisRecords;
+  const types = new Set(records.map((r) => r.type));
+  const streets = new Set(records.map((r) => r.logradouro));
+  const ceps = new Set(records.map((r) => r.cep));
+
+  qs("#loecx-total-objects").textContent = records.length;
+  qs("#loecx-total-types").textContent = types.size;
+  qs("#loecx-total-streets").textContent = streets.size;
+  qs("#loecx-total-ceps").textContent = ceps.size;
+  qs("#loecx-total-ignored").textContent = loecAnalysisIgnoredCount;
+  qs("#loecx-total-unregistered").textContent = "…";
+}
+
+function renderLoecAnalysisTypeBreakdown() {
+  const tbody = qs("#loecx-type-tbody");
+  if (!tbody) return;
+  const total = loecAnalysisRecords.length || 1;
+
+  tbody.innerHTML = loecAnalysisTypeCounts()
+    .map(
+      (t) => `
+    <tr>
+      <td><span class="loec-type-chip">${escapeHtml(t.type)}</span></td>
+      <td class="col-actions">${t.count}</td>
+      <td class="col-actions">${((t.count / total) * 100).toFixed(1)}%</td>
+    </tr>
+  `,
+    )
+    .join("");
+}
+
+function populateLoecAnalysisTypeFilter() {
+  const select = qs("#loecx-filter-type");
+  if (!select) return;
+  const currentValue = select.value;
+  const typeCounts = loecAnalysisTypeCounts();
+
+  select.innerHTML =
+    `<option value="">Todos os tipos (${loecAnalysisRecords.length})</option>` +
+    typeCounts
+      .map((t) => `<option value="${t.type}">${t.type} (${t.count})</option>`)
+      .join("");
+
+  // Preserve the current filter selection across re-renders when possible.
+  if (typeCounts.some((t) => t.type === currentValue)) {
+    select.value = currentValue;
+  } else {
+    loecAnalysisFilterType = "";
+  }
+}
+
+function renderLoecAnalysisCharts() {
+  const colors = loecSectorChartColors();
+  const typeCtx = qs("#loecx-chart-type");
+  const streetCtx = qs("#loecx-chart-streets");
+
+  if (loecAnalysisTypeChart) {
+    loecAnalysisTypeChart.destroy();
+    loecAnalysisTypeChart = null;
+  }
+  if (loecAnalysisStreetChart) {
+    loecAnalysisStreetChart.destroy();
+    loecAnalysisStreetChart = null;
+  }
+
+  const typeCounts = loecAnalysisTypeCounts();
+  if (typeCtx) {
+    loecAnalysisTypeChart = new Chart(typeCtx, {
+      type: "bar",
+      data: {
+        labels: typeCounts.map((t) => t.type),
+        datasets: [
+          {
+            label: "Objetos",
+            data: typeCounts.map((t) => t.count),
+            backgroundColor: colors.objects.bg,
+            borderColor: colors.objects.border,
+            borderWidth: 1.5,
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        plugins: { legend: { display: false } },
+      },
+    });
+  }
+
+  const streetCounts = loecAnalysisStreetCounts(10);
+  if (streetCtx) {
+    loecAnalysisStreetChart = new Chart(streetCtx, {
+      type: "bar",
+      data: {
+        labels: streetCounts.map((s) => s.logradouro),
+        datasets: [
+          {
+            label: "Objetos",
+            data: streetCounts.map((s) => s.count),
+            backgroundColor: colors.today.bg,
+            borderColor: colors.today.border,
+            borderWidth: 1.5,
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        plugins: { legend: { display: false } },
+      },
+    });
+  }
+}
+
+function getFilteredSortedLoecAnalysisRecords() {
+  let records = loecAnalysisRecords.slice();
+
+  if (loecAnalysisFilterType) {
+    records = records.filter((r) => r.type === loecAnalysisFilterType);
+  }
+  if (loecAnalysisFilterSearch) {
+    const term = loecAnalysisFilterSearch.toLowerCase();
+    records = records.filter(
+      (r) =>
+        r.code.toLowerCase().includes(term) ||
+        r.logradouro.toLowerCase().includes(term),
+    );
+  }
+
+  const { field, dir } = loecAnalysisSort;
+  const mult = dir === "asc" ? 1 : -1;
+
+  records.sort((a, b) => {
+    if (field === "ordem") {
+      const av = a.ordem === null ? Number.MAX_SAFE_INTEGER : a.ordem;
+      const bv = b.ordem === null ? Number.MAX_SAFE_INTEGER : b.ordem;
+      return (av - bv) * mult;
+    }
+    if (field === "code") return a.code.localeCompare(b.code) * mult;
+    if (field === "logradouro")
+      return a.logradouro.localeCompare(b.logradouro, "pt-BR") * mult;
+    return 0;
+  });
+
+  return records;
+}
+
+function renderLoecAnalysisFullTable() {
+  const tbody = qs("#loecx-full-tbody");
+  const emptyEl = qs("#loecx-full-empty");
+  const countInfoEl = qs("#loecx-count-info");
+  if (!tbody) return;
+
+  const records = getFilteredSortedLoecAnalysisRecords();
+
+  if (emptyEl) emptyEl.classList.toggle("hidden", records.length > 0);
+
+  tbody.innerHTML = records
+    .map(
+      (r) => `
+    <tr>
+      <td>${r.ordem !== null ? r.ordem : escapeHtml(r.ordemRaw)}</td>
+      <td class="zip-code-cell">${escapeHtml(r.code)}</td>
+      <td><span class="loec-type-chip">${escapeHtml(r.type)}</span></td>
+      <td>${escapeHtml(r.logradouro)}</td>
+      <td>${escapeHtml(r.cep)}</td>
+    </tr>
+  `,
+    )
+    .join("");
+
+  if (countInfoEl) {
+    countInfoEl.textContent = `${records.length} de ${loecAnalysisRecords.length} objeto(s) exibido(s)`;
+  }
+}
+
+function updateLoecSortButtonLabels() {
+  const labels = { ordem: "Ordem", code: "Código", logradouro: "Logradouro" };
+  qsa(".loec-sort-btn").forEach((btn) => {
+    const field = btn.dataset.sort;
+    const isActive = field === loecAnalysisSort.field;
+    btn.classList.toggle("active", isActive);
+    const arrow = isActive ? (loecAnalysisSort.dir === "asc" ? " ↑" : " ↓") : "";
+    btn.textContent = labels[field] + arrow;
+  });
+}
+
+// Cross-checks every distinct CEP found in the pasted list against the
+// system's own zip_codes catalog, flagging ones that aren't registered yet.
+async function checkLoecAnalysisUnregisteredCeps() {
+  const unregisteredEl = qs("#loecx-total-unregistered");
+  const tbody = qs("#loecx-unregistered-tbody");
+  const emptyEl = qs("#loecx-unregistered-empty");
+  const distinctCeps = Array.from(new Set(loecAnalysisRecords.map((r) => r.cep)));
+
+  if (distinctCeps.length === 0) {
+    if (unregisteredEl) unregisteredEl.textContent = "0";
+    return;
+  }
+
+  const CHUNK_SIZE = 200;
+  const registered = new Set();
+
+  for (let i = 0; i < distinctCeps.length; i += CHUNK_SIZE) {
+    const chunk = distinctCeps.slice(i, i + CHUNK_SIZE);
+    const { data, error } = await sb.from("zip_codes").select("zip_code").in("zip_code", chunk);
+    if (error) {
+      console.error("Failed to cross-check CEPs:", error);
+      if (unregisteredEl) unregisteredEl.textContent = "?";
+      return;
+    }
+    (data || []).forEach((row) => registered.add(row.zip_code));
+  }
+
+  const unregistered = distinctCeps.filter((cep) => !registered.has(cep));
+  if (unregisteredEl) unregisteredEl.textContent = unregistered.length;
+
+  if (tbody) {
+    if (unregistered.length === 0) {
+      tbody.innerHTML = "";
+      if (emptyEl) emptyEl.classList.remove("hidden");
+    } else {
+      if (emptyEl) emptyEl.classList.add("hidden");
+      tbody.innerHTML = unregistered
+        .map((cep) => {
+          const count = loecAnalysisRecords.filter((r) => r.cep === cep).length;
+          return `<tr><td class="zip-code-cell">${escapeHtml(cep)}</td><td class="col-actions">${count}</td></tr>`;
+        })
+        .join("");
+    }
+  }
+}
+
+async function runLoecAnalysis() {
+  const inputEl = qs("#loec-analysis-input");
+  const { records, ignored } = parseLoecAnalysisText(inputEl ? inputEl.value : "");
+
+  if (records.length === 0) {
+    showToast("Nenhum objeto com código válido foi encontrado no texto colado.", "error");
+    return;
+  }
+
+  loecAnalysisRecords = records;
+  loecAnalysisIgnoredCount = ignored;
+  loecAnalysisFilterType = "";
+  loecAnalysisFilterSearch = "";
+
+  const searchEl = qs("#loecx-filter-search");
+  if (searchEl) searchEl.value = "";
+
+  loecAnalysisSort = { field: "ordem", dir: "asc" };
+  updateLoecSortButtonLabels();
+
+  qs("#loec-analysis-empty")?.classList.add("hidden");
+  qs("#loec-analysis-results")?.classList.remove("hidden");
+
+  renderLoecAnalysisKpis();
+  renderLoecAnalysisTypeBreakdown();
+  populateLoecAnalysisTypeFilter();
+  renderLoecAnalysisCharts();
+  renderLoecAnalysisFullTable();
+
+  await checkLoecAnalysisUnregisteredCeps();
+}
+
+function clearLoecAnalysis() {
+  const inputEl = qs("#loec-analysis-input");
+  if (inputEl) inputEl.value = "";
+
+  loecAnalysisRecords = [];
+  loecAnalysisIgnoredCount = 0;
+
+  if (loecAnalysisTypeChart) {
+    loecAnalysisTypeChart.destroy();
+    loecAnalysisTypeChart = null;
+  }
+  if (loecAnalysisStreetChart) {
+    loecAnalysisStreetChart.destroy();
+    loecAnalysisStreetChart = null;
+  }
+
+  qs("#loec-analysis-results")?.classList.add("hidden");
+  qs("#loec-analysis-empty")?.classList.remove("hidden");
+}
+
+function exportLoecAnalysisCsv() {
+  if (!loecAnalysisRecords.length) {
+    showToast("Nenhum dado para exportar.", "error");
+    return;
+  }
+
+  const records = getFilteredSortedLoecAnalysisRecords();
+  let csv = "Ordem;Codigo;Tipo;Logradouro;CEP\n";
+  records.forEach((r) => {
+    const ordem = r.ordem !== null ? r.ordem : r.ordemRaw;
+    const logradouro = (r.logradouro || "").replace(/;/g, ",");
+    csv += `${ordem};${r.code};${r.type};${logradouro};${r.cep}\n`;
+  });
+
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `analise_loec_${todayIsoDate()}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// --- LOEC Analysis Event Listeners ---
+qs("#loec-analysis-run")?.addEventListener("click", runLoecAnalysis);
+qs("#loec-analysis-clear")?.addEventListener("click", clearLoecAnalysis);
+qs("#loecx-export-csv")?.addEventListener("click", exportLoecAnalysisCsv);
+
+qs("#loecx-filter-search")?.addEventListener("input", (e) => {
+  loecAnalysisFilterSearch = e.target.value.trim();
+  renderLoecAnalysisFullTable();
+});
+
+qs("#loecx-filter-type")?.addEventListener("change", (e) => {
+  loecAnalysisFilterType = e.target.value;
+  renderLoecAnalysisFullTable();
+});
+
+qsa(".loec-sort-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const field = btn.dataset.sort;
+    if (loecAnalysisSort.field === field) {
+      loecAnalysisSort.dir = loecAnalysisSort.dir === "asc" ? "desc" : "asc";
+    } else {
+      loecAnalysisSort = { field, dir: "asc" };
+    }
+    updateLoecSortButtonLabels();
+    renderLoecAnalysisFullTable();
+  });
+});
+
+updateLoecSortButtonLabels();
+
+// =============================================================================
 // 13. APP INITIALIZATION
 // =============================================================================
 
@@ -3056,12 +3700,13 @@ function initSupabasePing() {
       }
 
     } catch (error) {
-      // Only log the error if you need to debug connection issues
-      // console.error('Ping query failed:', error);
       dot.className = 'ping-dot ping-red';
       text.textContent = 'Err';
     }
   }, 1500);
 }
 
-init();
+// App bootstrap now happens inside showApp(), triggered by
+// sb.auth.onAuthStateChange() once a valid session is confirmed (see
+// section 01-B above). This keeps the app from ever loading data before
+// the user is authenticated.

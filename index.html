@@ -17,11 +17,54 @@
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
   </head>
   <body>
+    <!-- ===== Login Screen ===== -->
+    <div id="login-screen" class="login-screen">
+      <form id="login-form" class="login-card" autocomplete="on">
+        <div class="login-header">
+          <span class="login-stamp">CEE</span>
+          <h1>Acesso ao Sistema</h1>
+          <p>Informe suas credenciais para continuar.</p>
+        </div>
+        <div class="field">
+          <label for="login-identifier">E-mail ou matrícula</label>
+          <input
+            type="text"
+            id="login-identifier"
+            name="identifier"
+            inputmode="text"
+            autocomplete="username"
+            placeholder="nome@exemplo.com ou número de matrícula"
+            required
+          />
+          <p class="field-hint">
+            Use seu e-mail cadastrado, ou apenas o número de matrícula (só dígitos).
+          </p>
+        </div>
+        <div class="field">
+          <label for="login-password">Senha</label>
+          <input
+            type="password"
+            id="login-password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <div id="login-error" class="field-error login-error hidden"></div>
+        <button type="submit" class="btn btn-primary login-submit" id="login-submit">
+          Entrar
+        </button>
+        <p class="login-footnote">
+          Não possui uma conta? Solicite acesso ao administrador do sistema.
+        </p>
+      </form>
+    </div>
+
     <div id="supabase-ping" class="ping-overlay">
       <span id="ping-dot" class="ping-dot"></span>
       <span id="ping-text">-- ms</span>
     </div>
-    <div class="app-shell">
+    <div class="app-shell hidden" id="app-shell">
       <!-- <div
         class="config-banner"
         id="f4-tip"
@@ -30,6 +73,17 @@
         <strong>Dica:</strong> Pressione a tecla <code>F4</code> a qualquer
         momento para limpar todas as seleções e campos de busca.
       </div> -->
+
+      <!-- ===== User bar ===== -->
+      <div class="user-bar" id="user-bar">
+        <div class="user-bar-info">
+          <span class="user-bar-email" id="user-bar-email"></span>
+          <span class="role-badge" id="user-bar-role"></span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-icon" id="btn-logout">
+          Sair
+        </button>
+      </div>
 
       <!-- ===== Tabs ===== -->
       <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
@@ -83,11 +137,19 @@
         </button>
         <button
           class="tab-btn"
+          data-tab="loec-analysis"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">07</span> Análise LOEC
+        </button>
+        <button
+          class="tab-btn"
           data-tab="about"
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">07</span> Manual
+          <span class="tab-index">08</span> Manual
         </button>
       </nav>
 
@@ -698,6 +760,184 @@
   </div>
 </div>
         </section>
+
+        <!-- ===== LOEC ANALYSIS (paste & analyze, any role) ===== -->
+        <section id="panel-loec-analysis" class="panel" aria-labelledby="loec-analysis">
+          <p class="field-hint loec-analysis-intro">
+            Cole abaixo o texto da LOEC (Lista de Objetos Entregues ao Carteiro). O
+            sistema identifica automaticamente as linhas que trazem um código de
+            objeto válido (ex.: <code>AN924300185BR</code>) no formato
+            <code>código&nbsp;&nbsp;ordem&nbsp;&nbsp;logradouro&nbsp;&nbsp;CEP</code>
+            e ignora todo o restante do texto colado.
+          </p>
+
+          <div class="field">
+            <label for="loec-analysis-input">Texto da LOEC</label>
+            <textarea
+              id="loec-analysis-input"
+              rows="10"
+              placeholder="Cole aqui o texto copiado da LOEC..."
+            ></textarea>
+          </div>
+
+          <div class="panel-toolbar">
+            <div></div>
+            <div style="display: flex; gap: 10px">
+              <button type="button" class="btn btn-secondary" id="loec-analysis-clear">
+                Limpar
+              </button>
+              <button type="button" class="btn btn-primary" id="loec-analysis-run">
+                Analisar Lista
+              </button>
+            </div>
+          </div>
+
+          <p id="loec-analysis-empty" class="empty-state">
+            Cole o texto da LOEC acima e clique em &ldquo;Analisar Lista&rdquo; para
+            ver os resultados.
+          </p>
+
+          <div id="loec-analysis-results" class="loec-analysis-results hidden">
+            <!-- KPI cards -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-title">Objetos Identificados</div>
+                <div class="stat-value" id="loecx-total-objects">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Tipos Distintos</div>
+                <div class="stat-value" id="loecx-total-types">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Logradouros Distintos</div>
+                <div class="stat-value" id="loecx-total-streets">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">CEPs Distintos</div>
+                <div class="stat-value" id="loecx-total-ceps">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">CEPs Não Cadastrados</div>
+                <div class="stat-value" id="loecx-total-unregistered">&hellip;</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Linhas Ignoradas</div>
+                <div class="stat-value" id="loecx-total-ignored">0</div>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="stats-columns loec-analysis-charts">
+              <div class="loec-report-chart-box">
+                <div class="stats-section-header">Objetos por Tipo</div>
+                <canvas id="loecx-chart-type" height="220"></canvas>
+              </div>
+              <div class="loec-report-chart-box">
+                <div class="stats-section-header">Top 10 Logradouros</div>
+                <canvas id="loecx-chart-streets" height="220"></canvas>
+              </div>
+            </div>
+
+            <!-- Type breakdown + unregistered CEPs -->
+            <div class="stats-columns">
+              <div class="manifest-frame stats-table-wrapper">
+                <div class="stats-section-header">Resumo por Tipo</div>
+                <table class="manifest-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th class="col-actions">Objetos</th>
+                      <th class="col-actions">%</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loecx-type-tbody"></tbody>
+                </table>
+              </div>
+
+              <div class="manifest-frame stats-table-wrapper">
+                <div class="stats-section-header">
+                  CEPs do LOEC não cadastrados no sistema
+                </div>
+                <table class="manifest-table">
+                  <thead>
+                    <tr>
+                      <th>CEP</th>
+                      <th class="col-actions">Objetos</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loecx-unregistered-tbody"></tbody>
+                </table>
+                <p id="loecx-unregistered-empty" class="empty-state hidden">
+                  Todos os CEPs encontrados já estão cadastrados no sistema.
+                </p>
+              </div>
+            </div>
+
+            <!-- Full sortable / filterable table -->
+            <div class="panel-toolbar loec-analysis-table-toolbar">
+              <div class="search-field">
+                <input
+                  type="search"
+                  id="loecx-filter-search"
+                  placeholder="Buscar por código ou logradouro&hellip;"
+                />
+              </div>
+              <div class="loec-analysis-toolbar-actions">
+                <div class="search-field">
+                  <select id="loecx-filter-type">
+                    <option value="">Todos os tipos</option>
+                  </select>
+                </div>
+                <div class="loec-analysis-sort-group" role="group" aria-label="Ordenar por">
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-icon loec-sort-btn active"
+                    data-sort="ordem"
+                  >
+                    Ordem
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-icon loec-sort-btn"
+                    data-sort="code"
+                  >
+                    Código
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-icon loec-sort-btn"
+                    data-sort="logradouro"
+                  >
+                    Logradouro
+                  </button>
+                </div>
+                <button type="button" class="btn btn-secondary btn-icon" id="loecx-export-csv">
+                  Exportar CSV
+                </button>
+              </div>
+            </div>
+
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Ordem</th>
+                    <th>Código</th>
+                    <th>Tipo</th>
+                    <th>Logradouro</th>
+                    <th>CEP</th>
+                  </tr>
+                </thead>
+                <tbody id="loecx-full-tbody"></tbody>
+              </table>
+              <p id="loecx-full-empty" class="empty-state hidden">
+                Nenhum objeto corresponde ao filtro atual.
+              </p>
+            </div>
+            <p class="pagination-info" id="loecx-count-info"></p>
+          </div>
+        </section>
+
         <!-- ===== MANUAL / ABOUT PAGE ===== -->
         <section id="panel-about" class="panel" aria-labelledby="about">
           <div id="about-content" class="manual-content">

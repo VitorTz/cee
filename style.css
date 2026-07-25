@@ -2181,3 +2181,246 @@ main {
     height: 480px; /* Fixed, capped height */
   }
 }
+/* =========================================================================
+   17. AUTHENTICATION: LOGIN SCREEN, USER BAR & ROLE-BASED VISIBILITY
+   ========================================================================= */
+
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at 100% 0%, rgba(255, 204, 0, 0.1), transparent 45%), var(--correios-blue-deep);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--paper-raised);
+  border: 2px solid var(--paper-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-slip);
+  padding: 32px 28px 28px;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login-stamp {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 3px double var(--correios-blue);
+  border-radius: 6px;
+  color: var(--correios-blue-deep);
+  transform: rotate(-3deg);
+  margin-bottom: 14px;
+}
+
+.login-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  letter-spacing: 0.5px;
+  color: var(--correios-blue-deep);
+  margin: 0 0 4px;
+}
+
+.login-header p {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.login-error {
+  margin-top: -6px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+/* .field-error is display:none by default and only shown inside a
+   .field.has-error ancestor; the login error box lives outside that
+   pattern, so it needs its own visibility rule. */
+.login-error:not(.hidden) {
+  display: block;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.login-footnote {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* --- User bar (shown once logged in, above the tabs) --- */
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-top: 10px;  
+  flex-wrap: wrap;
+}
+
+.user-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-bar-email {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.role-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--correios-blue);
+  color: var(--correios-blue-deep);
+}
+
+.role-badge-admin {
+  border-color: var(--stamp-red);
+  color: var(--stamp-red);
+}
+
+.role-badge-operador {
+  border-color: var(--correios-yellow-deep);
+  color: #8a6400;
+}
+
+.role-badge-visualizador {
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+}
+
+/* --- Role-based visibility ---
+   Server-side RLS is the real enforcement; these rules just keep the UI
+   from offering controls the current role isn't allowed to use. */
+
+/* Operador and Visualizador: hide catalog write controls (streets, zips,
+   numbering rules, CEE sector offsets). */
+body.restrict-catalog #btn-new-street,
+body.restrict-catalog #btn-new-zip,
+body.restrict-catalog [data-edit-zip],
+body.restrict-catalog [data-delete-zip],
+body.restrict-catalog #btn-new-rule,
+body.restrict-catalog [data-edit-rule],
+body.restrict-catalog [data-delete-rule],
+body.restrict-catalog .cee-offset-panel {
+  display: none !important;
+}
+
+/* Visualizador only: hide Registros Diários write controls. */
+body.restrict-daily #btn-new-truck,
+body.restrict-daily [data-delete-truck],
+body.restrict-daily #btn-new-scan,
+body.restrict-daily #btn-paste-loec,
+body.restrict-daily [data-delete-scan],
+body.restrict-daily #btn-new-malote,
+body.restrict-daily [data-delete-malote],
+body.restrict-daily #btn-save-notes,
+body.restrict-daily .ql-toolbar {
+  display: none !important;
+}
+
+body.restrict-daily #daily-notes-editor.ql-container {
+  border-top: 1.5px solid var(--paper-line);
+}
+
+/* =========================================================================
+   18. LOEC ANALYSIS TAB (paste & analyze list of postal objects)
+   ========================================================================= */
+
+.loec-analysis-intro {
+  margin-bottom: 16px;
+}
+
+.loec-analysis-intro code {
+  font-family: var(--font-mono);
+  background: #fff8e1;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--correios-blue-deep);
+}
+
+#loec-analysis-input {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 160px;
+}
+
+.loec-analysis-results {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.loec-analysis-charts .loec-report-chart-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loec-analysis-charts canvas {
+  max-height: 260px;
+}
+
+.loec-analysis-table-toolbar {
+  margin-top: 4px;
+}
+
+.loec-analysis-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.loec-analysis-sort-group {
+  display: flex;
+  gap: 6px;
+}
+
+.loec-sort-btn.active {
+  background: var(--correios-blue);
+  border-color: var(--correios-blue-deep);
+  color: #fff;
+}
+
+.loec-sort-btn.active:hover {
+  background: var(--correios-blue-deep);
+}
+
+.loec-type-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1.5px solid var(--correios-blue);
+  color: var(--correios-blue-deep);
+  background: #eef4fa;
+}
