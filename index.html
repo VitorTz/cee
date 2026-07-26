@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CEE - FNS</title>
+    <title>CEE</title>
+    <!-- <link rel="shortcut icon" href="res/favicon_io/favicon.ico" type="image/x-icon"> -->
+    <link rel="icon" type="image/svg+xml" href="res/fav.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -79,7 +81,7 @@
       </div>
 
       <!-- ===== Tabs ===== -->
-       <!-- Mobile menu toggle button (Package theme) -->
+       <!-- Mobile menu toggle button -->
       <button type="button" id="mobile-menu-toggle" class="mobile-menu-btn" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -115,19 +117,11 @@
         </button>
         <button
           class="tab-btn"
-          data-tab="stats"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">04</span> Estatísticas
-        </button>
-        <button
-          class="tab-btn"
           data-tab="cee-map"
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">05</span> Mapa CEE
+          <span class="tab-index">04</span> Mapa CEE
         </button>
         <button
           class="tab-btn"
@@ -135,7 +129,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">06</span> Registros
+          <span class="tab-index">05</span> Registros
         </button>
         <button
           class="tab-btn"
@@ -143,7 +137,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">07</span> Análise LOEC
+          <span class="tab-index">06</span> Análise LOEC
         </button>
         <button
           class="tab-btn"
@@ -151,7 +145,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">08</span> Chamados
+          <span class="tab-index">07</span> Chamados
         </button>
         <button
           class="tab-btn"
@@ -159,7 +153,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">09</span> Minha Conta
+          <span class="tab-index">08</span> Minha Conta
         </button>
         <button
           class="tab-btn admin-only hidden"
@@ -168,12 +162,12 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">10</span> Supabase Metrics
+          <span class="tab-index">9</span> Supabase Metrics
         </button>
       </nav>
 
       <main>
-        <!-- ===== ZIP CODES (CRUD) ===== -->
+        <!-- ===== ZIP CODES ===== -->
         <section id="panel-zips" class="panel active" aria-labelledby="zips">
           <div class="panel-toolbar">
             <div class="search-field">
@@ -233,17 +227,21 @@
           </div>
         </section>
 
-        <!-- ===== CEP SEARCH (lookup tool) ===== -->
-        <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
+        <!-- ===== CEP SEARCH ===== -->
+       <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
           <div class="cepsearch-form">
             <div class="field">
               <label for="cepsearch-query">CEP, logradouro ou descrição</label>
-              <input
-                type="text"
-                id="cepsearch-query"
-                placeholder="Ex.: 88000-000, Felipe Schmidt, Centro&hellip;"
-                autocomplete="off"
-              />
+              <!-- Wrapped the input in a combobox-field to support suggestions -->
+              <div class="combobox-field">
+                <input
+                  type="text"
+                  id="cepsearch-query"
+                  placeholder="Ex.: 88010-000, Felipe Schmidt, Centro&hellip;"
+                  autocomplete="off"
+                />
+                <div class="combobox-suggestions hidden" id="cepsearch-query-suggestions"></div>
+              </div>
               <p class="field-hint" id="cepsearch-match-hint">
                 Digite para localizar o logradouro.
               </p>
@@ -267,7 +265,7 @@
           </p>
         </section>
 
-        <!-- ===== NUMBERING RULES (CRUD) ===== -->
+        <!-- ===== NUMBERING RULES ===== -->
         <section id="panel-rules" class="panel" aria-labelledby="rules">
           <div class="panel-toolbar">
             <div class="rules-filter">
@@ -343,156 +341,7 @@
           </div>
         </section>
 
-        <!-- ===== STATISTICS DASHBOARD ===== -->
-        <section id="panel-stats" class="panel" aria-labelledby="stats">
-          <div class="stats-grid">
-            <!-- KPI Cards -->
-            <div class="stat-card">
-              <div class="stat-title">Logradouros</div>
-              <div class="stat-value" id="stat-total-streets">...</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">CEPs</div>
-              <div class="stat-value" id="stat-total-zips">...</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Regras de Numeração</div>
-              <div class="stat-value" id="stat-total-rules">...</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Logradouros sem CEP</div>
-              <div class="stat-value" id="stat-streets-missing-zips">...</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">CEPs sem Regras</div>
-              <div class="stat-value" id="stat-zips-missing-rules">...</div>
-            </div>
-          </div>
-
-          <!-- Activity Charts -->
-          <div class="stats-columns">
-            <!-- Top Neighborhoods Table -->
-            <div class="manifest-frame stats-table-wrapper">
-              <div class="stats-section-header">
-                Bairros com mais logradouros
-              </div>
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Bairro</th>
-                    <th class="col-actions">Logradouros</th>
-                  </tr>
-                </thead>
-                <tbody id="stat-neighborhoods-tbody">
-                  <tr>
-                    <td
-                      colspan="2"
-                      style="text-align: center; color: var(--ink-soft)"
-                    >
-                      Carregando...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Top Streets Table -->
-            <div class="manifest-frame stats-table-wrapper">
-              <div class="stats-section-header">Logradouros com mais ceps</div>
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Logradouro</th>
-                    <th class="col-actions">CEP</th>
-                  </tr>
-                </thead>
-                <tbody id="stat-top-streets-tbody">
-                  <tr>
-                    <td
-                      colspan="2"
-                      style="text-align: center; color: var(--ink-soft)"
-                    >
-                      Carregando...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Top Consulted Streets Table -->
-            <div class="manifest-frame stats-table-wrapper">
-              <div class="stats-section-header">CEPs mais consultados</div>
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Logradouro</th>
-                    <th class="col-actions">Consultas</th>
-                  </tr>
-                </thead>
-                <tbody id="stat-top-consulted-tbody">
-                  <tr>
-                    <td
-                      colspan="2"
-                      style="text-align: center; color: var(--ink-soft)"
-                    >
-                      Carregando...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Streets Missing Zip Codes Table -->
-            <div class="manifest-frame stats-table-wrapper">
-              <div class="stats-section-header">
-                Logradouros sem CEP cadastrado
-              </div>
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Logradouro</th>
-                    <th class="col-actions">Bairro</th>
-                  </tr>
-                </thead>
-                <tbody id="stat-streets-missing-zips-tbody">
-                  <tr>
-                    <td
-                      colspan="2"
-                      style="text-align: center; color: var(--ink-soft)"
-                    >
-                      Carregando...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Zips Missing Numbering Rules Table -->
-            <div class="manifest-frame stats-table-wrapper">
-              <div class="stats-section-header">
-                CEPs sem regras de numeração
-              </div>
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>CEP</th>
-                    <th class="col-actions">Logradouro</th>
-                  </tr>
-                </thead>
-                <tbody id="stat-zips-missing-rules-tbody">
-                  <tr>
-                    <td
-                      colspan="2"
-                      style="text-align: center; color: var(--ink-soft)"
-                    >
-                      Carregando...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+            
 
         <!-- CEE Internal Floorplan Map Panel -->
         <section id="panel-cee-map" class="panel" aria-labelledby="cee-map">
@@ -806,8 +655,7 @@
           aria-labelledby="loec-analysis"
         >
           <p class="field-hint loec-analysis-intro">
-            Cole abaixo o texto da LOEC (Lista de Objetos Entregues ao
-            Carteiro). O sistema identifica automaticamente as linhas que trazem
+            Cole abaixo o texto da LOEC. O sistema identifica automaticamente as linhas que trazem
             um código de objeto válido (ex.: <code>AN924300185BR</code>) no
             formato
             <code
@@ -817,7 +665,6 @@
           </p>
 
           <div class="field">
-            <label for="loec-analysis-input">Texto da LOEC</label>
             <textarea
               id="loec-analysis-input"
               rows="10"
@@ -909,23 +756,6 @@
                 </table>
               </div>
 
-              <div class="manifest-frame stats-table-wrapper">
-                <div class="stats-section-header">
-                  CEPs do LOEC não cadastrados no sistema
-                </div>
-                <table class="manifest-table">
-                  <thead>
-                    <tr>
-                      <th>CEP</th>
-                      <th class="col-actions">Objetos</th>
-                    </tr>
-                  </thead>
-                  <tbody id="loecx-unregistered-tbody"></tbody>
-                </table>
-                <p id="loecx-unregistered-empty" class="empty-state hidden">
-                  Todos os CEPs encontrados já estão cadastrados no sistema.
-                </p>
-              </div>
             </div>
 
             <!-- Full sortable / filterable table -->
@@ -1004,16 +834,7 @@
         <!-- ===== MANUAL / ABOUT PAGE ===== -->
         <!-- ===== HELP DESK (CHAMADOS) ===== -->
         <section id="panel-helpdesk" class="panel" aria-labelledby="helpdesk">
-          <div class="panel-toolbar">
-            <button
-              type="button"
-              class="btn btn-primary"
-              id="btn-new-helpdesk-ticket"
-            >
-              Novo Chamado
-            </button>
-          </div>
-
+          
           <div
             class="helpdesk-filter-bar"
             id="helpdesk-filter-bar"
@@ -1029,6 +850,13 @@
 
           <div class="helpdesk-layout">
             <div class="helpdesk-list-col">
+              <button
+              type="button"
+              class="btn btn-primary"
+              id="btn-new-helpdesk-ticket"
+            >
+              + Novo Chamado
+            </button>
               <div id="helpdesk-ticket-list" class="helpdesk-ticket-list"></div>
               <p id="helpdesk-list-empty" class="empty-state hidden">
                 Nenhum chamado encontrado.
@@ -1133,7 +961,12 @@
               <input type="email" id="account-contact-email" maxlength="150" placeholder="seuemail@exemplo.com">
             </div>
 
-            <h3 class="account-section-title">Endereço</h3>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; margin-bottom: 4px;">
+              <h3 class="account-section-title" style="margin: 0;">Endereço</h3>
+              <button type="button" class="btn btn-secondary" id="btn-account-clear-address" style="font-size: 0.75rem; padding: 4px 10px;">
+                Limpar Endereço
+              </button>
+            </div>
             <div class="field-row">
               <div class="field">
                 <label for="account-zip">CEP</label>
@@ -1444,27 +1277,8 @@
       "
     >
       <!-- Footer Content -->
-      <div style="margin-bottom: 8px">
-        <h3
-          style="
-            margin: 0;
-            font-family: var(--font-display);
-            color: var(--correios-blue-deep);
-            font-size: 1.8rem;
-            letter-spacing: 1px;
-          "
-        >
-          Sistema de Endereçamento
-        </h3>
-        <p
-          style="margin: 4px 0 16px; font-size: 0.9rem; color: var(--ink-soft)"
-        >
-          Plataforma Operacional
-        </p>
-      </div>
-      <div
-        style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)"
-      >
+      
+      <div style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)">
         Developed by <strong>Vitor Fernando da Silva</strong>
       </div>
       <a
@@ -1493,7 +1307,10 @@
         </svg>
         github.com/vitortz/cee
       </a>
-      <div style="margin-top: 24px">
+      <div style="margin-top: 24px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" id="btn-contact-us">
+          Entrar em Contato
+        </button>
         <button class="btn btn-danger" id="btn-report-bug">
           Reportar um Bug
         </button>
@@ -1521,11 +1338,10 @@
     <script src="src/tabs/daily-ops.js" defer></script>
     <script src="src/tabs/helpdesk.js" defer></script>
     <script src="src/tabs/account.js" defer></script>
-    <script src="src/tabs/statistics.js" defer></script>
     <script src="src/tabs/bug-reports.js" defer></script>
-    <script src="src/tabs/about.js" defer></script>
     <script src="src/tabs/loec-analysis.js" defer></script>
     <script src="src/tabs/metrics.js" defer></script>
+    <script src="src/tabs/contact.js" defer></script>
     <script src="app.js" defer></script>
   </body>
 </html>

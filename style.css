@@ -300,7 +300,6 @@ main {
 }
 
 .postal-footer {
-  margin-top: 18px;
   text-align: center;
   font-family: var(--font-mono);
   font-size: 1rem;
@@ -3108,7 +3107,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
    ========================================================================= */
 
 .account-form {
-  max-width: 720px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -3388,4 +3387,39 @@ body.restrict-daily #daily-notes-editor.ql-container {
   min-width: 220px;
   max-width: 320px; /* Prevents it from taking 100% width */
   flex: 1 1 auto;
+}
+
+/* =========================================================================
+   HERO NEW TICKET BUTTON (HELPDESK)
+   ========================================================================= */
+
+/* Large, prominent button at the top of the ticket list */
+.helpdesk-new-ticket-hero-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 68, 124, 0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.helpdesk-new-ticket-hero-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 68, 124, 0.25);
+}
+
+/* Ensure the button hides properly when the JS toggles the 'hidden' class 
+   for supervisors and admins, preventing the flex display from overriding it */
+.helpdesk-new-ticket-hero-btn.hidden {
+  display: none !important;
+}
+
+#btn-new-helpdesk-ticket {
+  margin-bottom: 10px;
+  width: 100%;
 }

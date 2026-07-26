@@ -10,23 +10,43 @@ let cepSearchState = {
     breakdown: [],
     searchLogged: false,
 };
-let cepSearchDebounce = null;
 
-function goToCepSearch(zipCodeStr) {
+let cepSearchCombobox = null;
+
+/**
+ * Invoked by external modules (e.g., clicking 'Consultar' in a table)
+ * to prepopulate the search and attempt to find a match.
+ */
+async function goToCepSearch(zipCodeStr) {
     switchTab("cepsearch");
-    qs("#cepsearch-query").value = zipCodeStr;
-    qs("#cepsearch-number").value = "";
-    resolveStreetForQuery(zipCodeStr, { focusNumber: true });
+
+    // Attempt to resolve the street automatically
+    const matches = await searchStreetsByTerm(zipCodeStr);
+    if (matches.length > 0) {
+        // If it's a specific ZIP, it usually matches exactly 1 street.
+        const chosen = matches[0];
+        if (cepSearchCombobox) cepSearchCombobox.setValue(chosen);
+        handleCepSearchSelect(chosen);
+    } else {
+        if (cepSearchCombobox) cepSearchCombobox.setValue(null);
+        handleCepSearchSelect(null);
+        // Leave the input with what they passed so they can edit
+        const queryInput = qs("#cepsearch-query");
+        if (queryInput) queryInput.value = zipCodeStr;
+    }
 }
 
-async function resolveStreetForQuery(term, opts = {}) {
-    const trimmed = term.trim();
+/**
+ * Handles the selection event triggered by the Combobox (either via 
+ * manual click or auto-selection when there is exactly 1 match).
+ */
+function handleCepSearchSelect(street) {
     const hintEl = qs("#cepsearch-match-hint");
     const numberInput = qs("#cepsearch-number");
     const resultsEl = qs("#cepsearch-results");
     const emptyEl = qs("#cepsearch-empty");
 
-    if (!trimmed) {
+    if (!street) {
         cepSearchState = {
             streetId: null,
             street: null,
@@ -35,82 +55,24 @@ async function resolveStreetForQuery(term, opts = {}) {
         };
         hintEl.textContent = "Digite para localizar o logradouro.";
         numberInput.disabled = true;
+        numberInput.value = "";
         resultsEl.classList.add("hidden");
         emptyEl.classList.remove("hidden");
         return;
     }
 
-    hintEl.textContent = "Buscando...";
+    hintEl.innerHTML = `Correspondência: <strong>${escapeHtml(street.name)}</strong>`;
 
-    const wildcardTerm = normalizeSearchTerm(term);
-    const digits = term.replace(/\D/g, "");
+    const isNewMatch = cepSearchState.streetId !== street.id;
 
-    const textPromise = sb
-        .from("streets")
-        .select("id, name, neighborhood, descr")
-        .ilike("search_text", `%${wildcardTerm}%`)
-        .order("name")
-        .limit(5);
-
-    let zipPromise = Promise.resolve({ data: [] });
-    if (digits) {
-        const pattern = digitsToZipPattern(normalizeZipDigits(trimmed));
-        zipPromise = sb
-            .from("zip_codes")
-            .select("street_id, streets(id, name, neighborhood, descr)")
-            .ilike("zip_code", `%${pattern}%`)
-            .limit(5);
-    }
-
-    const [
-        { data: textMatches, error: textError },
-        { data: zipMatches, error: zipError },
-    ] = await Promise.all([textPromise, zipPromise]);
-
-    if (textError || zipError) {
-        hintEl.textContent = `Erro na busca: ${escapeHtml((textError || zipError).message)}`;
-        return;
-    }
-
-    const merged = new Map();
-    (zipMatches || []).forEach((z) => {
-        if (z.streets) merged.set(z.streets.id, z.streets);
+    loadStreetBreakdown(street).then(() => {
+        numberInput.disabled = false;
+        if (isNewMatch) {
+            numberInput.value = "";
+            numberInput.focus();
+        }
+        renderCepSearchResults();
     });
-    (textMatches || []).forEach((s) => {
-        if (!merged.has(s.id)) merged.set(s.id, s);
-    });
-
-    const candidates = Array.from(merged.values());
-
-    if (candidates.length === 0) {
-        cepSearchState = {
-            streetId: null,
-            street: null,
-            breakdown: [],
-            searchLogged: false,
-        };
-        hintEl.textContent = "Nenhum logradouro encontrado para esta busca.";
-        numberInput.disabled = true;
-        resultsEl.classList.add("hidden");
-        emptyEl.classList.remove("hidden");
-        return;
-    }
-
-    const chosen = candidates[0];
-    hintEl.innerHTML =
-        candidates.length > 1
-            ? `Correspondência: <strong>${escapeHtml(chosen.name)}</strong> &middot; ${candidates.length} logradouros encontrados, refine a busca se necessário.`
-            : `Correspondência: <strong>${escapeHtml(chosen.name)}</strong>`;
-
-    // A "new" match is a different street than whatever was matched before,
-    // so retyping within the same street (e.g. adding more characters that
-    // still resolve to it) won't keep stealing focus away from the query field.
-    const isNewMatch = cepSearchState.streetId !== chosen.id;
-
-    await loadStreetBreakdown(chosen);
-    numberInput.disabled = false;
-    if (opts.focusNumber || isNewMatch) numberInput.focus();
-    renderCepSearchResults();
 }
 
 async function loadStreetBreakdown(street) {
@@ -161,7 +123,6 @@ function renderCepSearchResults() {
     const resultsEl = qs('#cepsearch-results');
     const emptyEl = qs('#cepsearch-empty');
 
-    // If no street is selected, clear everything and reset the tracker
     if (!cepSearchState.streetId) {
         resultsEl.classList.add('hidden');
         resultsEl.dataset.renderedStreet = '';
@@ -177,14 +138,12 @@ function renderCepSearchResults() {
     const number = numberRaw === '' ? null : Number(numberRaw);
     const matchedZip = number !== null ? findMatchingZip(breakdown, number) : null;
 
-    // Reorder to show the matched zip code at the top
     let displayBreakdown = [...breakdown];
     if (matchedZip) {
         displayBreakdown = displayBreakdown.filter(z => z.id !== matchedZip.id);
         displayBreakdown.unshift(matchedZip);
     }
 
-    // Generate the HTML for the zip blocks
     const blocksHtml = displayBreakdown
         .map((z) => {
             const isMatch = Boolean(matchedZip && matchedZip.id === z.id);
@@ -223,7 +182,6 @@ function renderCepSearchResults() {
         })
         .join('');
 
-    // Generate the "Not Found" message if needed
     let notFoundMessageHtml = '';
     if (number !== null && !matchedZip) {
         notFoundMessageHtml = `
@@ -235,23 +193,19 @@ function renderCepSearchResults() {
     `;
     }
 
-    // Combine the dynamic left column content
     const leftColumnContent = `
     ${notFoundMessageHtml}
     ${blocksHtml || '<p class="field-hint">Este logradouro ainda não tem CEPs cadastrados.</p>'}
   `;
 
-    // OPTIMIZATION: Check if we have already rendered the map and layout for this exact street
     if (resultsEl.dataset.renderedStreet === String(street.id)) {
-        // If yes, simply inject the new results into the left column without touching the map
         const resultsCol = qs('.cepsearch-results-col', resultsEl);
         if (resultsCol) {
             resultsCol.innerHTML = leftColumnContent;
         }
-        return; // Exit early
+        return; 
     }
 
-    // If it's a new street, build the entire layout from scratch (including the Google Map)
     const mapSearchQuery = encodeURIComponent(
         `${street.name}, ${formatNeighborhoods(street.neighborhood)}, Florianópolis, SC, Brasil`
     );
@@ -274,32 +228,33 @@ function renderCepSearchResults() {
         <div class="address-window">${escapeHtml(street.name)}</div>        
 
         <div class="cepsearch-split-layout">
-
-          <!-- Left column (Dynamic Number Results) -->
           <div class="cepsearch-results-col">
             ${leftColumnContent}
           </div>
-          
-          <!-- Right column (Static Street Map) -->
           <div class="cepsearch-map-col">
             ${mapHtml}
           </div>
-          
         </div>
       </div>
     </div>
   `;
 
-    // Mark this street as rendered so subsequent number inputs don't reload the map
     resultsEl.dataset.renderedStreet = String(street.id);
 }
 
-// CEP Search Event Listeners
-qs("#cepsearch-query").addEventListener("input", (e) => {
-    clearTimeout(cepSearchDebounce);
-    const value = e.target.value;
-    cepSearchDebounce = setTimeout(() => resolveStreetForQuery(value), 320);
-});
+// --- Event Listeners ---
+
+const cepQueryInput = qs("#cepsearch-query");
+const cepQuerySuggestions = qs("#cepsearch-query-suggestions");
+
+// Initialize the Combobox wrapper on the search input
+if (cepQueryInput && cepQuerySuggestions) {
+    cepSearchCombobox = initStreetCombobox({
+        inputEl: cepQueryInput,
+        suggestionsEl: cepQuerySuggestions,
+        onSelect: handleCepSearchSelect
+    });
+}
 
 qs("#cepsearch-number").addEventListener("input", async () => {
     renderCepSearchResults();

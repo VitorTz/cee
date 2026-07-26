@@ -362,12 +362,11 @@ const tabKeyMap = {
     1: "zips",
     2: "cepsearch",
     3: "rules",
-    4: "stats",
-    5: "cee-map",
-    6: "daily-ops",
-    7: "loec-analysis",
-    8: "helpdesk",
-    9: "account",
+    4: "cee-map",
+    5: "daily-ops",
+    6: "loec-analysis",
+    7: "helpdesk",
+    8: "account",
 };
 
 function canAccessTab(tabName) {

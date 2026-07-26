@@ -19,8 +19,8 @@ const HELPDESK_KIND_ICONS = {
 };
 
 const HELPDESK_CATEGORIES = [
-    { value: "etiqueta_trocada", label: "Etiqueta trocada" },
     { value: "encomenda_faltando", label: "Encomenda faltando" },
+    { value: "etiqueta_trocada", label: "Etiqueta trocada" },
     { value: "encomenda_errada", label: "Encomenda errada" },
     { value: "pneu_furado", label: "Pneu furado" },
     { value: "acidente", label: "Acidente" },
@@ -134,8 +134,13 @@ function formatHelpdeskIdentity(email) {
     if (!email) return "Usuário";
     const syntheticSuffix = "@id.cee.local";
     if (email.endsWith(syntheticSuffix)) {
-        const number = email.slice(0, -syntheticSuffix.length);
-        return isValidCPF(number) ? `CPF: ${number}` : `Matrícula: ${number}`;
+        const identifier = email.slice(0, -syntheticSuffix.length);
+        if (isValidCPF(identifier)) {
+            return `CPF: ${identifier}`;
+        } else if (hasOnlyDigits(identifier)) {
+            return `Matrícula: ${identifier}`;
+        }
+        return identifier;
     }
     return email;
 }
@@ -183,7 +188,10 @@ async function resolveHelpdeskUserLabels(userIds, checkMissingData = false) {
 
 function helpdeskUserLabel(userId) {
     const entry = helpdeskUserLabelCache.get(userId);
-    if (entry) return formatHelpdeskIdentity(entry.email);
+
+    if (entry) {
+        return entry.full_name || formatHelpdeskIdentity(entry.email);
+    }
 
     if (currentUser && userId === currentUser.id) {
         return formatHelpdeskIdentity(currentUser.email);

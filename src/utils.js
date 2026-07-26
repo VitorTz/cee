@@ -114,3 +114,7 @@ function getLeftOfChar(value, char) {
     const index = value.indexOf(char);
     return index === -1 ? value : value.slice(0, index);
 }
+
+function hasOnlyDigits(value) {
+    return /^\d+$/.test(value);
+}

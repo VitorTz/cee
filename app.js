@@ -6,6 +6,5 @@ async function init() {
 
   await loadZips(0);
   await loadRules();
-  await loadStatistics();
   initHelpdeskNotifications();
 }

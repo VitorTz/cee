@@ -286,52 +286,6 @@ function updateLoecSortButtonLabels() {
     });
 }
 
-// Cross-checks every distinct CEP found in the pasted list against the
-// system's own zip_codes catalog, flagging ones that aren't registered yet.
-async function checkLoecAnalysisUnregisteredCeps() {
-    const unregisteredEl = qs("#loecx-total-unregistered");
-    const tbody = qs("#loecx-unregistered-tbody");
-    const emptyEl = qs("#loecx-unregistered-empty");
-    const distinctCeps = Array.from(new Set(loecAnalysisRecords.map((r) => r.cep)));
-
-    if (distinctCeps.length === 0) {
-        if (unregisteredEl) unregisteredEl.textContent = "0";
-        return;
-    }
-
-    const CHUNK_SIZE = 200;
-    const registered = new Set();
-
-    for (let i = 0; i < distinctCeps.length; i += CHUNK_SIZE) {
-        const chunk = distinctCeps.slice(i, i + CHUNK_SIZE);
-        const { data, error } = await sb.from("zip_codes").select("zip_code").in("zip_code", chunk);
-        if (error) {
-            console.error("Failed to cross-check CEPs:", error);
-            if (unregisteredEl) unregisteredEl.textContent = "?";
-            return;
-        }
-        (data || []).forEach((row) => registered.add(row.zip_code));
-    }
-
-    const unregistered = distinctCeps.filter((cep) => !registered.has(cep));
-    if (unregisteredEl) unregisteredEl.textContent = unregistered.length;
-
-    if (tbody) {
-        if (unregistered.length === 0) {
-            tbody.innerHTML = "";
-            if (emptyEl) emptyEl.classList.remove("hidden");
-        } else {
-            if (emptyEl) emptyEl.classList.add("hidden");
-            tbody.innerHTML = unregistered
-                .map((cep) => {
-                    const count = loecAnalysisRecords.filter((r) => r.cep === cep).length;
-                    return `<tr><td class="zip-code-cell">${escapeHtml(cep)}</td><td class="col-actions">${count}</td></tr>`;
-                })
-                .join("");
-        }
-    }
-}
-
 async function runLoecAnalysis() {
     const inputEl = qs("#loec-analysis-input");
     const { records, ignored } = parseLoecAnalysisText(inputEl ? inputEl.value : "");
@@ -360,8 +314,6 @@ async function runLoecAnalysis() {
     populateLoecAnalysisTypeFilter();
     renderLoecAnalysisCharts();
     renderLoecAnalysisFullTable();
-
-    await checkLoecAnalysisUnregisteredCeps();
 }
 
 function clearLoecAnalysis() {

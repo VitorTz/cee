@@ -123,8 +123,13 @@ function updateUserBar() {
         const syntheticSuffix = `@${ID_LOGIN_DOMAIN}`;
         const identity = email.endsWith(syntheticSuffix)
             ? (() => {
-                const number = email.slice(0, -syntheticSuffix.length);
-                return isValidCPF(number) ? `CPF: ${number}` : `Matrícula: ${number}`;
+                const identifier = email.slice(0, -syntheticSuffix.length);
+                if (isValidCPF(identifier)) {
+                    return `CPF: ${identifier}`
+                } else if (hasOnlyDigits(identifier)) {
+                    return `Matrícula: ${identifier}`
+                }
+                return identifier;
             })()
             : email;
 
