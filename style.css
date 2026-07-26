@@ -3144,3 +3144,72 @@ body.restrict-daily #daily-notes-editor.ql-container {
 .field-small {
   max-width: 90px;
 }
+
+
+/* =========================================================================
+   MOBILE FIXES FOR HELPDESK COMPOSER & LIGHTBOX
+   ========================================================================= */
+
+@media (max-width: 768px) {
+  /* Fixes the active ticket overflowing the screen */
+  .helpdesk-composer-row {
+    flex-wrap: wrap;
+  }
+  
+  .helpdesk-composer-row textarea {
+    flex: 1 1 100%;
+    min-width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  /* Makes the attach and send buttons expand to fill the bottom area */
+  .helpdesk-attach-btn,
+  #helpdesk-composer-send {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Fixes the lightbox (media viewer) on small screens */
+  .lightbox-overlay {
+    padding: 16px;
+  }
+  
+  .lightbox-nav {
+    width: 38px;
+    height: 38px;
+    font-size: 1.8rem;
+  }
+  
+  .lightbox-prev {
+    left: 8px;
+  }
+  
+  .lightbox-next {
+    right: 8px;
+  }
+  
+  .lightbox-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .lightbox-caption {
+    max-width: 100%;
+    text-align: center;
+    white-space: normal; /* Allows long captions to wrap instead of truncating */
+  }
+  
+  .lightbox-actions {
+    justify-content: center;
+  }
+  
+  .lightbox-close {
+    top: 8px;
+    right: 12px;
+    font-size: 1.8rem;
+  }
+}
