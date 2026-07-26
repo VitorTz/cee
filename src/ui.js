@@ -75,6 +75,14 @@ function switchTab(tab, isManualClick = false, shouldFocus = true) {
         panel.classList.toggle("active", panel.id === `panel-${tab}`),
     );
 
+    // Close mobile menu if it is currently open
+    const tabsNav = qs(".tabs");
+    if (tabsNav && tabsNav.classList.contains("is-open")) {
+        tabsNav.classList.remove("is-open");
+        const mobileMenuBtn = qs("#mobile-menu-toggle");
+        if (mobileMenuBtn) mobileMenuBtn.setAttribute("aria-expanded", "false");
+    }
+
     switch (tab) {
         case "cepsearch":
             if (isManualClick) {
@@ -126,15 +134,23 @@ function switchTab(tab, isManualClick = false, shouldFocus = true) {
         case "account":
             if (typeof loadAccountPage === "function") loadAccountPage();
             break;
-        case "about":
-            loadAboutPage();
-            break;
         case "metrics":
             loadMetricsDashboard()
             break;
         default:
             break;
     }
+}
+
+// --- Mobile Menu Toggle ---
+const mobileMenuBtn = qs("#mobile-menu-toggle");
+const tabsNav = qs(".tabs");
+
+if (mobileMenuBtn && tabsNav) {
+    mobileMenuBtn.addEventListener("click", () => {
+        const isOpen = tabsNav.classList.toggle("is-open");
+        mobileMenuBtn.setAttribute("aria-expanded", String(isOpen));
+    });
 }
 
 // --- Lightbox (attachment viewer: images/vídeos/áudios) ---
@@ -351,8 +367,7 @@ const tabKeyMap = {
     6: "daily-ops",
     7: "loec-analysis",
     8: "helpdesk",
-    9: "about",
-    0: "metrics",
+    9: "account",
 };
 
 function canAccessTab(tabName) {

@@ -79,6 +79,15 @@
       </div>
 
       <!-- ===== Tabs ===== -->
+       <!-- Mobile menu toggle button (Package theme) -->
+      <button type="button" id="mobile-menu-toggle" class="mobile-menu-btn" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        <span>Menu de Módulos</span>
+      </button>
       <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
         <button
           class="tab-btn active"
@@ -153,21 +162,13 @@
           <span class="tab-index">09</span> Minha Conta
         </button>
         <button
-          class="tab-btn"
-          data-tab="about"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">10</span> Manual
-        </button>
-        <button
           class="tab-btn admin-only hidden"
           id="metrics-tab"
           data-tab="metrics"
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">11</span> Supabase Metrics
+          <span class="tab-index">10</span> Supabase Metrics
         </button>
       </nav>
 
@@ -1004,14 +1005,6 @@
         <!-- ===== HELP DESK (CHAMADOS) ===== -->
         <section id="panel-helpdesk" class="panel" aria-labelledby="helpdesk">
           <div class="panel-toolbar">
-            <div>
-              <h2 class="manual-title" style="margin-bottom: 0">Chamados</h2>
-              <p class="subtitle" style="margin-top: 4px">
-                Help desk para problemas encontrados na rua &mdash; etiqueta
-                trocada, encomenda faltando/errada, pneu furado, acidente,
-                etc.
-              </p>
-            </div>
             <button
               type="button"
               class="btn btn-primary"
@@ -1053,18 +1046,29 @@
                     <h3 id="helpdesk-detail-title"></h3>
                     <span id="helpdesk-detail-status" class="helpdesk-status-badge"></span>
                   </div>
+                  
                   <div class="helpdesk-detail-header-meta">
                     <span class="loec-type-chip" id="helpdesk-detail-category"></span>
                   </div>
-                  <div id="helpdesk-detail-carteiro" class="helpdesk-detail-carteiro hidden"></div>
-                  <p id="helpdesk-detail-description" class="helpdesk-detail-description"></p>
-                  <div id="helpdesk-detail-supervisors" class="helpdesk-detail-supervisors hidden"></div>
+                  
+                  <!-- Color Legend for Profile Cards -->
+                  <div id="helpdesk-profile-legend" class="helpdesk-profile-legend hidden">
+                    <div class="legend-item legend-carteiro"><div class="legend-color-box"></div> Carteiro</div>
+                    <div class="legend-item legend-supervisor"><div class="legend-color-box"></div> Supervisor</div>
+                  </div>
+
+                  <!-- New Flex Grid for Profile Cards -->
+                  <div class="helpdesk-profile-grid">
+                    <div id="helpdesk-detail-carteiro" class="helpdesk-detail-carteiro hidden"></div>
+                    <div id="helpdesk-detail-supervisors" class="helpdesk-detail-supervisors hidden"></div>
+                  </div>
 
                   <div id="helpdesk-report-box" class="helpdesk-report-box hidden">
                     <strong>Relatório de conclusão</strong>
                     <p id="helpdesk-report-text"></p>
                   </div>
-
+                  
+                  <!-- Conclusion actions omitted for brevity, keep them as they are -->
                   <div id="helpdesk-conclusion-actions" class="helpdesk-conclusion-actions hidden">
                     <button type="button" class="btn btn-primary" id="btn-helpdesk-conclude-success">
                       Concluir com sucesso
@@ -1108,18 +1112,7 @@
         </section>
 
         <!-- ===== MINHA CONTA (PERFIL DO USUÁRIO) ===== -->
-        <section id="panel-account" class="panel" aria-labelledby="account">
-          <div class="panel-toolbar">
-            <div>
-              <h2 class="manual-title" style="margin-bottom: 0">
-                Minha Conta
-              </h2>
-              <p class="subtitle" style="margin-top: 4px">
-                Complete seus dados. Seu login (e-mail/matrícula e senha)
-                continua sendo gerenciado pelo administrador.
-              </p>
-            </div>
-          </div>
+        <section id="panel-account" class="panel" aria-labelledby="account">          
 
           <form id="account-form" class="account-form">
             <p id="account-status" class="account-status hidden"></p>
@@ -1183,16 +1176,6 @@
               </button>
             </div>
           </form>
-        </section>
-
-        <section id="panel-about" class="panel" aria-labelledby="about">
-          <div id="about-content" class="manual-content">
-            <div
-              style="text-align: center; color: var(--ink-soft); padding: 40px"
-            >
-              Loading manual&hellip;
-            </div>
-          </div>
         </section>
 
         <!-- ===== SUPABASE METRICS DASHBOARD (ADMIN ONLY) ===== -->

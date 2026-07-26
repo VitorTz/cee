@@ -57,6 +57,76 @@ let helpdeskGlobalChannel = null;
 
 // --- Helpers -----------------------------------------------------------
 
+/**
+ * Compresses an image file using the browser's Canvas API before uploading.
+ * Converts the image to WebP format for maximum size reduction.
+ * 
+ * @param {File} file - The original image file.
+ * @param {number} maxWidthOrHeight - The maximum allowed dimension.
+ * @param {number} quality - Compression quality (0.0 to 1.0). Lower is smaller.
+ * @returns {Promise<File>} - A promise resolving to the compressed File, or the original if it fails.
+ */
+async function compressImage(file, maxWidthOrHeight = 1280, quality = 0.5) {
+    // Skip compression for non-images, GIFs (would lose animation), or SVGs
+    if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") {
+        return file;
+    }
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let width = img.width;
+            let height = img.height;
+
+            // Scale down the image if it exceeds the maximum dimensions
+            if (width > height && width > maxWidthOrHeight) {
+                height = Math.round((height * maxWidthOrHeight) / width);
+                width = maxWidthOrHeight;
+            } else if (height > maxWidthOrHeight) {
+                width = Math.round((width * maxWidthOrHeight) / height);
+                height = maxWidthOrHeight;
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Export the canvas content as a heavily compressed WebP
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) {
+                        resolve(file); // Fallback to original if something goes wrong
+                        return;
+                    }
+                    // Replace original extension with .webp
+                    const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+                    const compressedFile = new File([blob], newFileName, {
+                        type: "image/webp",
+                        lastModified: Date.now(),
+                    });
+                    resolve(compressedFile);
+                },
+                "image/webp",
+                quality
+            );
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve(file); // Fallback to original on error
+        };
+
+        img.src = url;
+    });
+}
+
+
 // Mirrors the matrícula/CPF/e-mail formatting already used for the
 // logged-in user in the user bar (auth.js), so identities look consistent
 // throughout the app.
@@ -70,10 +140,30 @@ function formatHelpdeskIdentity(email) {
     return email;
 }
 
-async function resolveHelpdeskUserLabels(userIds) {
-    const missing = Array.from(new Set(userIds)).filter(
-        (id) => id && !helpdeskUserLabelCache.has(id),
-    );
+/**
+ * Resolves and caches user profile information (name, phone, role, etc.).
+ * @param {string[]} userIds - Array of UUIDs to fetch.
+ * @param {boolean} checkMissingData - If true, re-fetches users who have an empty profile.
+ */
+async function resolveHelpdeskUserLabels(userIds, checkMissingData = false) {
+    const missing = Array.from(new Set(userIds)).filter((id) => {
+        if (!id) return false;
+        const cached = helpdeskUserLabelCache.get(id);
+
+        // Always fetch if not found in cache
+        if (!cached) return true;
+
+        // If instructed to check for missing data, and profile fields are empty
+        if (checkMissingData && !cached.full_name && !cached.phone) {
+            // Prevent spamming requests for users who genuinely have an empty profile (throttle 60s)
+            if (cached._lastFetch && (Date.now() - cached._lastFetch < 60000)) {
+                return false;
+            }
+            return true;
+        }
+        return false;
+    });
+
     if (missing.length === 0) return;
 
     const { data, error } = await sb.rpc("get_helpdesk_user_labels", {
@@ -85,8 +175,9 @@ async function resolveHelpdeskUserLabels(userIds) {
         return;
     }
 
+    const fetchTime = Date.now();
     (data || []).forEach((row) => {
-        helpdeskUserLabelCache.set(row.user_id, { ...row });
+        helpdeskUserLabelCache.set(row.user_id, { ...row, _lastFetch: fetchTime });
     });
 }
 
@@ -121,10 +212,10 @@ function formatHelpdeskProfileAddress(entry) {
 // Renders a small identity card (name, matrícula/e-mail, telefone, endereço)
 // for a helpdesk participant. Used to show the carteiro's info to
 // supervisors, and the assigned supervisor(s)' info to the carteiro.
-function helpdeskUserProfileCardHtml(userId, roleLabel) {
+function helpdeskUserProfileCardHtml(userId, roleLabel, customClass = "") {
     const entry = helpdeskUserLabelCache.get(userId);
     if (!entry) {
-        return `<div class="helpdesk-profile-card helpdesk-profile-card-loading">Carregando…</div>`;
+        return `<div class="helpdesk-profile-card ${customClass} helpdesk-profile-card-loading">Carregando…</div>`;
     }
 
     const name = entry.full_name || formatHelpdeskIdentity(entry.email);
@@ -133,7 +224,7 @@ function helpdeskUserProfileCardHtml(userId, roleLabel) {
     const address = formatHelpdeskProfileAddress(entry);
 
     return `
-    <div class="helpdesk-profile-card">
+    <div class="helpdesk-profile-card ${customClass}">
       ${roleLabel ? `<span class="helpdesk-profile-card-role">${escapeHtml(roleLabel)}</span>` : ""}
       <div class="helpdesk-profile-card-name">${escapeHtml(name)}</div>
       ${showIdentitySeparately ? `<div class="helpdesk-profile-card-line">${escapeHtml(identity)}</div>` : ""}
@@ -250,17 +341,24 @@ function renderHelpdeskTicketHeader(ticket) {
     const statusEl = qs("#helpdesk-detail-status");
     statusEl.textContent = HELPDESK_STATUS_LABELS[ticket.status] || ticket.status;
     statusEl.className = `helpdesk-status-badge ${HELPDESK_STATUS_BADGE_CLASS[ticket.status] || ""}`;
-    qs("#helpdesk-detail-description").textContent = ticket.description;
+
+    // Description element removed.
 
     const isSupervisorView =
         currentUserRole === UserRoles.ADMIN || currentUserRole === UserRoles.SUPERVISOR;
+
     const carteiroEl = qs("#helpdesk-detail-carteiro");
+    const legendEl = qs("#helpdesk-profile-legend");
+
     if (carteiroEl) {
-        // Supervisors/admins see the carteiro's profile info on the ticket.
         carteiroEl.innerHTML = isSupervisorView
-            ? helpdeskUserProfileCardHtml(ticket.carteiro_id, "Carteiro")
+            ? helpdeskUserProfileCardHtml(ticket.carteiro_id, "Carteiro", "carteiro-card")
             : "";
         carteiroEl.classList.toggle("hidden", !isSupervisorView);
+    }
+
+    if (legendEl) {
+        legendEl.classList.toggle("hidden", !isSupervisorView);
     }
 
     const isClosed =
@@ -304,7 +402,10 @@ async function openHelpdeskTicket(ticketId) {
     if (detailEl) detailEl.classList.remove("hidden");
 
     const ticket = helpdeskTicketsCache.find((t) => t.id === id);
-    if (ticket) renderHelpdeskTicketHeader(ticket);
+    if (ticket) {
+        await resolveHelpdeskUserLabels([ticket.carteiro_id], true);
+        renderHelpdeskTicketHeader(ticket);
+    }
 
     qs("#helpdesk-messages").innerHTML =
         '<div class="helpdesk-list-loading">Carregando conversa&hellip;</div>';
@@ -313,6 +414,7 @@ async function openHelpdeskTicket(ticketId) {
     await Promise.all([loadHelpdeskMessages(id), loadHelpdeskTicketSupervisors(id)]);
     subscribeHelpdeskRealtime(id);
 }
+
 
 // Shows which supervisors/admins have already interacted with this ticket
 // (every message from a supervisor/admin links them via a DB trigger).
@@ -336,15 +438,11 @@ async function loadHelpdeskTicketSupervisors(ticketId) {
 
     const ids = data.map((r) => r.supervisor_id);
     helpdeskTicketSupervisorIds = ids;
-    await resolveHelpdeskUserLabels(ids);
+    await resolveHelpdeskUserLabels(ids, true);
 
-    const label = currentUserRole === UserRoles.CARTEIRO ? "Supervisor" : "Atendido por";
     el.innerHTML = `
-    <strong class="helpdesk-detail-supervisors-title">${escapeHtml(
-        ids.length > 1 ? `${label}es` : label,
-    )}</strong>
     <div class="helpdesk-profile-card-group">
-      ${ids.map((sid) => helpdeskUserProfileCardHtml(sid, null)).join("")}
+      ${ids.map((sid) => helpdeskUserProfileCardHtml(sid, null, "supervisor-card")).join("")}
     </div>
   `;
     el.classList.remove("hidden");
@@ -364,10 +462,10 @@ async function loadHelpdeskMessages(ticketId) {
     }
 
     helpdeskMessagesCache = data || [];
-    await resolveHelpdeskUserLabels(helpdeskMessagesCache.map((m) => m.sender_id));
+
+    await resolveHelpdeskUserLabels(helpdeskMessagesCache.map((m) => m.sender_id), true);
     await renderHelpdeskMessages();
 }
-
 // Flat, in-order list of every image/video/audio attachment currently
 // loaded for this ticket, used to power the lightbox's "next/previous"
 // navigation across the whole conversation (not just one message).
@@ -559,7 +657,7 @@ function subscribeHelpdeskRealtime(ticketId) {
                     if (!data) return;
                     if (helpdeskMessagesCache.some((m) => m.id === data.id)) return;
                     helpdeskMessagesCache.push(data);
-                    await resolveHelpdeskUserLabels([data.sender_id]);
+                    await resolveHelpdeskUserLabels([data.sender_id], true);
                     renderHelpdeskMessages();
                     if (data.sender_role !== "carteiro") loadHelpdeskTicketSupervisors(ticketId);
                 }, 400);
@@ -625,14 +723,22 @@ function buildHelpdeskDownloadName(ticket, senderId, senderRole, originalName) {
     return `chamado${ticket.id}-carteiro${ticket.carteiro_id}-supervisor${supervisorId}-${dateStr}${ext}`;
 }
 
+/**
+ * Uploads files to the Supabase Storage, applying client-side compression to images.
+ */
 async function uploadHelpdeskAttachments(ticketId, files, ticket, senderId, senderRole) {
     const dateFolder = todayIsoDate();
     const uploaded = [];
 
-    for (const file of files) {
+    for (let file of files) {
         if (!isHelpdeskFileSizeValid(file)) {
             showToast(`Anexo "${file.name}" excede 50MB e não foi enviado.`, "error");
             continue;
+        }
+
+        // Apply aggressive compression if the file is an image
+        if (file.type.startsWith("image/")) {
+            file = await compressImage(file, 1280, 0.5);
         }
 
         const kind = classifyHelpdeskFile(file);
@@ -644,7 +750,7 @@ async function uploadHelpdeskAttachments(ticketId, files, ticket, senderId, send
         // Keep uniqueId to prevent file collisions, but use the exact original file name
         const path = `${ticketId}/${dateFolder}/${uniqueId}-${file.name}`;
 
-        // The downloaded file name is still customized
+        // The downloaded file name is customized based on the ticket context
         const downloadName = ticket
             ? buildHelpdeskDownloadName(ticket, senderId, senderRole, file.name)
             : file.name;
@@ -850,10 +956,6 @@ function newHelpdeskTicketFormTemplate() {
         <input type="text" id="helpdesk-new-title" required maxlength="150" placeholder="Ex: Pneu furado na Rua Felipe Schmidt">
       </div>
       <div class="field">
-        <label for="helpdesk-new-description">Descrição</label>
-        <textarea id="helpdesk-new-description" required rows="4" placeholder="Descreva o que aconteceu..."></textarea>
-      </div>
-      <div class="field">
         <label for="helpdesk-new-files">Anexos (opcional, até 50MB cada)</label>
         <input type="file" id="helpdesk-new-files" multiple>
         <div class="helpdesk-file-list" id="helpdesk-new-file-list"></div>
@@ -895,9 +997,8 @@ async function submitNewHelpdeskTicketForm(e) {
 
     const category = qs("#helpdesk-new-category").value;
     const title = qs("#helpdesk-new-title").value.trim();
-    const description = qs("#helpdesk-new-description").value.trim();
 
-    if (!title || !description) return;
+    if (!title) return;
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
@@ -908,8 +1009,8 @@ async function submitNewHelpdeskTicketForm(e) {
         .insert({
             carteiro_id: currentUser.id,
             category,
-            title,
-            description,
+            title
+            // Removed description from the insert payload
         })
         .select()
         .single();
@@ -921,8 +1022,7 @@ async function submitNewHelpdeskTicketForm(e) {
         return;
     }
 
-    // The ticket description doubles as the opening message of the thread.
-    await sendHelpdeskMessage(ticket.id, description, helpdeskNewTicketFiles);
+    await sendHelpdeskMessage(ticket.id, title, helpdeskNewTicketFiles);
 
     closeModal();
     showToast("Chamado aberto com sucesso!");
