@@ -2302,12 +2302,12 @@ main {
   color: var(--stamp-red);
 }
 
-.role-badge-operador {
+.role-badge-supervisor {
   border-color: var(--correios-yellow-deep);
   color: #8a6400;
 }
 
-.role-badge-visualizador {
+.role-badge-carteiro {
   border-color: var(--ink-soft);
   color: var(--ink-soft);
 }
@@ -2423,4 +2423,724 @@ body.restrict-daily #daily-notes-editor.ql-container {
   border: 1.5px solid var(--correios-blue);
   color: var(--correios-blue-deep);
   background: #eef4fa;
+}
+/* =========================================================================
+   19. HELP DESK (CHAMADOS)
+   ========================================================================= */
+
+.helpdesk-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 20px;
+}
+
+.helpdesk-filter-btn {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--paper-line);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.helpdesk-filter-btn:hover {
+  border-color: var(--correios-blue);
+  color: var(--correios-blue-deep);
+}
+
+.helpdesk-filter-btn.active {
+  background: var(--correios-blue);
+  border-color: var(--correios-blue-deep);
+  color: #fff;
+}
+
+.helpdesk-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .helpdesk-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.helpdesk-list-col {
+  background: var(--paper-raised);
+  border: 2px solid var(--paper-line);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 720px;
+  overflow-y: auto;
+}
+
+.helpdesk-ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.helpdesk-list-loading,
+.helpdesk-list-error,
+.helpdesk-list-empty-inline {
+  padding: 20px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.helpdesk-list-error {
+  color: var(--stamp-red);
+}
+
+.helpdesk-ticket-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--paper-line);
+  background: var(--paper);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.15s ease;
+}
+
+.helpdesk-ticket-card:hover {
+  border-color: var(--correios-blue);
+}
+
+.helpdesk-ticket-card-active {
+  border-color: var(--correios-blue-deep);
+  background: #eef4fa;
+  box-shadow: var(--shadow-slip);
+}
+
+.helpdesk-ticket-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.helpdesk-ticket-card-title {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.helpdesk-ticket-card-meta {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+}
+
+.helpdesk-status-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-soft);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.helpdesk-status-aberto {
+  border-color: var(--stamp-red);
+  color: var(--stamp-red);
+  background: #fbeae7;
+}
+
+.helpdesk-status-andamento {
+  border-color: var(--correios-yellow-deep);
+  color: #8a6400;
+  background: #fff8e1;
+}
+
+.helpdesk-status-sucesso {
+  border-color: #2e7d4f;
+  color: #2e7d4f;
+  background: #eaf6ef;
+}
+
+.helpdesk-status-sem-sucesso {
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+  background: #eef1f5;
+}
+
+.helpdesk-detail-col {
+  background: var(--paper-raised);
+  border: 2px solid var(--paper-line);
+  border-radius: 10px;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.helpdesk-detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 500px;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 24px;
+}
+
+.helpdesk-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.helpdesk-detail-header {
+  padding: 18px 20px;
+  border-bottom: 2px solid var(--paper-line);
+}
+
+.helpdesk-detail-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.helpdesk-detail-header-top h3 {
+  margin: 0;
+  color: var(--correios-blue-deep);
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+}
+
+.helpdesk-detail-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.helpdesk-detail-carteiro {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.helpdesk-detail-description {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.helpdesk-report-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #eaf6ef;
+  border: 1.5px solid #2e7d4f;
+}
+
+.helpdesk-report-box strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #2e7d4f;
+  font-size: 0.82rem;
+}
+
+.helpdesk-report-box p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.helpdesk-conclusion-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.helpdesk-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 280px;
+  max-height: 480px;
+}
+
+.helpdesk-message {
+  max-width: 78%;
+  align-self: flex-start;
+  background: var(--paper);
+  border: 1.5px solid var(--paper-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.helpdesk-message-mine {
+  align-self: flex-end;
+  background: #eef4fa;
+  border-color: var(--correios-blue);
+}
+
+.helpdesk-message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+}
+
+.helpdesk-message-sender {
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.helpdesk-role-admin,
+.helpdesk-role-supervisor {
+  color: var(--correios-blue-deep);
+}
+
+.helpdesk-message-time {
+  color: var(--ink-soft);
+}
+
+.helpdesk-message-body {
+  font-size: 0.9rem;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.helpdesk-message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.helpdesk-attachment-image {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: 8px;
+  border: 1.5px solid var(--paper-line);
+  object-fit: cover;
+  display: block;
+}
+
+.helpdesk-attachment-video {
+  max-width: 220px;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1.5px solid var(--paper-line);
+}
+
+.helpdesk-attachment-error {
+  font-size: 0.78rem;
+  color: var(--stamp-red);
+}
+
+.helpdesk-composer-wrap {
+  border-top: 2px solid var(--paper-line);
+  padding: 14px 20px;
+}
+
+.helpdesk-composer-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.helpdesk-composer-row textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 44px;
+  font-family: var(--font-body);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.helpdesk-attach-btn {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.helpdesk-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.helpdesk-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1.5px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
+.helpdesk-file-chip button {
+  border: none;
+  background: none;
+  color: var(--stamp-red);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.helpdesk-closed-notice {
+  padding: 14px 20px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  border-top: 2px solid var(--paper-line);
+}
+
+.helpdesk-detail-supervisors {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.helpdesk-detail-supervisors strong {
+  color: var(--correios-blue-deep);
+}
+/* =========================================================================
+   14. HELP DESK — PROFILE CARDS (carteiro/supervisor info)
+   ========================================================================= */
+
+.helpdesk-detail-carteiro {
+  margin: 10px 0 0;
+}
+
+.helpdesk-detail-supervisors-title {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--correios-blue-deep);
+  margin-bottom: 6px;
+}
+
+.helpdesk-profile-card-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.helpdesk-profile-card {
+  background: var(--paper);
+  border: 1.5px solid var(--paper-line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  min-width: 180px;
+}
+
+.helpdesk-profile-card-loading {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.helpdesk-profile-card-role {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--correios-blue-deep);
+  margin-bottom: 2px;
+}
+
+.helpdesk-profile-card-name {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.helpdesk-profile-card-line {
+  margin-top: 2px;
+}
+
+.helpdesk-profile-card-empty {
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* =========================================================================
+   15. HELP DESK — ATTACHMENT PREVIEWS (thumbs & file chips)
+   ========================================================================= */
+
+.helpdesk-attachment-thumb {
+  position: relative;
+  border: 1.5px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 0;
+  cursor: pointer;
+  display: block;
+  overflow: hidden;
+  max-width: 160px;
+  max-height: 160px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.helpdesk-attachment-thumb:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(0, 43, 84, 0.35);
+}
+
+.helpdesk-attachment-thumb .helpdesk-attachment-image,
+.helpdesk-attachment-thumb .helpdesk-attachment-video {
+  display: block;
+  max-width: 160px;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 0;
+  border: none;
+}
+
+.helpdesk-attachment-play-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: #fff;
+  background: rgba(0, 43, 84, 0.35);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.helpdesk-attachment-audio-chip,
+.helpdesk-attachment-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--paper-line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.8rem;
+  text-decoration: none;
+  cursor: pointer;
+  max-width: 220px;
+}
+
+.helpdesk-attachment-audio-chip:hover,
+.helpdesk-attachment-file-chip:hover {
+  border-color: var(--correios-blue);
+}
+
+.helpdesk-attachment-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.helpdesk-attachment-file-size {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   16. ATTACHMENT LIGHTBOX (fullscreen media viewer)
+   ========================================================================= */
+
+.lightbox-overlay {
+  position: fixed !important;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 9999 !important;
+  background: rgba(253, 251, 245, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.lightbox-stage {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.lightbox-stage img {
+  max-width: 100%;
+  max-height: 78vh;
+  transition: transform 0.15s ease;
+  cursor: zoom-in;
+  border-radius: 4px;
+}
+
+.lightbox-stage video {
+  max-width: 100%;
+  max-height: 78vh;
+  border-radius: 4px;
+  background: #000;
+}
+
+.lightbox-audio-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  color: var(--ink);
+}
+
+.lightbox-audio-icon {
+  font-size: 4rem;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: var(--ink-soft); 
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1002;
+}
+
+.lightbox-close:hover {
+  color: var(--stamp-red);
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 68, 124, 0.8);
+  border: none;
+  color: #fff;
+  font-size: 2.4rem;
+  line-height: 1;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.lightbox-nav:hover {
+  background: rgba(0, 43, 84, 1);
+}
+
+.lightbox-prev {
+  left: 40px;
+}
+
+.lightbox-next {
+  right: 40px;
+}
+
+.lightbox-toolbar {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.lightbox-caption {
+  color: var(--ink);
+  font-size: 0.8rem;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 50%;
+}
+
+.lightbox-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   17. MINHA CONTA (ACCOUNT TAB)
+   ========================================================================= */
+
+.account-form {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-section-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.03em;
+  color: var(--correios-blue-deep);
+  margin: 18px 0 4px;
+  font-size: 1.1rem;
+}
+
+.account-status {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+
+.account-status.field-error {
+  color: var(--stamp-red);
+}
+
+.account-actions {
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+.field-grow {
+  flex: 2;
+}
+
+.field-small {
+  max-width: 90px;
 }

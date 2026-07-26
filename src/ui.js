@@ -1,0 +1,382 @@
+// --- Toasts ---
+function showToast(message, type = "success") {
+    const container = qs("#toast-container");
+    const toast = document.createElement("div");
+    toast.className = `toast ${type === "error" ? "toast-error" : ""}`.trim();
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add("leaving");
+        setTimeout(() => toast.remove(), 220);
+    }, 3200);
+}
+
+// --- Modals ---
+const modalOverlay = qs("#modal-overlay");
+const modalTitleEl = qs("#modal-title");
+const modalBodyEl = qs("#modal-body");
+
+function openModal(title, bodyHtml, options = {}) {
+    modalTitleEl.innerHTML = title;
+    modalBodyEl.innerHTML = bodyHtml;
+    qs(".modal-slip").classList.toggle("modal-slip-wide", Boolean(options.wide));
+    modalOverlay.classList.remove("hidden");
+}
+
+function closeModal() {
+    modalOverlay.classList.add("hidden");
+    modalBodyEl.innerHTML = "";
+    qs(".modal-slip").classList.remove("modal-slip-wide");
+    if (typeof loecReportChartInstances !== "undefined" && loecReportChartInstances.length) {
+        loecReportChartInstances.forEach((chart) => chart.destroy());
+        loecReportChartInstances = [];
+    }
+}
+
+qs("#modal-close").addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+    if (e.target === modalOverlay) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modalOverlay.classList.contains("hidden"))
+        closeModal();
+});
+
+function deleteConfirmTemplate(label, warning) {
+    return `
+    <p class="confirm-text">Confirma a exclusão de <strong>${escapeHtml(label)}</strong>?</p>
+    ${warning ? `<p class="confirm-warning">${warning}</p>` : ""}
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="confirm-cancel">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="confirm-delete">Excluir</button>
+    </div>
+  `;
+}
+
+function openDeleteConfirm(label, warning, onConfirm) {
+    openModal("Confirmar exclusão", deleteConfirmTemplate(label, warning));
+    qs("#confirm-cancel").addEventListener("click", closeModal);
+    qs("#confirm-delete").addEventListener("click", onConfirm);
+}
+
+// --- Tabs ---
+qsa(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab, true, true));
+});
+
+function switchTab(tab, isManualClick = false, shouldFocus = true) {
+    qsa(".tab-btn").forEach((btn) => {
+        const active = btn.dataset.tab === tab;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", String(active));
+    });
+
+    qsa(".panel").forEach((panel) =>
+        panel.classList.toggle("active", panel.id === `panel-${tab}`),
+    );
+
+    switch (tab) {
+        case "cepsearch":
+            if (isManualClick) {
+                const queryInput = qs("#cepsearch-query");
+                const numInput = qs("#cepsearch-number");
+
+                if (queryInput) queryInput.value = "";
+                if (numInput) {
+                    numInput.value = "";
+                    numInput.disabled = true;
+                }
+
+                const hintEl = qs("#cepsearch-match-hint");
+                if (hintEl) hintEl.textContent = "Digite para localizar o logradouro.";
+
+                const resultsEl = qs("#cepsearch-results");
+                if (resultsEl) resultsEl.classList.add("hidden");
+
+                const emptyEl = qs("#cepsearch-empty");
+                if (emptyEl) emptyEl.classList.remove("hidden");
+
+                cepSearchState = {
+                    streetId: null,
+                    street: null,
+                    breakdown: [],
+                    searchLogged: false,
+                };
+
+                // Only trigger autofocus if explicitly allowed
+                if (shouldFocus) {
+                    setTimeout(() => {
+                        if (queryInput) queryInput.focus();
+                    }, 50);
+                }
+            }
+            break;
+        case "stats":
+            loadStatistics();
+            break;
+        case "cee-map":
+            loadCeeSectors();
+            break;
+        case "daily-ops":
+            loadDailyOps();
+            break;
+        case "helpdesk":
+            loadHelpdesk();
+            break;
+        case "account":
+            if (typeof loadAccountPage === "function") loadAccountPage();
+            break;
+        case "about":
+            loadAboutPage();
+            break;
+        case "metrics":
+            loadMetricsDashboard()
+            break;
+        default:
+            break;
+    }
+}
+
+// --- Lightbox (attachment viewer: images/vídeos/áudios) ---
+// Generic full-screen viewer with next/previous navigation, zoom for
+// images, play/pause/reset for video & audio, and download. Callers pass a
+// flat list of { kind: "image"|"video"|"audio", url, name } plus a
+// downloadFn(url, name) so different callers can implement download however
+// they need to (e.g. helpdesk.js downloads via a signed URL fetch).
+const lightboxOverlayEl = qs("#attachment-lightbox");
+let lightboxItems = [];
+let lightboxIndex = 0;
+let lightboxDownloadFn = null;
+let lightboxZoomLevel = 1;
+
+function lightboxCurrentMediaEl() {
+    return qs("#lightbox-stage video, #lightbox-stage audio", document);
+}
+
+function renderLightboxItem() {
+    if (!lightboxOverlayEl) return;
+    const stage = qs("#lightbox-stage");
+    const caption = qs("#lightbox-caption");
+    const item = lightboxItems[lightboxIndex];
+    if (!item || !stage) return;
+
+    lightboxZoomLevel = 1;
+    caption.textContent = item.name || "";
+
+    const zoomControls = qsa(".lightbox-zoom-control");
+    const mediaControls = qsa(".lightbox-media-control");
+    zoomControls.forEach((el) => el.classList.toggle("hidden", item.kind !== "image"));
+    mediaControls.forEach((el) =>
+        el.classList.toggle("hidden", item.kind !== "video" && item.kind !== "audio"),
+    );
+
+    if (item.kind === "image") {
+        stage.innerHTML = `<img id="lightbox-image" src="${item.url}" alt="${escapeHtml(item.name || "")}" style="transform: scale(1);">`;
+    } else if (item.kind === "video") {
+        stage.innerHTML = `<video src="${item.url}" controls autoplay></video>`;
+    } else if (item.kind === "audio") {
+        stage.innerHTML = `
+      <div class="lightbox-audio-stage">
+        <span class="lightbox-audio-icon">🎵</span>
+        <audio src="${item.url}" controls autoplay></audio>
+      </div>
+    `;
+    }
+
+    const prevBtn = qs("#lightbox-prev");
+    const nextBtn = qs("#lightbox-next");
+    if (prevBtn) prevBtn.classList.toggle("hidden", lightboxItems.length <= 1);
+    if (nextBtn) nextBtn.classList.toggle("hidden", lightboxItems.length <= 1);
+}
+
+function openLightbox(items, startIndex = 0, downloadFn = null) {
+    if (!lightboxOverlayEl || !items || items.length === 0) return;
+    lightboxItems = items;
+    lightboxIndex = Math.max(0, Math.min(startIndex, items.length - 1));
+    lightboxDownloadFn = downloadFn;
+    lightboxOverlayEl.classList.remove("hidden");
+    renderLightboxItem();
+}
+
+function closeLightbox() {
+    if (!lightboxOverlayEl) return;
+    lightboxOverlayEl.classList.add("hidden");
+    qs("#lightbox-stage").innerHTML = "";
+    lightboxItems = [];
+}
+
+function lightboxShowRelative(delta) {
+    if (lightboxItems.length === 0) return;
+    lightboxIndex = (lightboxIndex + delta + lightboxItems.length) % lightboxItems.length;
+    renderLightboxItem();
+}
+
+function lightboxApplyZoom() {
+    const img = qs("#lightbox-image");
+    if (img) img.style.transform = `scale(${lightboxZoomLevel})`;
+}
+
+if (lightboxOverlayEl) {
+    qs("#lightbox-close").addEventListener("click", closeLightbox);
+    qs("#lightbox-prev").addEventListener("click", () => lightboxShowRelative(-1));
+    qs("#lightbox-next").addEventListener("click", () => lightboxShowRelative(1));
+
+    qs("#lightbox-zoom-in").addEventListener("click", () => {
+        lightboxZoomLevel = Math.min(4, lightboxZoomLevel + 0.5);
+        lightboxApplyZoom();
+    });
+    qs("#lightbox-zoom-out").addEventListener("click", () => {
+        lightboxZoomLevel = Math.max(1, lightboxZoomLevel - 0.5);
+        lightboxApplyZoom();
+    });
+    qs("#lightbox-zoom-reset").addEventListener("click", () => {
+        lightboxZoomLevel = 1;
+        lightboxApplyZoom();
+    });
+
+    qs("#lightbox-media-playpause").addEventListener("click", () => {
+        const media = lightboxCurrentMediaEl();
+        if (!media) return;
+        if (media.paused) media.play();
+        else media.pause();
+    });
+    qs("#lightbox-media-reset").addEventListener("click", () => {
+        const media = lightboxCurrentMediaEl();
+        if (!media) return;
+        media.currentTime = 0;
+        media.play();
+    });
+
+    qs("#lightbox-download").addEventListener("click", () => {
+        const item = lightboxItems[lightboxIndex];
+        if (!item) return;
+        if (lightboxDownloadFn) lightboxDownloadFn(item.url, item.name);
+        else window.open(item.url, "_blank");
+    });
+
+    lightboxOverlayEl.addEventListener("click", (e) => {
+        if (e.target === lightboxOverlayEl) closeLightbox();
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (lightboxOverlayEl.classList.contains("hidden")) return;
+        if (e.key === "Escape") closeLightbox();
+        else if (e.key === "ArrowLeft") lightboxShowRelative(-1);
+        else if (e.key === "ArrowRight") lightboxShowRelative(1);
+    });
+}
+
+// --- Global Hotkeys ---
+document.addEventListener("keydown", (e) => {
+    if (e.key === "F4") {
+        e.preventDefault();
+        zipsPage = 0;
+        zipsSearchTerm = ''
+
+        qsa("input, select, textarea").forEach((el) => {
+            if (el.type === "checkbox" || el.type === "radio") {
+                el.checked = false;
+            } else {
+                el.value = "";
+            }
+        });
+
+        if (
+            typeof rulesFilterCombobox !== "undefined" &&
+            rulesFilterCombobox.setValue
+        ) {
+            rulesFilterCombobox.setValue(null);
+        }
+
+        if (typeof rulesFilterStreetId !== "undefined") rulesFilterStreetId = "";
+        if (typeof rulesFilterZipId !== "undefined") rulesFilterZipId = "";
+
+        if (typeof resetRulesFilterZipSelect === "function")
+            resetRulesFilterZipSelect();
+
+        if (typeof cepSearchState !== "undefined") {
+            cepSearchState = {
+                streetId: null,
+                street: null,
+                breakdown: [],
+                searchLogged: false,
+            };
+        }
+
+        const resultsEl = qs("#cepsearch-results");
+        const emptyEl = qs("#cepsearch-empty");
+        if (resultsEl) resultsEl.classList.add("hidden");
+        if (emptyEl) emptyEl.classList.remove("hidden");
+
+        if (typeof loadZips === "function") loadZips(0);
+        if (typeof loadRules === "function") loadRules();
+
+        const dailyOpsDateEl = qs("#daily-ops-date");
+        if (dailyOpsDateEl && typeof loadDailyOps === "function") {
+            dailyOpsDateEl.value = todayIsoDate();
+            loadDailyOps();
+        }
+
+        if (typeof loadCeeSectors === "function") loadCeeSectors();
+
+        showToast("Todos os campos e filtros foram limpos.");
+    }
+    if (e.key === "F6") {
+        e.preventDefault();
+        switchTab("cepsearch");
+        const numInput = qs("#cepsearch-number");
+        if (numInput && !numInput.disabled) {
+            numInput.value = "";
+            numInput.focus();
+        }
+    }
+
+    if (e.key === "F7") {
+        e.preventDefault();
+        switchTab("cepsearch");
+        const queryInput = qs("#cepsearch-query");
+        if (queryInput) {
+            queryInput.value = "";
+            queryInput.focus();
+        }
+    }
+});
+
+const tabKeyMap = {
+    1: "zips",
+    2: "cepsearch",
+    3: "rules",
+    4: "stats",
+    5: "cee-map",
+    6: "daily-ops",
+    7: "loec-analysis",
+    8: "helpdesk",
+    9: "about",
+    0: "metrics",
+};
+
+function canAccessTab(tabName) {
+    if (tabName == "metrics") {
+        return currentUserRole == UserRoles.ADMIN;
+    }
+    return true;
+}
+
+document.addEventListener("keydown", (e) => {
+    const activeElement = document.activeElement;
+    const isInputFocused =
+        activeElement &&
+        (activeElement.tagName === "INPUT" ||
+            activeElement.tagName === "TEXTAREA" ||
+            activeElement.tagName === "SELECT" ||
+            activeElement.isContentEditable);
+
+    if (isInputFocused) return;
+
+    const targetTab = tabKeyMap[e.key];
+
+    if (targetTab && canAccessTab(targetTab)) {
+        e.preventDefault();
+        switchTab(targetTab, true, false);
+    }
+});

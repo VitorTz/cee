@@ -1,0 +1,116 @@
+// --- DOM Helpers (needed by the auth block right below) ---
+const qs = (sel, root = document) => root.querySelector(sel);
+const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+let currentTab = '';
+
+function normalizeSearchTerm(term) {
+    const withoutAccents = term
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    return withoutAccents.replace(/[^a-z0-9]+/g, "%");
+}
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function formatNeighborhoods(neighborhoods) {
+    if (Array.isArray(neighborhoods)) return neighborhoods.join(", ");
+    return neighborhoods || "—";
+}
+
+// --- ZIP Code Normalization ---
+const ZIP_REGEX = /^880[0-6][0-9]-[0-9]{3}$/;
+
+function normalizeZipDigits(raw) {
+    let digits = (raw || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (!digits.startsWith("880")) {
+        digits = `880${digits}`;
+    }
+    return digits.slice(0, 8);
+}
+
+function digitsToZipPattern(digits) {
+    if (!digits) return "";
+    if (digits.length > 5) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return digits;
+}
+
+function attachZipMask(inputEl) {
+    inputEl.addEventListener("input", () => {
+        let digits = inputEl.value.replace(/\D/g, "").slice(0, 8);
+        if (digits.length > 5) digits = `${digits.slice(0, 5)}-${digits.slice(5)}`;
+        inputEl.value = digits;
+    });
+    inputEl.addEventListener("blur", () => {
+        if (!inputEl.value.trim()) return;
+        inputEl.value = digitsToZipPattern(normalizeZipDigits(inputEl.value));
+    });
+}
+
+// --- Date & Time Helpers ---
+function todayIsoDate() {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}
+
+function formatTimeShort(value) {
+    if (!value) return "&mdash;";
+    return value.slice(0, 5);
+}
+
+function isValidCPF(value) {
+    const cpf = value.replace(/\D/g, "");
+
+    // CPF must have exactly 11 digits
+    if (cpf.length !== 11) {
+        return false;
+    }
+
+    // Reject CPFs with all identical digits
+    if (/^(\d)\1{10}$/.test(cpf)) {
+        return false;
+    }
+
+    // Validate first check digit
+    let sum = 0;
+
+    for (let i = 0; i < 9; i++) {
+        sum += Number(cpf[i]) * (10 - i);
+    }
+
+    let digit = (sum * 10) % 11;
+    if (digit === 10) digit = 0;
+
+    if (digit !== Number(cpf[9])) {
+        return false;
+    }
+
+    // Validate second check digit
+    sum = 0;
+
+    for (let i = 0; i < 10; i++) {
+        sum += Number(cpf[i]) * (11 - i);
+    }
+
+    digit = (sum * 10) % 11;
+    if (digit === 10) digit = 0;
+
+    return digit === Number(cpf[10]);
+}
+
+function getLeftOfChar(value, char) {
+    const index = value.indexOf(char);
+    return index === -1 ? value : value.slice(0, index);
+}
