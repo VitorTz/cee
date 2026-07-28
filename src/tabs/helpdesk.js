@@ -218,8 +218,7 @@ function formatHelpdeskProfileAddress(entry) {
 }
 
 // Renders a small identity card (name, matrícula/e-mail, telefone, endereço)
-// for a helpdesk participant. Used to show the carteiro's info to
-// supervisors, and the assigned supervisor(s)' info to the carteiro.
+// for a helpdesk participant, now including Call and WhatsApp shortcuts.
 function helpdeskUserProfileCardHtml(userId, roleLabel, customClass = "") {
     const entry = helpdeskUserLabelCache.get(userId);
     if (!entry) {
@@ -231,14 +230,34 @@ function helpdeskUserProfileCardHtml(userId, roleLabel, customClass = "") {
     const showIdentitySeparately = entry.full_name && identity !== name;
     const address = formatHelpdeskProfileAddress(entry);
 
+    // Format phone number into actionable links if it exists
+    let phoneLineHtml = "";
+    if (entry.phone) {
+        const cleanPhone = entry.phone.replace(/\D/g, "");
+        // Assuming Brazil (+55) if the number has 10 or 11 digits and lacks country code
+        const waPhone = (cleanPhone.length === 10 || cleanPhone.length === 11) ? "55" + cleanPhone : cleanPhone;
+
+        phoneLineHtml = `
+            <div class="helpdesk-profile-card-line" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <span>${escapeHtml(entry.phone)}</span>
+                <a href="tel:${cleanPhone}" title="Ligar" style="display: flex; align-items: center; color: var(--correios-blue); text-decoration: none;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                </a>
+                <a href="https://wa.me/${waPhone}" target="_blank" rel="noopener" title="WhatsApp" style="display: flex; align-items: center; color: #25D366; text-decoration: none;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                </a>
+            </div>
+        `;
+    }
+
     return `
     <div class="helpdesk-profile-card ${customClass}">
       ${roleLabel ? `<span class="helpdesk-profile-card-role">${escapeHtml(roleLabel)}</span>` : ""}
       <div class="helpdesk-profile-card-name">${escapeHtml(name)}</div>
       ${showIdentitySeparately ? `<div class="helpdesk-profile-card-line">${escapeHtml(identity)}</div>` : ""}
       ${entry.contact_email ? `<div class="helpdesk-profile-card-line">${escapeHtml(entry.contact_email)}</div>` : ""}
-      ${entry.phone ? `<div class="helpdesk-profile-card-line">${escapeHtml(entry.phone)}</div>` : ""}
-      ${address ? `<div class="helpdesk-profile-card-line">${escapeHtml(address)}</div>` : ""}
+      ${phoneLineHtml}
+      ${address ? `<div class="helpdesk-profile-card-line" style="margin-top: 4px;">${escapeHtml(address)}</div>` : ""}
       ${!entry.full_name && !entry.phone && !address ? `<div class="helpdesk-profile-card-empty">Perfil ainda não preenchido.</div>` : ""}
     </div>
   `;
@@ -350,10 +369,9 @@ function renderHelpdeskTicketHeader(ticket) {
     statusEl.textContent = HELPDESK_STATUS_LABELS[ticket.status] || ticket.status;
     statusEl.className = `helpdesk-status-badge ${HELPDESK_STATUS_BADGE_CLASS[ticket.status] || ""}`;
 
-    // Description element removed.
-
     const isSupervisorView =
         currentUserRole === UserRoles.ADMIN || currentUserRole === UserRoles.SUPERVISOR;
+    const isAdmin = currentUserRole === UserRoles.ADMIN;
 
     const carteiroEl = qs("#helpdesk-detail-carteiro");
     const legendEl = qs("#helpdesk-profile-legend");
@@ -379,6 +397,11 @@ function renderHelpdeskTicketHeader(ticket) {
     const reopenAction = qs("#helpdesk-reopen-action");
     if (reopenAction) {
         reopenAction.classList.toggle("hidden", !isSupervisorView || !isClosed);
+    }
+
+    const adminActions = qs("#helpdesk-admin-actions");
+    if (adminActions) {
+        adminActions.classList.toggle("hidden", !isAdmin);
     }
 
     const reportBox = qs("#helpdesk-report-box");
@@ -1209,6 +1232,67 @@ if (helpdeskMessagesEl) {
     });
 }
 
+
+/**
+ * Prompts for confirmation and deletes the currently selected ticket (Admins only).
+ * Also removes all associated media files from Supabase Storage.
+ */
+async function deleteHelpdeskTicket() {
+    if (!helpdeskSelectedTicketId) return;
+
+    // Reuse the generic confirmation modal from ui.js
+    openDeleteConfirm(
+        `o chamado #${helpdeskSelectedTicketId}`,
+        "Todas as mensagens e anexos associados serão apagados permanentemente.",
+        async () => {
+            // 1. Fetch all attachment paths for this ticket before deleting the database row
+            const { data: attachments, error: fetchError } = await sb
+                .from("helpdesk_attachments")
+                .select("storage_path")
+                .eq("ticket_id", helpdeskSelectedTicketId);
+
+            if (fetchError) {
+                showToast(`Erro ao buscar anexos para exclusão: ${fetchError.message}`, "error");
+                return;
+            }
+
+            // 2. If there are attachments, remove them from the Storage bucket
+            if (attachments && attachments.length > 0) {
+                const pathsToDelete = attachments.map(att => att.storage_path);
+                const { error: storageError } = await sb.storage
+                    .from(HELPDESK_BUCKET)
+                    .remove(pathsToDelete);
+
+                if (storageError) {
+                    console.error("Failed to delete storage files:", storageError);
+                    showToast("Aviso: Alguns arquivos podem não ter sido apagados do storage.", "error");
+                }
+            }
+
+            // 3. Delete the ticket from the database (this cascades to messages and attachment rows)
+            const { error: dbError } = await sb
+                .from("helpdesk_tickets")
+                .delete()
+                .eq("id", helpdeskSelectedTicketId);
+
+            if (dbError) {
+                showToast(`Erro ao excluir chamado: ${dbError.message}`, "error");
+                return;
+            }
+
+            closeModal();
+            showToast("Chamado e anexos excluídos com sucesso.");
+            helpdeskSelectedTicketId = null;
+            renderHelpdeskEmptyDetail();
+            await loadHelpdeskTickets();
+        }
+    );
+}
+
+const btnHelpdeskDelete = qs("#btn-helpdesk-delete");
+if (btnHelpdeskDelete) {
+    btnHelpdeskDelete.addEventListener("click", deleteHelpdeskTicket);
+}
 
 /**
  * Plays a short, non-intrusive sine wave beep.
