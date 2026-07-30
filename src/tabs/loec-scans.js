@@ -47,13 +47,34 @@ async function loadDailyScans(date) {
     // 1. Render today's records normally (Newest records at the top)
     if (dailyScansCache.length > 0) {
         hasRecords = true;
-        html += dailyScansCache.map((s) => `
+        html += dailyScansCache.map((s, index) => {
+            let diffHtml = "";
+            let prevCount = null;
+
+            // Como a lista está em ordem cronológica reversa (mais recente no topo),
+            // o valor anterior cronologicamente é o próximo item do array (index + 1).
+            // Se for o último item do array de hoje, comparamos com o prevRecord.
+            if (index < dailyScansCache.length - 1) {
+                prevCount = dailyScansCache[index + 1].object_count;
+            } else if (prevRecord) {
+                prevCount = prevRecord.object_count;
+            }
+
+            if (prevCount !== null) {
+                const diff = s.object_count - prevCount;
+                if (diff > 0) {
+                    diffHtml = `<span style="color: var(--success-green); font-weight: bold; font-size: 0.85rem; margin-left: 8px;">&uarr; +${diff}</span>`;
+                } else if (diff < 0) {
+                    diffHtml = `<span style="color: var(--stamp-red); font-weight: bold; font-size: 0.85rem; margin-left: 8px;">&darr; ${diff}</span>`;
+                }
+            }
+
+            return `
             <tr>
                 <td>${formatTimeShort(s.scan_time)}</td>
-                <td><span class="count-badge">${s.object_count}</span></td>
+                <td><span class="count-badge">${s.object_count}</span>${diffHtml}</td>
                 <td>
                     ${escapeHtml(s.notes || "")}
-                    ${s.source_type === "loec_paste" ? '<span class="loec-source-tag">LOEC colada</span>' : ""}
                 </td>
                 <td class="col-actions">
                     <span class="row-actions">
@@ -63,7 +84,7 @@ async function loadDailyScans(date) {
                     </span>
                 </td>
             </tr>
-        `).join("");
+        `}).join("");
     }
 
     // 2. Render the historic record from the previous day at the BOTTOM (Oldest record)
@@ -76,20 +97,20 @@ async function loadDailyScans(date) {
         const dateStr = prevDateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
         html += `
-            <tr style="background-color: #fbeae7; border-left: 4px solid var(--stamp-red);">
+            <tr style="background-color: #eef4fa; border-left: 4px solid var(--correios-blue);">
                 <td>
-                    <span class="union-tag" style="display: block; margin-bottom: 4px; font-size: 0.65rem;">
+                    <span class="meeting-tag" style="display: block; margin-bottom: 4px; font-size: 0.65rem;">
                         Último de ${dateStr}
                     </span>
                     ${formatTimeShort(prevRecord.scan_time)}
                 </td>
                 <td>
-                    <span class="count-badge" style="background-color: #fad2cc; color: #c6432e;">
+                    <span class="count-badge" style="background-color: var(--correios-blue); color: #ffffff;">
                         ${prevRecord.object_count}
                     </span>
                 </td>
                 <td>
-                    <span style="color: var(--stamp-red); font-weight: 600; font-size: 0.85rem;">
+                    <span style="color: var(--correios-blue); font-weight: 600; font-size: 0.85rem;">
                         Valor Anterior
                     </span>
                     <br>
@@ -98,7 +119,7 @@ async function loadDailyScans(date) {
                     </span>
                 </td>
                 <td class="col-actions">
-                    <span class="readonly-tag">Histórico</span>
+                    <span class="readonly-tag" style="border-color: var(--correios-blue); color: var(--correios-blue);">Histórico</span>
                 </td>
             </tr>
         `;
@@ -598,7 +619,7 @@ async function submitLoecPasteForm(e) {
         log_date: getDailyOpsDate(),
         scan_time: timeStr,
         object_count: report.total.objects,
-        notes: `${report.total.district_count} distritos colados`,
+        notes: `${report.total.district_count} distritos`,
         source_type: 'loec_paste',
         raw_text: rawText,
         report,
