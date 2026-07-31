@@ -10,11 +10,36 @@
 const EMPLOYEE_TYPE_LABELS = {
     carteiro_interno: "Carteiro Interno",
     carteiro_externo: "Carteiro Externo",
+    carteiro_emprestado: "Carteiro Emprestado",
     terceirizado_interno: "Terceirizado Interno",
     terceirizado_externo: "Terceirizado Externo",
     motorista: "Motorista",
     limpeza: "Limpeza",
 };
+
+// Employee types that come from another branch on loan — these show an
+// "origin_branch" field so it's clear where they came from.
+const EMPLOYEE_TYPES_WITH_ORIGIN = new Set(["carteiro_emprestado"]);
+
+// One CSS-safe class name per type, so each category gets a distinct color
+// (see .func-type-<value> rules in style.css). The enum values themselves
+// are already valid class name suffixes, so this is just a passthrough —
+// kept as an explicit map in case labels/values ever diverge.
+const EMPLOYEE_TYPE_CLASS = {
+    carteiro_interno: "carteiro_interno",
+    carteiro_externo: "carteiro_externo",
+    carteiro_emprestado: "carteiro_emprestado",
+    terceirizado_interno: "terceirizado_interno",
+    terceirizado_externo: "terceirizado_externo",
+    motorista: "motorista",
+    limpeza: "limpeza",
+};
+
+function funcTypeBadge(type) {
+    const cls = EMPLOYEE_TYPE_CLASS[type] || "carteiro_interno";
+    const label = EMPLOYEE_TYPE_LABELS[type] || type;
+    return `<span class="func-type-badge func-type-${cls}">${label}</span>`;
+}
 
 const ATTENDANCE_STATUS_LABELS = {
     presente: "Presente",
@@ -35,10 +60,15 @@ let funcFilterActive = "active";
 let funcStatusMap = {}; // employee_id -> { current_situation, ferias_until, atestado_until }
 
 let funcLeavesCache = []; // all leave rows for the current filter, client-paginated below
-let funcActiveEmployeesCache = []; // [{id, full_name, employee_type}] for selects
+
+// `null` means "not fetched yet" — ensureActiveEmployeesCache() only hits the
+// network the first time it's needed, and again after anything that could
+// change the active roster (create/edit/deactivate/delete an employee).
+let funcActiveEmployeesCache = null; // [{id, full_name, employee_type}] for selects
 
 let funcCalendarDate = new Date();
 funcCalendarDate.setDate(1);
+let funcCalendarEventsCache = []; // events overlapping the month currently on screen
 
 // --- Helpers ---------------------------------------------------------------
 
@@ -94,24 +124,20 @@ async function refreshFuncStatusMap() {
 }
 
 async function refreshFuncStatusSummary() {
-    await refreshFuncStatusMap();
-
-    const activeCountP = sb
-        .from("employees")
-        .select("id", { count: "exact", head: true })
-        .eq("active", true);
-
     const in30Days = new Date();
     in30Days.setDate(in30Days.getDate() + 30);
     const in30DaysStr = in30Days.toISOString().slice(0, 10);
-    const upcomingCountP = sb
-        .from("employee_upcoming_vacations")
-        .select("id", { count: "exact", head: true })
-        .lte("start_date", in30DaysStr);
 
-    const [{ count: activeCount }, { count: upcomingCount }] = await Promise.all([
-        activeCountP,
-        upcomingCountP,
+    // All three are independent — fire them together instead of one after
+    // another, so opening the tab costs one round trip's worth of latency
+    // instead of three.
+    const [, { count: activeCount }, { count: upcomingCount }] = await Promise.all([
+        refreshFuncStatusMap(),
+        sb.from("employees").select("id", { count: "exact", head: true }).eq("active", true),
+        sb
+            .from("employee_upcoming_vacations")
+            .select("id", { count: "exact", head: true })
+            .lte("start_date", in30DaysStr),
     ]);
 
     let feriasToday = 0;
@@ -127,7 +153,11 @@ async function refreshFuncStatusSummary() {
     qs("#func-stat-upcoming").textContent = upcomingCount ?? 0;
 }
 
-async function loadActiveEmployeesForSelect() {
+// Fetches the active-employee list used by the leave/presence selects, but
+// only over the network the first time (or after `invalidate`/a mutation
+// that could change who's active). Everything else reuses the cache.
+async function ensureActiveEmployeesCache(forceReload = false) {
+    if (funcActiveEmployeesCache !== null && !forceReload) return funcActiveEmployeesCache;
     const { data, error } = await sb
         .from("employees")
         .select("id, full_name, employee_type")
@@ -135,6 +165,10 @@ async function loadActiveEmployeesForSelect() {
         .order("full_name");
     funcActiveEmployeesCache = error ? [] : data;
     return funcActiveEmployeesCache;
+}
+
+function invalidateFuncActiveEmployeesCache() {
+    funcActiveEmployeesCache = null;
 }
 
 // --- Sub-panel: employee registry (list + CRUD) -----------------------------
@@ -169,7 +203,9 @@ async function loadFuncList() {
         .range(funcPage * FUNC_PAGE_SIZE, funcPage * FUNC_PAGE_SIZE + FUNC_PAGE_SIZE - 1);
 
     const { data, error, count } = await query;
-    await refreshFuncStatusMap();
+    // funcStatusMap is refreshed once when the tab opens and again after any
+    // mutation that can change it (leave/employee CRUD) — no need to re-fetch
+    // the whole employee_current_status view on every keystroke or page turn.
 
     if (error || !data || data.length === 0) {
         tbody.innerHTML = "";
@@ -188,10 +224,14 @@ async function loadFuncList() {
 function renderFuncRow(emp) {
     const status = funcStatusMap[emp.id];
     const situation = !emp.active ? "inativo" : status ? status.current_situation : "ativo";
+    const originNote =
+        emp.employee_type === "carteiro_emprestado" && emp.origin_branch
+            ? `<span class="func-origin-note">de: ${escapeHtml(emp.origin_branch)}</span>`
+            : "";
     return `
     <tr data-emp-id="${emp.id}">
       <td>${escapeHtml(emp.full_name)}</td>
-      <td><span class="func-type-pill">${EMPLOYEE_TYPE_LABELS[emp.employee_type] || emp.employee_type}</span></td>
+      <td>${funcTypeBadge(emp.employee_type)}${originNote}</td>
       <td>${escapeHtml(emp.phone || "—")}</td>
       <td>${escapeHtml(emp.email || "—")}</td>
       <td>${emp.cpf ? escapeHtml(formatCPF(emp.cpf)) : "—"}</td>
@@ -225,6 +265,7 @@ async function toggleFuncActive(id) {
         return;
     }
     showToast(emp.active ? `${emp.full_name} foi desligado(a).` : `${emp.full_name} foi reativado(a).`);
+    invalidateFuncActiveEmployeesCache();
     await loadFuncList();
     await refreshFuncStatusSummary();
 }
@@ -243,6 +284,7 @@ function confirmDeleteFunc(id) {
                 return;
             }
             showToast("Funcionário excluído.");
+            invalidateFuncActiveEmployeesCache();
             await loadFuncList();
             await refreshFuncStatusSummary();
         },
@@ -264,7 +306,9 @@ function funcEmployeeFormTemplate(emp) {
         cpf: "",
         address: "",
         notes: "",
+        origin_branch: "",
     };
+    const showOrigin = EMPLOYEE_TYPES_WITH_ORIGIN.has(e.employee_type);
     return `
     <form id="func-employee-form">
       <div class="field-row">
@@ -276,6 +320,10 @@ function funcEmployeeFormTemplate(emp) {
           <label for="func-f-type">Tipo *</label>
           <select id="func-f-type">${funcEmployeeTypeOptions(e.employee_type)}</select>
         </div>
+      </div>
+      <div class="field" id="func-f-origin-wrap" style="${showOrigin ? "" : "display:none"}">
+        <label for="func-f-origin">Sede/unidade de origem <span style="font-weight:400;color:var(--ink-soft)">(de onde ele veio ajudar)</span></label>
+        <input type="text" id="func-f-origin" maxlength="150" value="${escapeHtml(e.origin_branch || "")}">
       </div>
       <div class="field-row">
         <div class="field">
@@ -315,6 +363,11 @@ async function openFuncEmployeeModal(id) {
     }
     openModal(id ? "Editar Funcionário" : "Novo Funcionário", funcEmployeeFormTemplate(emp));
     qs("#func-f-cancel").addEventListener("click", closeModal);
+    qs("#func-f-type").addEventListener("change", (e) => {
+        qs("#func-f-origin-wrap").style.display = EMPLOYEE_TYPES_WITH_ORIGIN.has(e.target.value)
+            ? ""
+            : "none";
+    });
     qs("#func-employee-form").addEventListener("submit", async (ev) => {
         ev.preventDefault();
         const errorEl = qs("#func-f-error");
@@ -334,14 +387,18 @@ async function openFuncEmployeeModal(id) {
             return;
         }
 
+        const selectedType = qs("#func-f-type").value;
         const payload = {
             full_name: fullName,
-            employee_type: qs("#func-f-type").value,
+            employee_type: selectedType,
             phone: qs("#func-f-phone").value.trim() || null,
             email: qs("#func-f-email").value.trim() || null,
             cpf: cpfDigits || null,
             address: qs("#func-f-address").value.trim() || null,
             notes: qs("#func-f-notes").value.trim() || null,
+            origin_branch: EMPLOYEE_TYPES_WITH_ORIGIN.has(selectedType)
+                ? qs("#func-f-origin").value.trim() || null
+                : null,
         };
 
         const { error } = id
@@ -358,9 +415,9 @@ async function openFuncEmployeeModal(id) {
 
         showToast(id ? "Funcionário atualizado." : "Funcionário cadastrado.");
         closeModal();
+        invalidateFuncActiveEmployeesCache();
         await loadFuncList();
         await refreshFuncStatusSummary();
-        await loadActiveEmployeesForSelect();
     });
 }
 
@@ -417,7 +474,7 @@ async function loadFuncPresenca() {
             return `
         <tr class="func-attendance-row" data-emp-id="${emp.id}">
           <td>${escapeHtml(emp.full_name)}</td>
-          <td><span class="func-type-pill">${EMPLOYEE_TYPE_LABELS[emp.employee_type] || emp.employee_type}</span></td>
+          <td>${funcTypeBadge(emp.employee_type)}</td>
           <td><select class="func-att-status">${options}</select></td>
           <td><input type="text" class="func-att-notes" maxlength="255" value="${escapeHtml(defaultNotes)}" placeholder="Observação (opcional)"></td>
         </tr>`;
@@ -584,7 +641,7 @@ function funcLeaveFormTemplate(leave) {
 }
 
 async function openFuncLeaveModal(id) {
-    await loadActiveEmployeesForSelect();
+    await ensureActiveEmployeesCache();
     let leave = null;
     if (id) leave = funcLeavesCache.find((l) => l.id === id) || null;
 
@@ -648,6 +705,19 @@ function isoDate(year, month, day) {
     return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+// Spreads any row with a start_date/end_date across every day-of-month it
+// touches within [monthStart, monthEnd], tagged with `kind` so the renderer
+// can tell leaves and free-form events apart.
+function bucketByDay(rows, kind, monthStart, monthEnd, daysInMonth, byDay) {
+    rows.forEach((row) => {
+        const from = row.start_date < monthStart ? 1 : Number(row.start_date.slice(8, 10));
+        const to = row.end_date > monthEnd ? daysInMonth : Number(row.end_date.slice(8, 10));
+        for (let d = from; d <= to; d++) {
+            byDay[d].push({ kind, ...row });
+        }
+    });
+}
+
 async function loadFuncCalendar() {
     const grid = qs("#func-calendar-grid");
     grid.innerHTML = `<div class="empty-state">Carregando calendário&hellip;</div>`;
@@ -660,24 +730,30 @@ async function loadFuncCalendar() {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const monthEnd = isoDate(year, month, daysInMonth);
 
-    const { data, error } = await sb
-        .from("employee_leaves")
-        .select("id, leave_type, start_date, end_date, employees(full_name)")
-        .lte("start_date", monthEnd)
-        .gte("end_date", monthStart);
+    // Leaves and events live in different tables — fetch both at once
+    // instead of waiting on one before starting the other.
+    const [{ data: leavesData, error: leavesError }, { data: eventsData, error: eventsError }] =
+        await Promise.all([
+            sb
+                .from("employee_leaves")
+                .select("id, leave_type, start_date, end_date, reason, employees(full_name)")
+                .lte("start_date", monthEnd)
+                .gte("end_date", monthStart),
+            sb
+                .from("employee_calendar_events")
+                .select("id, title, description, start_date, end_date")
+                .lte("start_date", monthEnd)
+                .gte("end_date", monthStart)
+                .order("start_date"),
+        ]);
 
-    const leaves = error || !data ? [] : data;
+    const leaves = leavesError || !leavesData ? [] : leavesData;
+    funcCalendarEventsCache = eventsError || !eventsData ? [] : eventsData;
 
-    // Bucket leaves per day-of-month they touch within this month.
     const byDay = {};
     for (let d = 1; d <= daysInMonth; d++) byDay[d] = [];
-    leaves.forEach((leave) => {
-        const from = leave.start_date < monthStart ? 1 : Number(leave.start_date.slice(8, 10));
-        const to = leave.end_date > monthEnd ? daysInMonth : Number(leave.end_date.slice(8, 10));
-        for (let d = from; d <= to; d++) {
-            byDay[d].push(leave);
-        }
-    });
+    bucketByDay(leaves, "leave", monthStart, monthEnd, daysInMonth, byDay);
+    bucketByDay(funcCalendarEventsCache, "event", monthStart, monthEnd, daysInMonth, byDay);
 
     const firstWeekday = new Date(year, month, 1).getDay();
     const todayStr = todayIsoDate();
@@ -688,16 +764,18 @@ async function loadFuncCalendar() {
     }
     for (let d = 1; d <= daysInMonth; d++) {
         const dayIso = isoDate(year, month, d);
-        const dayLeaves = byDay[d];
+        const dayItems = byDay[d];
         const isToday = dayIso === todayStr;
-        const shown = dayLeaves.slice(0, 2);
-        const rest = dayLeaves.length - shown.length;
+        const shown = dayItems.slice(0, 2);
+        const rest = dayItems.length - shown.length;
         const tagsHtml =
             shown
-                .map(
-                    (l) =>
-                        `<span class="func-cal-tag func-cal-tag-${l.leave_type}" title="${escapeHtml(l.employees?.full_name || "")}">${escapeHtml(l.employees?.full_name || "")}</span>`,
-                )
+                .map((item) => {
+                    const label =
+                        item.kind === "leave" ? item.employees?.full_name || "—" : item.title;
+                    const cls = item.kind === "leave" ? item.leave_type : "evento";
+                    return `<span class="func-cal-tag func-cal-tag-${cls}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+                })
                 .join("") + (rest > 0 ? `<span class="func-cal-tag-more" data-cal-day="${dayIso}">+${rest} mais</span>` : "");
 
         html += `
@@ -712,21 +790,153 @@ async function loadFuncCalendar() {
     qsa("[data-cal-day]", grid).forEach((el) => {
         el.addEventListener("click", () => showFuncCalendarDayModal(el.dataset.calDay, byDay));
     });
+
+    renderFuncEventsList();
 }
 
 function showFuncCalendarDayModal(dayIso, byDay) {
     const day = Number(dayIso.slice(8, 10));
-    const leaves = byDay[day] || [];
+    const items = byDay[day] || [];
     const bodyHtml =
-        leaves.length === 0
-            ? `<p class="empty-state">Ninguém de férias ou atestado neste dia.</p>`
-            : `<ul style="margin:0; padding-left: 18px;">${leaves
-                .map(
-                    (l) =>
-                        `<li style="margin-bottom:6px;">${escapeHtml(l.employees?.full_name || "—")} — ${l.leave_type === "ferias" ? "Férias" : "Atestado"} (${formatDateBR(l.start_date)} a ${formatDateBR(l.end_date)})</li>`,
-                )
+        items.length === 0
+            ? `<p class="empty-state">Nada registrado neste dia.</p>`
+            : `<ul style="margin:0; padding-left: 18px;">${items
+                .map((item) => {
+                    if (item.kind === "leave") {
+                        return `<li style="margin-bottom:6px;">${escapeHtml(item.employees?.full_name || "—")} — ${item.leave_type === "ferias" ? "Férias" : "Atestado"} (${formatDateBR(item.start_date)} a ${formatDateBR(item.end_date)})</li>`;
+                    }
+                    return `<li style="margin-bottom:6px;"><span class="func-event-type-tag">Evento</span> ${escapeHtml(item.title)} (${formatDateBR(item.start_date)} a ${formatDateBR(item.end_date)})</li>`;
+                })
                 .join("")}</ul>`;
-    openModal(`Afastamentos em ${formatDateBR(dayIso)}`, bodyHtml);
+    openModal(`Em ${formatDateBR(dayIso)}`, bodyHtml);
+}
+
+// --- Calendar events & reminders (free-form, not tied to an employee) ------
+
+function renderFuncEventsList() {
+    const tbody = qs("#func-events-tbody");
+    const emptyEl = qs("#func-events-empty");
+    if (!tbody) return;
+
+    if (funcCalendarEventsCache.length === 0) {
+        tbody.innerHTML = "";
+        emptyEl.classList.remove("hidden");
+        return;
+    }
+    emptyEl.classList.add("hidden");
+    tbody.innerHTML = funcCalendarEventsCache
+        .map(
+            (ev) => `
+      <tr data-event-id="${ev.id}">
+        <td>${escapeHtml(ev.title)}</td>
+        <td>${ev.start_date === ev.end_date ? formatDateBR(ev.start_date) : `${formatDateBR(ev.start_date)} a ${formatDateBR(ev.end_date)}`}</td>
+        <td>${escapeHtml(ev.description || "—")}</td>
+        <td class="col-actions">
+          <button type="button" class="btn btn-secondary btn-icon" data-edit-event="${ev.id}">Editar</button>
+          <button type="button" class="btn btn-danger btn-icon" data-delete-event="${ev.id}">Excluir</button>
+        </td>
+      </tr>`,
+        )
+        .join("");
+
+    qsa("[data-edit-event]").forEach((btn) => {
+        btn.addEventListener("click", () => openFuncEventModal(Number(btn.dataset.editEvent)));
+    });
+    qsa("[data-delete-event]").forEach((btn) => {
+        btn.addEventListener("click", () => confirmDeleteEvent(Number(btn.dataset.deleteEvent)));
+    });
+}
+
+function funcEventFormTemplate(event) {
+    const ev = event || { title: "", description: "", start_date: todayIsoDate(), end_date: todayIsoDate() };
+    return `
+    <form id="func-event-form">
+      <div class="field">
+        <label for="func-e-title">Título *</label>
+        <input type="text" id="func-e-title" maxlength="150" required value="${escapeHtml(ev.title)}">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="func-e-start">Início *</label>
+          <input type="date" id="func-e-start" required value="${ev.start_date}">
+        </div>
+        <div class="field">
+          <label for="func-e-end">Fim *</label>
+          <input type="date" id="func-e-end" required value="${ev.end_date}">
+        </div>
+      </div>
+      <div class="field">
+        <label for="func-e-desc">Descrição</label>
+        <textarea id="func-e-desc" rows="2" maxlength="500">${escapeHtml(ev.description || "")}</textarea>
+      </div>
+      <p id="func-e-error" class="account-status hidden" style="color: var(--stamp-red);"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="func-e-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>`;
+}
+
+function openFuncEventModal(id) {
+    const event = id ? funcCalendarEventsCache.find((e) => e.id === id) || null : null;
+    openModal(id ? "Editar Evento/Lembrete" : "Novo Evento/Lembrete", funcEventFormTemplate(event));
+    qs("#func-e-cancel").addEventListener("click", closeModal);
+    qs("#func-event-form").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const errorEl = qs("#func-e-error");
+        errorEl.classList.add("hidden");
+
+        const title = qs("#func-e-title").value.trim();
+        const startDate = qs("#func-e-start").value;
+        const endDate = qs("#func-e-end").value;
+
+        if (!title) {
+            errorEl.textContent = "Informe um título para o evento.";
+            errorEl.classList.remove("hidden");
+            return;
+        }
+        if (!startDate || !endDate || endDate < startDate) {
+            errorEl.textContent = "Informe um período válido (fim não pode ser antes do início).";
+            errorEl.classList.remove("hidden");
+            return;
+        }
+
+        const payload = {
+            title,
+            description: qs("#func-e-desc").value.trim() || null,
+            start_date: startDate,
+            end_date: endDate,
+        };
+        if (!id) payload.created_by = currentUser ? currentUser.id : null;
+
+        const { error } = id
+            ? await sb.from("employee_calendar_events").update(payload).eq("id", id)
+            : await sb.from("employee_calendar_events").insert(payload);
+
+        if (error) {
+            errorEl.textContent = "Não foi possível salvar o evento.";
+            errorEl.classList.remove("hidden");
+            return;
+        }
+
+        showToast(id ? "Evento atualizado." : "Evento registrado.");
+        closeModal();
+        await loadFuncCalendar();
+    });
+}
+
+function confirmDeleteEvent(id) {
+    const event = funcCalendarEventsCache.find((e) => e.id === id);
+    openDeleteConfirm(event ? event.title : "este evento", null, async () => {
+        const { error } = await sb.from("employee_calendar_events").delete().eq("id", id);
+        closeModal();
+        if (error) {
+            showToast("Não foi possível excluir o evento.", "error");
+            return;
+        }
+        showToast("Evento excluído.");
+        await loadFuncCalendar();
+    });
 }
 
 // --- Wiring & entry point ----------------------------------------------------
@@ -789,10 +999,7 @@ function wireFuncionariosEvents() {
 
     qs("#func-leaves-filter-type").addEventListener("change", loadFuncLeaves);
     qs("#func-leaves-filter-status").addEventListener("change", loadFuncLeaves);
-    qs("#btn-new-leave").addEventListener("click", async () => {
-        await loadActiveEmployeesForSelect();
-        openFuncLeaveModal(null);
-    });
+    qs("#btn-new-leave").addEventListener("click", () => openFuncLeaveModal(null));
 
     qs("#func-cal-prev").addEventListener("click", () => {
         funcCalendarDate.setMonth(funcCalendarDate.getMonth() - 1);
@@ -807,6 +1014,7 @@ function wireFuncionariosEvents() {
         funcCalendarDate.setDate(1);
         loadFuncCalendar();
     });
+    qs("#btn-new-cal-event").addEventListener("click", () => openFuncEventModal(null));
 }
 
 async function loadFuncionarios() {
@@ -814,7 +1022,6 @@ async function loadFuncionarios() {
         funcInitialized = true;
         wireFuncionariosEvents();
     }
-    await loadActiveEmployeesForSelect();
-    await refreshFuncStatusSummary();
+    await Promise.all([ensureActiveEmployeesCache(), refreshFuncStatusSummary()]);
     await loadFuncList();
 }

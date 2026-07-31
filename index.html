@@ -115,21 +115,21 @@
         >
           <span class="tab-index">03</span> Regras de Numeração
         </button>
-        <!-- <button
+        <button
           class="tab-btn"
           data-tab="cee-map"
           role="tab"
           aria-selected="false"
         >
           <span class="tab-index">04</span> Setores
-        </button> -->
+        </button>
         <button
           class="tab-btn"
           data-tab="daily-ops"
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">04</span> Registros
+          <span class="tab-index">05</span> Registros
         </button>
         <button
           class="tab-btn"
@@ -137,7 +137,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">05</span> Análise LOEC
+          <span class="tab-index">06</span> Análise LOEC
         </button>
         <button
           class="tab-btn"
@@ -145,7 +145,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">06</span> Help Desk
+          <span class="tab-index">07</span> Help Desk
         </button>
         <button
           class="tab-btn"
@@ -153,7 +153,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">07</span> Minha Conta
+          <span class="tab-index">08</span> Minha Conta
         </button>
         <button
           class="tab-btn supervisor-only hidden"
@@ -162,7 +162,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">08</span> Quadro de Funcionários
+          <span class="tab-index">09</span> Quadro de Funcionários
         </button>
         <button
           class="tab-btn admin-only hidden"
@@ -171,7 +171,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">09</span> Supabase Metrics
+          <span class="tab-index">10</span> Supabase Metrics
         </button>
       </nav>
 
@@ -1004,6 +1004,7 @@
                   <option value="">Todos os tipos</option>
                   <option value="carteiro_interno">Carteiro Interno</option>
                   <option value="carteiro_externo">Carteiro Externo</option>
+                  <option value="carteiro_emprestado">Carteiro Emprestado (outra sede)</option>
                   <option value="terceirizado_interno">Terceirizado Interno</option>
                   <option value="terceirizado_externo">Terceirizado Externo</option>
                   <option value="motorista">Motorista</option>
@@ -1145,13 +1146,41 @@
               <h3 id="func-cal-label">&nbsp;</h3>
               <button type="button" class="btn btn-secondary btn-icon" id="func-cal-next">&rarr;</button>
               <button type="button" class="btn btn-secondary btn-icon" id="func-cal-today">Mês Atual</button>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-new-cal-event">
+                + Novo Evento/Lembrete
+              </button>
               <div class="func-calendar-legend">
                 <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-ferias"></span>Férias</span>
                 <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-atestado"></span>Atestado</span>
+                <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-evento"></span>Evento/Lembrete</span>
               </div>
             </div>
             <div class="func-calendar-grid" id="func-calendar-grid">
               <div class="empty-state">Carregando calendário&hellip;</div>
+            </div>
+
+            <div class="func-events-list-header">
+              <h4>Eventos e Lembretes do Mês</h4>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Período</th>
+                    <th>Descrição</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="func-events-tbody">
+                  <tr class="loading-row">
+                    <td colspan="4">Carregando&hellip;</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p id="func-events-empty" class="empty-state hidden">
+                Nenhum evento ou lembrete cadastrado neste mês.
+              </p>
             </div>
           </div>
         </section>
@@ -1550,7 +1579,7 @@
     <script src="src/tabs/zips.js" defer></script>
     <script src="src/tabs/rules.js" defer></script>
     <script src="src/tabs/cep-search.js" defer></script>
-    <!-- <script src="src/tabs/cee-map.js" defer></script> -->
+    <script src="src/tabs/cee-map.js" defer></script>
     <script src="src/tabs/loec-scans.js" defer></script>
     <script src="src/tabs/daily-ops.js" defer></script>
     <script src="src/tabs/helpdesk.js" defer></script>
