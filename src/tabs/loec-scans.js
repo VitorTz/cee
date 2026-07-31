@@ -110,11 +110,7 @@ async function loadDailyScans(date) {
                     </span>
                 </td>
                 <td>
-                    <span style="color: var(--correios-blue); font-weight: 600; font-size: 0.85rem;">
-                        Valor Anterior
-                    </span>
-                    <br>
-                    <span style="font-size: 0.85rem; color: var(--ink-soft);">
+                    <span style="font-size: 1rem; color: var(--ink-soft);">
                         ${escapeHtml(prevRecord.notes || "")}
                     </span>
                 </td>

@@ -392,7 +392,6 @@ const tabKeyMap = {
     1: "zips",
     2: "cepsearch",
     3: "rules",
-    // 4: "cee-map",
     4: "daily-ops",
     5: "loec-analysis",
     6: "helpdesk",
