@@ -227,6 +227,19 @@ async function handleSessionChange(session) {
         qs("#metrics-tab").classList.add("hidden");
         pingOverlay.classList.add("hidden");
     }
+
+    const funcionariosTabEl = qs("#funcionarios-tab");
+    if (funcionariosTabEl) {
+        const canSeeFuncionarios =
+            currentUserRole == UserRoles.ADMIN ||
+            currentUserRole == UserRoles.SUPERVISOR;
+        funcionariosTabEl.classList.toggle("hidden", !canSeeFuncionarios);
+        // If the role changed (e.g. a fresh login) while this tab was open,
+        // bounce back to a tab every role can see.
+        if (!canSeeFuncionarios && funcionariosTabEl.classList.contains("active")) {
+            switchTab("zips");
+        }
+    }
 }
 
 sb.auth.onAuthStateChange((event, session) => handleSessionChange(session));

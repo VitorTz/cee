@@ -134,11 +134,39 @@ function switchTab(tab, isManualClick = false, shouldFocus = true) {
         case "account":
             if (typeof loadAccountPage === "function") loadAccountPage();
             break;
+        case "funcionarios":
+            if (typeof loadFuncionarios === "function") loadFuncionarios();
+            break;
         case "metrics":
             loadMetricsDashboard()
             break;
         default:
             break;
+    }
+}
+
+// --- Sub-tabs (used inside the Quadro de Funcionários panel) ---
+qsa(".subtab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => switchSubtab(btn));
+});
+
+function switchSubtab(btn) {
+    const group = btn.closest(".panel");
+    if (!group) return;
+    const target = btn.dataset.subtab;
+
+    qsa(".subtab-btn", group).forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-selected", String(active));
+    });
+
+    qsa(".subpanel", group).forEach((panel) => {
+        panel.classList.toggle("hidden", panel.id !== `subpanel-${target}`);
+    });
+
+    if (typeof onFuncionariosSubtabChange === "function") {
+        onFuncionariosSubtabChange(target);
     }
 }
 
@@ -335,6 +363,8 @@ document.addEventListener("keydown", (e) => {
 
         if (typeof loadCeeSectors === "function") loadCeeSectors();
 
+        if (typeof loadFuncionarios === "function") loadFuncionarios();
+
         showToast("Todos os campos e filtros foram limpos.");
     }
     if (e.key === "F6") {
@@ -367,11 +397,18 @@ const tabKeyMap = {
     6: "loec-analysis",
     7: "helpdesk",
     8: "account",
+    9: "funcionarios",
 };
 
 function canAccessTab(tabName) {
     if (tabName == "metrics") {
         return currentUserRole == UserRoles.ADMIN;
+    }
+    if (tabName == "funcionarios") {
+        return (
+            currentUserRole == UserRoles.ADMIN ||
+            currentUserRole == UserRoles.SUPERVISOR
+        );
     }
     return true;
 }

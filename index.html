@@ -156,13 +156,22 @@
           <span class="tab-index">08</span> Minha Conta
         </button>
         <button
+          class="tab-btn supervisor-only hidden"
+          id="funcionarios-tab"
+          data-tab="funcionarios"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">09</span> Quadro de Funcionários
+        </button>
+        <button
           class="tab-btn admin-only hidden"
           id="metrics-tab"
           data-tab="metrics"
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">9</span> Supabase Metrics
+          <span class="tab-index">10</span> Supabase Metrics
         </button>
       </nav>
 
@@ -947,6 +956,206 @@
           </div>
         </section>
 
+        <!-- ===== QUADRO DE FUNCIONÁRIOS (ADMIN/SUPERVISOR ONLY) ===== -->
+        <section id="panel-funcionarios" class="panel" aria-labelledby="funcionarios">
+          <nav class="subtabs" role="tablist" aria-label="Seções do quadro de funcionários">
+            <button type="button" class="subtab-btn active" data-subtab="func-list" role="tab" aria-selected="true">
+              Funcionários
+            </button>
+            <button type="button" class="subtab-btn" data-subtab="func-presenca" role="tab" aria-selected="false">
+              Presença Diária
+            </button>
+            <button type="button" class="subtab-btn" data-subtab="func-afastamentos" role="tab" aria-selected="false">
+              Afastamentos
+            </button>
+            <button type="button" class="subtab-btn" data-subtab="func-calendario" role="tab" aria-selected="false">
+              Calendário
+            </button>
+          </nav>
+
+          <!-- Quick status summary: who's out today, at a glance -->
+          <div class="stats-grid" id="func-status-summary">
+            <div class="stat-card">
+              <div class="stat-title">Funcionários Ativos</div>
+              <div class="stat-value" id="func-stat-active">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">De Férias Hoje</div>
+              <div class="stat-value" id="func-stat-ferias">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">De Atestado Hoje</div>
+              <div class="stat-value" id="func-stat-atestado">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Próximas Férias (30 dias)</div>
+              <div class="stat-value" id="func-stat-upcoming">0</div>
+            </div>
+          </div>
+
+          <!-- ===== Sub-panel: employee registry (CRUD) ===== -->
+          <div id="subpanel-func-list" class="subpanel active">
+            <div class="panel-toolbar">
+              <div class="search-field">
+                <input type="search" id="func-search" placeholder="Buscar por nome, CPF, e-mail ou telefone&hellip;" />
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <select id="func-filter-type">
+                  <option value="">Todos os tipos</option>
+                  <option value="carteiro_interno">Carteiro Interno</option>
+                  <option value="carteiro_externo">Carteiro Externo</option>
+                  <option value="terceirizado_interno">Terceirizado Interno</option>
+                  <option value="terceirizado_externo">Terceirizado Externo</option>
+                  <option value="motorista">Motorista</option>
+                  <option value="limpeza">Limpeza</option>
+                </select>
+                <select id="func-filter-active">
+                  <option value="active">Somente ativos</option>
+                  <option value="all">Todos (inclui desligados)</option>
+                  <option value="inactive">Somente desligados</option>
+                </select>
+                <button class="btn btn-primary btn-icon" id="btn-new-func">
+                  + Novo Funcionário
+                </button>
+              </div>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Tipo</th>
+                    <th>Telefone</th>
+                    <th>E-mail</th>
+                    <th>CPF</th>
+                    <th>Situação</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="func-tbody">
+                  <tr class="loading-row">
+                    <td colspan="7">Carregando&hellip;</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p id="func-empty" class="empty-state hidden">
+                Nenhum funcionário encontrado.
+              </p>
+            </div>
+            <div class="pagination" id="func-pagination">
+              <button type="button" class="btn btn-secondary btn-icon" id="func-prev" disabled>
+                &larr; Anterior
+              </button>
+              <span id="func-page-info" class="pagination-info">Página 1</span>
+              <button type="button" class="btn btn-secondary btn-icon" id="func-next" disabled>
+                Próxima &rarr;
+              </button>
+            </div>
+          </div>
+
+          <!-- ===== Sub-panel: daily attendance register ===== -->
+          <div id="subpanel-func-presenca" class="subpanel hidden">
+            <div class="panel-toolbar">
+              <div class="field daily-ops-date-field">
+                <label for="func-presenca-date">Data</label>
+                <input type="date" id="func-presenca-date" />
+              </div>
+              <button type="button" class="btn btn-secondary btn-icon" id="func-presenca-today">
+                Hoje
+              </button>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-save-presenca">
+                Salvar Presenças
+              </button>
+            </div>
+            <p class="field-hint">
+              Marque a situação de cada funcionário nesta data. Funcionários com férias ou
+              atestado já registrado para o dia aparecem pré-marcados automaticamente.
+            </p>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Tipo</th>
+                    <th>Situação</th>
+                    <th>Observação</th>
+                  </tr>
+                </thead>
+                <tbody id="func-presenca-tbody">
+                  <tr class="loading-row">
+                    <td colspan="4">Carregando&hellip;</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p id="func-presenca-empty" class="empty-state hidden">
+                Nenhum funcionário ativo cadastrado.
+              </p>
+            </div>
+          </div>
+
+          <!-- ===== Sub-panel: leave (férias/atestado) management ===== -->
+          <div id="subpanel-func-afastamentos" class="subpanel hidden">
+            <div class="panel-toolbar">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <select id="func-leaves-filter-type">
+                  <option value="">Todos os afastamentos</option>
+                  <option value="ferias">Só férias</option>
+                  <option value="atestado">Só atestados</option>
+                </select>
+                <select id="func-leaves-filter-status">
+                  <option value="">Qualquer período</option>
+                  <option value="current">Em andamento</option>
+                  <option value="upcoming">Futuros</option>
+                  <option value="past">Encerrados</option>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-icon" id="btn-new-leave">
+                + Registrar Afastamento
+              </button>
+            </div>
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Funcionário</th>
+                    <th>Tipo</th>
+                    <th>Início</th>
+                    <th>Fim</th>
+                    <th>Motivo</th>
+                    <th>Status</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="func-leaves-tbody">
+                  <tr class="loading-row">
+                    <td colspan="7">Carregando&hellip;</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p id="func-leaves-empty" class="empty-state hidden">
+                Nenhum afastamento encontrado.
+              </p>
+            </div>
+          </div>
+
+          <!-- ===== Sub-panel: leave calendar ===== -->
+          <div id="subpanel-func-calendario" class="subpanel hidden">
+            <div class="func-calendar-toolbar">
+              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-prev">&larr;</button>
+              <h3 id="func-cal-label">&nbsp;</h3>
+              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-next">&rarr;</button>
+              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-today">Mês Atual</button>
+              <div class="func-calendar-legend">
+                <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-ferias"></span>Férias</span>
+                <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-atestado"></span>Atestado</span>
+              </div>
+            </div>
+            <div class="func-calendar-grid" id="func-calendar-grid">
+              <div class="empty-state">Carregando calendário&hellip;</div>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== MINHA CONTA (PERFIL DO USUÁRIO) ===== -->
         <section id="panel-account" class="panel" aria-labelledby="account">          
 
@@ -1345,6 +1554,7 @@
     <script src="src/tabs/loec-scans.js" defer></script>
     <script src="src/tabs/daily-ops.js" defer></script>
     <script src="src/tabs/helpdesk.js" defer></script>
+    <script src="src/tabs/employees.js" defer></script>
     <script src="src/tabs/account.js" defer></script>
     <script src="src/tabs/bug-reports.js" defer></script>
     <script src="src/tabs/loec-analysis.js" defer></script>

@@ -3423,3 +3423,289 @@ body.restrict-daily #daily-notes-editor.ql-container {
   margin-bottom: 10px;
   width: 100%;
 }
+/* =========================================================================
+   QUADRO DE FUNCIONÁRIOS (employee roster)
+   ========================================================================= */
+
+.subtabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  border-bottom: 2px solid var(--paper-line);
+  padding-bottom: 0;
+}
+
+.subtab-btn {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 9px 6px;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.subtab-btn:hover {
+  color: var(--correios-blue-deep);
+}
+
+.subtab-btn.active {
+  color: var(--correios-blue-deep);
+  border-bottom-color: var(--correios-blue-deep);
+}
+
+.subpanel {
+  display: block;
+}
+
+.subpanel.hidden {
+  display: none;
+}
+
+#panel-funcionarios .panel-toolbar select {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  padding: 9px 12px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+#func-status-summary {
+  margin-bottom: 20px;
+}
+
+/* --- Situation badges (ativo / férias / atestado / inativo) --- */
+.func-situation-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-soft);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.func-situation-ativo {
+  border-color: var(--success-green);
+  color: var(--success-green);
+  background: #eaf6ef;
+}
+
+.func-situation-ferias {
+  border-color: var(--correios-blue);
+  color: var(--correios-blue);
+  background: #e6f0f9;
+}
+
+.func-situation-atestado {
+  border-color: var(--correios-yellow-deep);
+  color: #8a6400;
+  background: #fff8e1;
+}
+
+.func-situation-inativo {
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+  background: #eef1f5;
+}
+
+/* --- Employee type pill (used in tables/forms) --- */
+.func-type-pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* --- Attendance status select per row --- */
+.func-attendance-row select {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.func-attendance-row input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+}
+
+/* --- Leave status pill (em andamento / futuro / encerrado) --- */
+.func-leave-status {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.func-leave-status-current {
+  background: #e6f0f9;
+  color: var(--correios-blue);
+}
+
+.func-leave-status-upcoming {
+  background: #fff8e1;
+  color: #8a6400;
+}
+
+.func-leave-status-past {
+  background: #eef1f5;
+  color: var(--ink-soft);
+}
+
+/* --- Calendar --- */
+.func-calendar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.func-calendar-toolbar h3 {
+  margin: 0;
+  min-width: 160px;
+  text-align: center;
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+  color: var(--correios-blue-deep);
+}
+
+.func-calendar-legend {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.func-cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.func-cal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.func-cal-dot-ferias {
+  background: var(--correios-blue);
+}
+
+.func-cal-dot-atestado {
+  background: var(--correios-yellow-deep);
+}
+
+.func-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.func-cal-weekday {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.func-cal-day {
+  background: var(--paper-raised);
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  min-height: 88px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+}
+
+.func-cal-day.func-cal-day-empty {
+  background: transparent;
+  border-color: transparent;
+}
+
+.func-cal-day.func-cal-day-today {
+  border-color: var(--correios-yellow-deep);
+  box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.25);
+}
+
+.func-cal-day-num {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+}
+
+.func-cal-day-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.func-cal-tag {
+  font-size: 0.66rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.func-cal-tag-ferias {
+  background: #e6f0f9;
+  color: var(--correios-blue);
+}
+
+.func-cal-tag-atestado {
+  background: #fff8e1;
+  color: #8a6400;
+}
+
+.func-cal-tag-more {
+  font-size: 0.66rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .func-calendar-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .func-cal-day {
+    min-height: 62px;
+    font-size: 0.7rem;
+  }
+  .func-cal-legend {
+    margin-left: 0;
+  }
+}
