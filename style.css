@@ -17,7 +17,7 @@
   --success-green: #2e7d4f;
   --perforation: #cdc6b4;
 
-  /* Employee type accents (Quadro de Funcionários) */
+  /* Employee type accents (Employee Roster) */
   --type-carteiro-interno: #00447c;
   --type-carteiro-externo: #0e7c8a;
   --type-carteiro-emprestado: #7a3fa0;
@@ -288,8 +288,8 @@ body {
    ========================================================================= */
 
 .app-shell {
-  width: 100%; /* Forces the container to use the full width of the screen */
-  padding: 0 2.5% 5%; /* Keeps the minimum padding on the sides and bottom */
+  width: 100%;
+  padding: 0 2.5% 5%;
 }
 
 main {
@@ -1189,7 +1189,7 @@ main {
 .cee-floorplan {
   display: flex;
   flex-direction: column;
-  gap: 40px; /* Increased gap for better distant readability */
+  gap: 40px; 
   padding: 32px;
   background: var(--paper-raised);
   border: 2px solid var(--paper-line);
@@ -1200,11 +1200,11 @@ main {
 
 .cee-zone {
   text-align: center;
-  padding: 24px; /* Larger padding for better visibility */
+  padding: 24px; 
   background: var(--correios-blue-deep);
   color: #ffffff;
   font-weight: 700;
-  font-size: 1.5rem; /* Larger font for distance viewing */
+  font-size: 1.5rem; 
   border-radius: var(--radius);
   letter-spacing: 2px;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.1);
@@ -1213,7 +1213,7 @@ main {
 .cee-layout-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 56px; /* Increased gap between wings to separate information */
+  gap: 56px; 
 }
 
 .cee-side h3 {
@@ -1222,14 +1222,14 @@ main {
   margin-top: 0;
   margin-bottom: 24px;
   font-family: var(--font-display);
-  font-size: 2.2rem; /* Significantly larger title */
+  font-size: 2.2rem; 
   letter-spacing: 1px;
 }
 
 .cee-table {
   display: flex;
   flex-direction: column;
-  border: 4px solid var(--correios-blue-deep); /* Thicker borders for structural clarity */
+  border: 4px solid var(--correios-blue-deep); 
   border-radius: 8px;
   background: #eef4fa;
   overflow: hidden;
@@ -1237,7 +1237,7 @@ main {
 
 .cee-table-row {
   display: flex;
-  border-bottom: 3px solid var(--correios-blue-deep); /* Thicker row dividers */
+  border-bottom: 3px solid var(--correios-blue-deep); 
 }
 
 .cee-table-row:last-child {
@@ -1246,9 +1246,9 @@ main {
 
 .cee-cell {
   flex: 1;
-  padding: 24px 16px; /* Huge touch target and visual area */
+  padding: 24px 16px; 
   text-align: center;
-  border-right: 3px solid var(--correios-blue-deep); /* Thicker column dividers */
+  border-right: 3px solid var(--correios-blue-deep); 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1263,7 +1263,7 @@ main {
   color: var(--ink-soft);
   font-style: italic;
   font-weight: 700;
-  font-size: 1.1rem; /* Larger font for computer workstations */
+  font-size: 1.1rem; 
 }
 
 .cee-cell.empty {
@@ -1274,30 +1274,30 @@ main {
 /* Sector Content Scaling - Emphasis on Number Ranges */
 .cee-sector {
   flex-direction: column;
-  gap: 8px; /* Increased gap to accommodate the new badge style */
+  gap: 8px; 
   line-height: 1;
-  align-items: center; /* Ensures everything is perfectly centered */
+  align-items: center; 
 }
 
 .cee-sector-code {
   font-family: var(--font-display);
-  font-size: 1.6rem; /* Slightly smaller to let the numbers be the star */
+  font-size: 1.6rem; 
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.7); /* Dark grey to push visual priority to the numbers */
+  color: rgba(0, 0, 0, 0.7); 
   letter-spacing: 1px;
 }
 
 .cee-sector-range {
   display: inline-block;
-  font-family: var(--font-display); /* Changed to the Display font for thick, condensed numbers */
+  font-family: var(--font-display); 
   font-weight: 700;
-  font-size: 2.6rem; /* Massive font size for the ranges */
+  font-size: 2.6rem; 
   color: #000000;
-  background: #ffffff; /* Solid white background for maximum contrast against sector colors */
+  background: #ffffff; 
   padding: 6px 16px;
-  border: 3px solid #000000; /* Heavy black border to make it pop like a sticker */
+  border: 3px solid #000000; 
   border-radius: 12px;
-  box-shadow: 0 4px 0 #000000; /* Hard shadow for a 3D popping effect */
+  box-shadow: 0 4px 0 #000000; 
   letter-spacing: 2px;
 }
 .cee-sector-offset-badge {
@@ -1306,7 +1306,7 @@ main {
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 12px;
-  background: #000000; /* Inverted badge for immediate attention */
+  background: #000000; 
   color: #ffffff;
   margin-top: 4px;
 }
@@ -1335,17 +1335,17 @@ main {
   background: #64b5f6; /* Clear Light Blue */
 }
 
-/* Support and Administrative Areas (Caixa Postal, ME, Recondicionamento) */
+/* Support and Administrative Areas (PO Box, ME, Reconditioning) */
 .cee-cell.support-zone {
-  background: var(--ink); /* Very dark blue/grey background */
-  color: var(--correios-yellow); /* Bright yellow text for maximum readability */
+  background: var(--ink); 
+  color: var(--correios-yellow); 
   font-family: var(--font-display);
-  font-size: 2.2rem; /* Massive font size */
+  font-size: 2.2rem; 
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
   line-height: 1.1;
-  box-shadow: inset 0 0 0 4px rgba(255, 204, 0, 0.25); /* Subtle inner yellow border */
+  box-shadow: inset 0 0 0 4px rgba(255, 204, 0, 0.25); 
 }
 
 /* Add a hover effect to make it interactive */
@@ -1921,7 +1921,7 @@ main {
 }
 
 /* =========================================================================
-   CEE FLOORPLAN MOBILE RESPONSIVENESS
+   11. CEE FLOORPLAN MOBILE RESPONSIVENESS
    ========================================================================= */
 
 @media (max-width: 1600px) {
@@ -1985,7 +1985,7 @@ main {
     letter-spacing: 0.5px;
   }
 
-  /* Scale down the support zones (Caixa Postal, ME, Recondicionamento) */
+  /* Scale down the support zones (PO Box, ME, Reconditioning) */
   .cee-cell.support-zone {
     font-size: 1.1rem;
     padding: 16px 8px;
@@ -2000,7 +2000,7 @@ main {
 }
 
 /* =========================================================================
-   DETAILED SEDEX VAN & SMOKE ANIMATION
+   12. DETAILED SEDEX VAN & SMOKE ANIMATION
    ========================================================================= */
 
 .van-track {
@@ -2061,7 +2061,6 @@ main {
   }
 }
 
-
 /* Supabase Ping Overlay */
 .ping-overlay {
   position: fixed;
@@ -2093,9 +2092,8 @@ main {
 .ping-yellow { background: var(--correios-yellow-deep); box-shadow: 0 0 6px var(--correios-yellow-deep); }
 .ping-red { background: var(--stamp-red); box-shadow: 0 0 6px var(--stamp-red); }
 
-
 /* =========================================================================
-   QUILL RICH TEXT EDITOR CUSTOMIZATION
+   13. QUILL RICH TEXT EDITOR CUSTOMIZATION
    ========================================================================= */
 
 .editor-wrapper {
@@ -2141,7 +2139,7 @@ main {
 }
 
 /* =========================================================================
-   STREET MAP EMBED & SPLIT LAYOUT (TAB 2)
+   14. STREET MAP EMBED & SPLIT LAYOUT (TAB 2)
    ========================================================================= */
 
 /* Mobile & Tablet First: Default stacked layout (1 column) */
@@ -2158,7 +2156,7 @@ main {
 }
 
 .cepsearch-map-col {
-  display: block; /* Changed from flex */
+  display: block; 
   width: 100%;
 }
 
@@ -2184,13 +2182,10 @@ main {
     position: sticky;
     top: 16px; /* Keeps the map in view while the CEP list is scrolled */
   }
-
-  .street-map-container {
-    height: 480px; /* Fixed, capped height */
-  }
 }
+
 /* =========================================================================
-   17. AUTHENTICATION: LOGIN SCREEN, USER BAR & ROLE-BASED VISIBILITY
+   15. AUTHENTICATION: LOGIN SCREEN, USER BAR & ROLE-BASED VISIBILITY
    ========================================================================= */
 
 .login-screen {
@@ -2324,7 +2319,7 @@ main {
    Server-side RLS is the real enforcement; these rules just keep the UI
    from offering controls the current role isn't allowed to use. */
 
-/* Operador and Visualizador: hide catalog write controls (streets, zips,
+/* Operator and Visualizador: hide catalog write controls (streets, zips,
    numbering rules, CEE sector offsets). */
 body.restrict-catalog #btn-new-street,
 body.restrict-catalog #btn-new-zip,
@@ -2337,7 +2332,7 @@ body.restrict-catalog .cee-offset-panel {
   display: none !important;
 }
 
-/* Visualizador only: hide Registros Diários write controls. */
+/* Visualizador only: hide Daily Records write controls. */
 body.restrict-daily #btn-new-truck,
 body.restrict-daily [data-delete-truck],
 body.restrict-daily #btn-new-scan,
@@ -2355,7 +2350,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
 }
 
 /* =========================================================================
-   18. LOEC ANALYSIS TAB (paste & analyze list of postal objects)
+   16. LOEC ANALYSIS TAB (paste & analyze list of postal objects)
    ========================================================================= */
 
 .loec-analysis-intro {
@@ -2432,8 +2427,9 @@ body.restrict-daily #daily-notes-editor.ql-container {
   color: var(--correios-blue-deep);
   background: #eef4fa;
 }
+
 /* =========================================================================
-   19. HELP DESK (CHAMADOS)
+   17. HELP DESK (TICKETS)
    ========================================================================= */
 
 .helpdesk-filter-bar {
@@ -2493,6 +2489,37 @@ body.restrict-daily #daily-notes-editor.ql-container {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* Large, prominent button at the top of the ticket list */
+.helpdesk-new-ticket-hero-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 68, 124, 0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.helpdesk-new-ticket-hero-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 68, 124, 0.25);
+}
+
+/* Ensure the button hides properly when the JS toggles the 'hidden' class 
+   for supervisors and admins, preventing the flex display from overriding it */
+.helpdesk-new-ticket-hero-btn.hidden {
+  display: none !important;
+}
+
+#btn-new-helpdesk-ticket {
+  margin-bottom: 10px;
+  width: 100%;
 }
 
 .helpdesk-list-loading,
@@ -2615,7 +2642,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
 }
 
 .helpdesk-detail-header {
-  padding: 18px 20px;
+  padding: 12px 16px; 
   border-bottom: 2px solid var(--paper-line);
 }
 
@@ -2632,6 +2659,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
   color: var(--correios-blue-deep);
   font-family: var(--font-display);
   letter-spacing: 0.5px;
+  font-size: 1.25rem;
 }
 
 .helpdesk-detail-header-meta {
@@ -2642,10 +2670,33 @@ body.restrict-daily #daily-notes-editor.ql-container {
   flex-wrap: wrap;
 }
 
+/* Container to align carteiro and supervisor cards side-by-side */
+.helpdesk-profile-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.helpdesk-detail-carteiro,
+.helpdesk-detail-supervisors {
+  margin: 0 !important;
+  display: flex;
+}
+
 .helpdesk-detail-carteiro {
   font-size: 0.85rem;
   color: var(--ink-soft);
   font-weight: 600;
+}
+
+.helpdesk-detail-supervisors {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.helpdesk-detail-supervisors strong {
+  color: var(--correios-blue-deep);
 }
 
 .helpdesk-detail-description {
@@ -2832,22 +2883,9 @@ body.restrict-daily #daily-notes-editor.ql-container {
   border-top: 2px solid var(--paper-line);
 }
 
-.helpdesk-detail-supervisors {
-  margin: 8px 0 0;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-}
-
-.helpdesk-detail-supervisors strong {
-  color: var(--correios-blue-deep);
-}
 /* =========================================================================
-   14. HELP DESK — PROFILE CARDS (carteiro/supervisor info)
+   18. HELP DESK — PROFILE CARDS (postman/supervisor info)
    ========================================================================= */
-
-.helpdesk-detail-carteiro {
-  margin: 10px 0 0;
-}
 
 .helpdesk-detail-supervisors-title {
   display: block;
@@ -2859,7 +2897,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
 .helpdesk-profile-card-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .helpdesk-profile-card {
@@ -2869,7 +2907,27 @@ body.restrict-daily #daily-notes-editor.ql-container {
   padding: 8px 12px;
   font-size: 0.78rem;
   color: var(--ink-soft);
-  min-width: 180px;
+  min-width: 220px;
+  max-width: 320px;
+  flex: 1 1 auto;
+}
+
+/* Carteiro (Postman) Profile Card Colors */
+.helpdesk-profile-card.carteiro-card {
+  background: #fff8e1; /* Light yellow background */
+  border-color: var(--correios-yellow-deep);
+}
+.helpdesk-profile-card.carteiro-card .helpdesk-profile-card-role {
+  color: #8a6400; /* Darker yellow/brown text for contrast */
+}
+
+/* Supervisor Profile Card Colors */
+.helpdesk-profile-card.supervisor-card {
+  background: #eef4fa; /* Light blue background */
+  border-color: var(--correios-blue);
+}
+.helpdesk-profile-card.supervisor-card .helpdesk-profile-card-role {
+  color: var(--correios-blue-deep);
 }
 
 .helpdesk-profile-card-loading {
@@ -2902,8 +2960,41 @@ body.restrict-daily #daily-notes-editor.ql-container {
   font-style: italic;
 }
 
+/* Legend Styling */
+.helpdesk-profile-legend {
+  display: flex;
+  gap: 14px;
+  margin: 10px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1.5px solid;
+}
+
+.legend-carteiro .legend-color-box {
+  background: #fff8e1;
+  border-color: var(--correios-yellow-deep);
+}
+
+.legend-supervisor .legend-color-box {
+  background: #eef4fa;
+  border-color: var(--correios-blue);
+}
+
 /* =========================================================================
-   15. HELP DESK — ATTACHMENT PREVIEWS (thumbs & file chips)
+   19. HELP DESK — ATTACHMENT PREVIEWS (thumbs & file chips)
    ========================================================================= */
 
 .helpdesk-attachment-thumb {
@@ -2981,7 +3072,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
 }
 
 /* =========================================================================
-   16. ATTACHMENT LIGHTBOX (fullscreen media viewer)
+   20. ATTACHMENT LIGHTBOX (fullscreen media viewer)
    ========================================================================= */
 
 .lightbox-overlay {
@@ -3112,7 +3203,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
 }
 
 /* =========================================================================
-   17. MINHA CONTA (ACCOUNT TAB)
+   21. MY ACCOUNT (ACCOUNT TAB)
    ========================================================================= */
 
 .account-form {
@@ -3153,9 +3244,8 @@ body.restrict-daily #daily-notes-editor.ql-container {
   max-width: 90px;
 }
 
-
 /* =========================================================================
-   MOBILE FIXES FOR HELPDESK COMPOSER & LIGHTBOX
+   22. MOBILE FIXES & MENU
    ========================================================================= */
 
 @media (max-width: 768px) {
@@ -3221,10 +3311,6 @@ body.restrict-daily #daily-notes-editor.ql-container {
     font-size: 1.8rem;
   }
 }
-
-/* =========================================================================
-   MOBILE MENU (DELIVERY THEME)
-   ========================================================================= */
 
 /* Hidden by default on desktop */
 .mobile-menu-btn {
@@ -3297,143 +3383,12 @@ body.restrict-daily #daily-notes-editor.ql-container {
   .tab-btn.active {
     background: var(--correios-blue-deep);
     color: #fff;
-    border-left: 6px solid var(--correios-yellow); /* Branding accent */
+    border-left: 6px solid var(--correios-yellow); 
   }
 }
 
-
 /* =========================================================================
-   COMPACT HELPDESK HEADER & COLORED PROFILE CARDS
-   ========================================================================= */
-
-/* Make the header more compact */
-.helpdesk-detail-header {
-  padding: 12px 16px; /* Reduced padding */
-}
-
-.helpdesk-detail-header-top h3 {
-  font-size: 1.25rem; /* Slightly smaller title */
-}
-
-/* Carteiro (Postman) Profile Card Colors */
-.helpdesk-profile-card.carteiro-card {
-  background: #fff8e1; /* Light yellow background */
-  border-color: var(--correios-yellow-deep);
-}
-.helpdesk-profile-card.carteiro-card .helpdesk-profile-card-role {
-  color: #8a6400; /* Darker yellow/brown text for contrast */
-}
-
-/* Supervisor Profile Card Colors */
-.helpdesk-profile-card.supervisor-card {
-  background: #eef4fa; /* Light blue background */
-  border-color: var(--correios-blue);
-}
-.helpdesk-profile-card.supervisor-card .helpdesk-profile-card-role {
-  color: var(--correios-blue-deep);
-}
-
-/* Legend Styling */
-.helpdesk-profile-legend {
-  display: flex;
-  gap: 14px;
-  margin: 10px 0 6px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--ink-soft);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.legend-color-box {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  border: 1.5px solid;
-}
-
-.legend-carteiro .legend-color-box {
-  background: #fff8e1;
-  border-color: var(--correios-yellow-deep);
-}
-
-.legend-supervisor .legend-color-box {
-  background: #eef4fa;
-  border-color: var(--correios-blue);
-}
-
-/* =========================================================================
-   HELPDESK PROFILE GRID LAYOUT
-   ========================================================================= */
-
-/* Container to align carteiro and supervisor cards side-by-side */
-.helpdesk-profile-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-/* Reset previous margins to allow the grid gap to handle spacing */
-.helpdesk-detail-carteiro,
-.helpdesk-detail-supervisors {
-  margin: 0 !important;
-  display: flex;
-}
-
-.helpdesk-profile-card-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-/* Ensure the card only takes as much width as it needs, up to a maximum */
-.helpdesk-profile-card {
-  min-width: 220px;
-  max-width: 320px; /* Prevents it from taking 100% width */
-  flex: 1 1 auto;
-}
-
-/* =========================================================================
-   HERO NEW TICKET BUTTON (HELPDESK)
-   ========================================================================= */
-
-/* Large, prominent button at the top of the ticket list */
-.helpdesk-new-ticket-hero-btn {
-  width: 100%;
-  padding: 16px;
-  font-size: 1.1rem;
-  margin-bottom: 16px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 68, 124, 0.15);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
-
-.helpdesk-new-ticket-hero-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 68, 124, 0.25);
-}
-
-/* Ensure the button hides properly when the JS toggles the 'hidden' class 
-   for supervisors and admins, preventing the flex display from overriding it */
-.helpdesk-new-ticket-hero-btn.hidden {
-  display: none !important;
-}
-
-#btn-new-helpdesk-ticket {
-  margin-bottom: 10px;
-  width: 100%;
-}
-/* =========================================================================
-   QUADRO DE FUNCIONÁRIOS (employee roster)
+   23. EMPLOYEE ROSTER
    ========================================================================= */
 
 .subtabs {
@@ -3490,7 +3445,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
   margin-bottom: 20px;
 }
 
-/* --- Situation badges (ativo / férias / atestado / inativo) --- */
+/* --- Situation badges (active / vacation / medical certificate / inactive) --- */
 .func-situation-badge {
   display: inline-block;
   font-family: var(--font-mono);
@@ -3595,7 +3550,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
   border-color: color-mix(in srgb, var(--type-limpeza) 40%, white);
 }
 
-/* Small "veio de: <sede>" note shown under a carteiro_emprestado's badge */
+/* Small "came from: <branch>" note shown under a borrowed postman's badge */
 .func-origin-note {
   display: block;
   font-family: var(--font-body);
@@ -3627,7 +3582,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
   width: 100%;
 }
 
-/* --- Leave status pill (em andamento / futuro / encerrado) --- */
+/* --- Leave status pill (ongoing / future / closed) --- */
 .func-leave-status {
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -3748,6 +3703,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
   background: #eef1f5;
   color: var(--ink-soft);
 }
+
 /* --- Calendar --- */
 .func-calendar-toolbar {
   display: flex;
@@ -3981,7 +3937,7 @@ body.restrict-daily #daily-notes-editor.ql-container {
 }
 
 /* =========================================================================
-   EMPLOYEE TABLE CONTACT ICONS
+   24. EMPLOYEE TABLE CONTACT ICONS
    ========================================================================= */
 
 /* Wrapper to align text and icon side by side */

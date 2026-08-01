@@ -81,10 +81,24 @@
       </div>
 
       <!-- ===== Tabs ===== -->
-       <!-- Mobile menu toggle button -->
-      <button type="button" id="mobile-menu-toggle" class="mobile-menu-btn" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+      <!-- Mobile menu toggle button -->
+      <button
+        type="button"
+        id="mobile-menu-toggle"
+        class="mobile-menu-btn"
+        aria-expanded="false"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+          ></path>
           <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
           <line x1="12" y1="22.08" x2="12" y2="12"></line>
         </svg>
@@ -93,11 +107,19 @@
       <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
         <button
           class="tab-btn active"
-          data-tab="zips"
+          data-tab="daily-ops"
           role="tab"
           aria-selected="true"
         >
-          <span class="tab-index">01</span> CEPs
+          <span class="tab-index">01</span> Registros
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="zips"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">02</span> CEPs
         </button>
         <button
           class="tab-btn"
@@ -105,7 +127,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">02</span> Consulta de Endereços
+          <span class="tab-index">03</span> Consulta de Endereços
         </button>
         <button
           class="tab-btn"
@@ -113,23 +135,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">03</span> Regras de Numeração
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="daily-ops"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">04</span> Registros
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="loec-analysis"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">05</span> Análise LOEC
+          <span class="tab-index">04</span> Regras de Numeração
         </button>
         <button
           class="tab-btn"
@@ -137,7 +143,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">06</span> Help Desk
+          <span class="tab-index">05</span> Help Desk
         </button>
         <button
           class="tab-btn"
@@ -145,7 +151,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">07</span> Minha Conta
+          <span class="tab-index">06</span> Minha Conta
         </button>
         <button
           class="tab-btn supervisor-only hidden"
@@ -154,7 +160,7 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">08</span> Quadro de Funcionários
+          <span class="tab-index">07</span> Quadro de Funcionários
         </button>
         <button
           class="tab-btn admin-only hidden"
@@ -163,13 +169,13 @@
           role="tab"
           aria-selected="false"
         >
-          <span class="tab-index">9</span> Supabase Metrics
+          <span class="tab-index">8</span> Supabase Metrics
         </button>
       </nav>
 
       <main>
         <!-- ===== ZIP CODES ===== -->
-        <section id="panel-zips" class="panel active" aria-labelledby="zips">
+        <section id="panel-zips" class="panel" aria-labelledby="zips">
           <div class="panel-toolbar">
             <div class="search-field">
               <input
@@ -229,11 +235,10 @@
         </section>
 
         <!-- ===== CEP SEARCH ===== -->
-       <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
+        <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
           <div class="cepsearch-form">
             <div class="field">
               <label for="cepsearch-query">CEP, logradouro ou descrição</label>
-              <!-- Wrapped the input in a combobox-field to support suggestions -->
               <div class="combobox-field">
                 <input
                   type="text"
@@ -241,7 +246,10 @@
                   placeholder="Ex.: 88010-000, Felipe Schmidt, Centro&hellip;"
                   autocomplete="off"
                 />
-                <div class="combobox-suggestions hidden" id="cepsearch-query-suggestions"></div>
+                <div
+                  class="combobox-suggestions hidden"
+                  id="cepsearch-query-suggestions"
+                ></div>
               </div>
               <p class="field-hint" id="cepsearch-match-hint">
                 Digite para localizar o logradouro.
@@ -341,8 +349,6 @@
             </button>
           </div>
         </section>
-
-            
 
         <!-- CEE Internal Floorplan Map Panel -->
         <section id="panel-cee-map" class="panel" aria-labelledby="cee-map">
@@ -462,7 +468,11 @@
         </section>
 
         <!-- ===== DAILY OPERATION LOG ===== -->
-        <section id="panel-daily-ops" class="panel" aria-labelledby="daily-ops">
+        <section
+          id="panel-daily-ops"
+          class="panel active"
+          aria-labelledby="daily-ops"
+        >
           <div class="panel-toolbar">
             <div class="field daily-ops-date-field">
               <label for="daily-ops-date">Data da operação</label>
@@ -535,6 +545,14 @@
               <div>
                 <button
                   type="button"
+                  class="btn btn-secondary btn-icon"
+                  id="btn-open-loec-analysis"
+                  style="margin-right: 8px"
+                >
+                  Analisar LOEC
+                </button>
+                <button
+                  type="button"
                   class="btn btn-primary btn-icon"
                   id="btn-paste-loec"
                 >
@@ -580,7 +598,7 @@
           <!-- Malotes -->
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
-              <h3>Chegada de Malotes</h3>
+              <h3>Exportação de Malotes</h3>
               <div>
                 <button
                   type="button"
@@ -651,215 +669,61 @@
           </div>
         </section>
 
-        <!-- ===== LOEC ANALYSIS (paste & analyze, any role) ===== -->
-        <section
-          id="panel-loec-analysis"
-          class="panel"
-          aria-labelledby="loec-analysis"
-        >
-          <p class="field-hint loec-analysis-intro">
-            Cole abaixo o texto da LOEC. O sistema identifica automaticamente as linhas que trazem
-            um código de objeto válido (ex.: <code>AN924300185BR</code>) no
-            formato
-            <code
-              >código&nbsp;&nbsp;ordem&nbsp;&nbsp;logradouro&nbsp;&nbsp;CEP</code
-            >
-            e ignora todo o restante do texto colado.
-          </p>
-
-          <div class="field">
-            <textarea
-              id="loec-analysis-input"
-              rows="10"
-              placeholder="Cole aqui o texto copiado da LOEC..."
-            ></textarea>
-          </div>
-
-          <div class="panel-toolbar">
-            <div></div>
-            <div style="display: flex; gap: 10px">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                id="loec-analysis-clear"
-              >
-                Limpar
-              </button>
-              <button
-                type="button"
-                class="btn btn-primary"
-                id="loec-analysis-run"
-              >
-                Analisar Lista
-              </button>
-            </div>
-          </div>
-
-          <p id="loec-analysis-empty" class="empty-state">
-            Cole o texto da LOEC acima e clique em &ldquo;Analisar Lista&rdquo;
-            para ver os resultados.
-          </p>
-
-          <div id="loec-analysis-results" class="loec-analysis-results hidden">
-            <!-- KPI cards -->
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-title">Objetos Identificados</div>
-                <div class="stat-value" id="loecx-total-objects">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Tipos Distintos</div>
-                <div class="stat-value" id="loecx-total-types">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Logradouros Distintos</div>
-                <div class="stat-value" id="loecx-total-streets">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">CEPs Distintos</div>
-                <div class="stat-value" id="loecx-total-ceps">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">CEPs Não Cadastrados</div>
-                <div class="stat-value" id="loecx-total-unregistered">
-                  &hellip;
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Linhas Ignoradas</div>
-                <div class="stat-value" id="loecx-total-ignored">0</div>
-              </div>
-            </div>
-
-            <!-- Charts -->
-            <div class="stats-columns loec-analysis-charts">
-              <div class="loec-report-chart-box">
-                <div class="stats-section-header">Objetos por Tipo</div>
-                <canvas id="loecx-chart-type" height="220"></canvas>
-              </div>
-              <div class="loec-report-chart-box">
-                <div class="stats-section-header">Top 10 Logradouros</div>
-                <canvas id="loecx-chart-streets" height="220"></canvas>
-              </div>
-            </div>
-
-            <!-- Type breakdown + unregistered CEPs -->
-            <div class="stats-columns">
-              <div class="manifest-frame stats-table-wrapper">
-                <div class="stats-section-header">Resumo por Tipo</div>
-                <table class="manifest-table">
-                  <thead>
-                    <tr>
-                      <th>Tipo</th>
-                      <th class="col-actions">Objetos</th>
-                      <th class="col-actions">%</th>
-                    </tr>
-                  </thead>
-                  <tbody id="loecx-type-tbody"></tbody>
-                </table>
-              </div>
-
-            </div>
-
-            <!-- Full sortable / filterable table -->
-            <div class="panel-toolbar loec-analysis-table-toolbar">
-              <div class="search-field">
-                <input
-                  type="search"
-                  id="loecx-filter-search"
-                  placeholder="Buscar por código ou logradouro&hellip;"
-                />
-              </div>
-              <div class="loec-analysis-toolbar-actions">
-                <div class="search-field">
-                  <select id="loecx-filter-type">
-                    <option value="">Todos os tipos</option>
-                  </select>
-                </div>
-                <div
-                  class="loec-analysis-sort-group"
-                  role="group"
-                  aria-label="Ordenar por"
-                >
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-icon loec-sort-btn active"
-                    data-sort="ordem"
-                  >
-                    Ordem
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-icon loec-sort-btn"
-                    data-sort="code"
-                  >
-                    Código
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-icon loec-sort-btn"
-                    data-sort="logradouro"
-                  >
-                    Logradouro
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-icon"
-                  id="loecx-export-csv"
-                >
-                  Exportar CSV
-                </button>
-              </div>
-            </div>
-
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Ordem</th>
-                    <th>Código</th>
-                    <th>Tipo</th>
-                    <th>Logradouro</th>
-                    <th>CEP</th>
-                  </tr>
-                </thead>
-                <tbody id="loecx-full-tbody"></tbody>
-              </table>
-              <p id="loecx-full-empty" class="empty-state hidden">
-                Nenhum objeto corresponde ao filtro atual.
-              </p>
-            </div>
-            <p class="pagination-info" id="loecx-count-info"></p>
-          </div>
-        </section>
-
         <!-- ===== MANUAL / ABOUT PAGE ===== -->
         <!-- ===== HELP DESK (CHAMADOS) ===== -->
         <section id="panel-helpdesk" class="panel" aria-labelledby="helpdesk">
-          
           <div
             class="helpdesk-filter-bar"
             id="helpdesk-filter-bar"
             role="group"
             aria-label="Filtrar chamados por status"
           >
-            <button type="button" class="helpdesk-filter-btn active" data-status="">Todos</button>
-            <button type="button" class="helpdesk-filter-btn" data-status="aberto">Em espera</button>
-            <button type="button" class="helpdesk-filter-btn" data-status="em_andamento">Em andamento</button>
-            <button type="button" class="helpdesk-filter-btn" data-status="concluido_sucesso">Concluídos (sucesso)</button>
-            <button type="button" class="helpdesk-filter-btn" data-status="concluido_sem_sucesso">Concluídos (sem sucesso)</button>
+            <button
+              type="button"
+              class="helpdesk-filter-btn active"
+              data-status=""
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              class="helpdesk-filter-btn"
+              data-status="aberto"
+            >
+              Em espera
+            </button>
+            <button
+              type="button"
+              class="helpdesk-filter-btn"
+              data-status="em_andamento"
+            >
+              Em andamento
+            </button>
+            <button
+              type="button"
+              class="helpdesk-filter-btn"
+              data-status="concluido_sucesso"
+            >
+              Concluídos (sucesso)
+            </button>
+            <button
+              type="button"
+              class="helpdesk-filter-btn"
+              data-status="concluido_sem_sucesso"
+            >
+              Concluídos (sem sucesso)
+            </button>
           </div>
 
           <div class="helpdesk-layout">
             <div class="helpdesk-list-col">
               <button
-              type="button"
-              class="btn btn-primary"
-              id="btn-new-helpdesk-ticket"
-            >
-              + Novo Chamado
-            </button>
+                type="button"
+                class="btn btn-primary"
+                id="btn-new-helpdesk-ticket"
+              >
+                + Novo Chamado
+              </button>
               <div id="helpdesk-ticket-list" class="helpdesk-ticket-list"></div>
               <p id="helpdesk-list-empty" class="empty-state hidden">
                 Nenhum chamado encontrado.
@@ -875,51 +739,103 @@
                 <div class="helpdesk-detail-header">
                   <div class="helpdesk-detail-header-top">
                     <h3 id="helpdesk-detail-title"></h3>
-                    <span id="helpdesk-detail-status" class="helpdesk-status-badge"></span>
+                    <span
+                      id="helpdesk-detail-status"
+                      class="helpdesk-status-badge"
+                    ></span>
                   </div>
-                  
+
                   <div class="helpdesk-detail-header-meta">
-                    <span class="loec-type-chip" id="helpdesk-detail-category"></span>
+                    <span
+                      class="loec-type-chip"
+                      id="helpdesk-detail-category"
+                    ></span>
                   </div>
-                  
+
                   <!-- Color Legend for Profile Cards -->
-                  <div id="helpdesk-profile-legend" class="helpdesk-profile-legend hidden">
-                    <div class="legend-item legend-carteiro"><div class="legend-color-box"></div> Carteiro</div>
-                    <div class="legend-item legend-supervisor"><div class="legend-color-box"></div> Supervisor</div>
+                  <div
+                    id="helpdesk-profile-legend"
+                    class="helpdesk-profile-legend hidden"
+                  >
+                    <div class="legend-item legend-carteiro">
+                      <div class="legend-color-box"></div>
+                      Carteiro
+                    </div>
+                    <div class="legend-item legend-supervisor">
+                      <div class="legend-color-box"></div>
+                      Supervisor
+                    </div>
                   </div>
 
                   <!-- New Flex Grid for Profile Cards -->
                   <div class="helpdesk-profile-grid">
-                    <div id="helpdesk-detail-carteiro" class="helpdesk-detail-carteiro hidden"></div>
-                    <div id="helpdesk-detail-supervisors" class="helpdesk-detail-supervisors hidden"></div>
+                    <div
+                      id="helpdesk-detail-carteiro"
+                      class="helpdesk-detail-carteiro hidden"
+                    ></div>
+                    <div
+                      id="helpdesk-detail-supervisors"
+                      class="helpdesk-detail-supervisors hidden"
+                    ></div>
                   </div>
 
-                  <div id="helpdesk-report-box" class="helpdesk-report-box hidden">
+                  <div
+                    id="helpdesk-report-box"
+                    class="helpdesk-report-box hidden"
+                  >
                     <strong>Relatório de conclusão</strong>
                     <p id="helpdesk-report-text"></p>
                   </div>
-                  
+
                   <!-- Conclusion actions omitted for brevity, keep them as they are -->
-                  <div id="helpdesk-conclusion-actions" class="helpdesk-conclusion-actions hidden">
-                    <button type="button" class="btn btn-primary" id="btn-helpdesk-conclude-success">
+                  <div
+                    id="helpdesk-conclusion-actions"
+                    class="helpdesk-conclusion-actions hidden"
+                  >
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      id="btn-helpdesk-conclude-success"
+                    >
                       Concluir com sucesso
                     </button>
-                    <button type="button" class="btn btn-danger" id="btn-helpdesk-conclude-failure">
+                    <button
+                      type="button"
+                      class="btn btn-danger"
+                      id="btn-helpdesk-conclude-failure"
+                    >
                       Concluir sem sucesso
                     </button>
                   </div>
-                  <div id="helpdesk-reopen-action" class="helpdesk-conclusion-actions hidden">    
-                    <div id="helpdesk-reopen-action" class="helpdesk-conclusion-actions hidden">
-                    <button type="button" class="btn btn-secondary" id="btn-helpdesk-reopen">
-                      Reabrir chamado
-                    </button>
-                  </div>
-                
-                  <div id="helpdesk-admin-actions" class="helpdesk-conclusion-actions hidden">
-                    <button type="button" class="btn btn-danger" id="btn-helpdesk-delete">
-                      Excluir Chamado
-                    </button>
-                  </div>
+                  <div
+                    id="helpdesk-reopen-action"
+                    class="helpdesk-conclusion-actions hidden"
+                  >
+                    <div
+                      id="helpdesk-reopen-action"
+                      class="helpdesk-conclusion-actions hidden"
+                    >
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        id="btn-helpdesk-reopen"
+                      >
+                        Reabrir chamado
+                      </button>
+                    </div>
+
+                    <div
+                      id="helpdesk-admin-actions"
+                      class="helpdesk-conclusion-actions hidden"
+                    >
+                      <button
+                        type="button"
+                        class="btn btn-danger"
+                        id="btn-helpdesk-delete"
+                      >
+                        Excluir Chamado
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -927,22 +843,42 @@
 
                 <div id="helpdesk-composer" class="helpdesk-composer-wrap">
                   <form id="helpdesk-composer-form" class="helpdesk-composer">
-                    <div class="helpdesk-file-list" id="helpdesk-composer-files"></div>
+                    <div
+                      class="helpdesk-file-list"
+                      id="helpdesk-composer-files"
+                    ></div>
                     <div class="helpdesk-composer-row">
                       <textarea
                         id="helpdesk-composer-text"
                         rows="2"
                         placeholder="Escreva uma mensagem..."
                       ></textarea>
-                      <label class="btn btn-secondary btn-icon helpdesk-attach-btn" for="helpdesk-composer-file-input">
+                      <label
+                        class="btn btn-secondary btn-icon helpdesk-attach-btn"
+                        for="helpdesk-composer-file-input"
+                      >
                         Anexar
                       </label>
-                      <input type="file" id="helpdesk-composer-file-input" multiple class="hidden">
-                      <button type="submit" class="btn btn-primary" id="helpdesk-composer-send">Enviar</button>
+                      <input
+                        type="file"
+                        id="helpdesk-composer-file-input"
+                        multiple
+                        class="hidden"
+                      />
+                      <button
+                        type="submit"
+                        class="btn btn-primary"
+                        id="helpdesk-composer-send"
+                      >
+                        Enviar
+                      </button>
                     </div>
                   </form>
                 </div>
-                <p id="helpdesk-closed-notice" class="helpdesk-closed-notice hidden">
+                <p
+                  id="helpdesk-closed-notice"
+                  class="helpdesk-closed-notice hidden"
+                >
                   Este chamado está concluído e não aceita novas mensagens.
                 </p>
               </div>
@@ -951,18 +887,50 @@
         </section>
 
         <!-- ===== QUADRO DE FUNCIONÁRIOS (ADMIN/SUPERVISOR ONLY) ===== -->
-        <section id="panel-funcionarios" class="panel" aria-labelledby="funcionarios">
-          <nav class="subtabs" role="tablist" aria-label="Seções do quadro de funcionários">
-            <button type="button" class="subtab-btn active" data-subtab="func-list" role="tab" aria-selected="true">
+        <section
+          id="panel-funcionarios"
+          class="panel"
+          aria-labelledby="funcionarios"
+        >
+          <nav
+            class="subtabs"
+            role="tablist"
+            aria-label="Seções do quadro de funcionários"
+          >
+            <button
+              type="button"
+              class="subtab-btn active"
+              data-subtab="func-list"
+              role="tab"
+              aria-selected="true"
+            >
               Funcionários
             </button>
-            <button type="button" class="subtab-btn" data-subtab="func-presenca" role="tab" aria-selected="false">
+            <button
+              type="button"
+              class="subtab-btn"
+              data-subtab="func-presenca"
+              role="tab"
+              aria-selected="false"
+            >
               Presença Diária
             </button>
-            <button type="button" class="subtab-btn" data-subtab="func-afastamentos" role="tab" aria-selected="false">
+            <button
+              type="button"
+              class="subtab-btn"
+              data-subtab="func-afastamentos"
+              role="tab"
+              aria-selected="false"
+            >
               Afastamentos
             </button>
-            <button type="button" class="subtab-btn" data-subtab="func-calendario" role="tab" aria-selected="false">
+            <button
+              type="button"
+              class="subtab-btn"
+              data-subtab="func-calendario"
+              role="tab"
+              aria-selected="false"
+            >
               Calendário
             </button>
           </nav>
@@ -991,16 +959,26 @@
           <div id="subpanel-func-list" class="subpanel active">
             <div class="panel-toolbar">
               <div class="search-field">
-                <input type="search" id="func-search" placeholder="Buscar por nome, e-mail ou telefone&hellip;" />
+                <input
+                  type="search"
+                  id="func-search"
+                  placeholder="Buscar por nome, e-mail ou telefone&hellip;"
+                />
               </div>
               <div style="display: flex; gap: 10px; flex-wrap: wrap">
                 <select id="func-filter-type">
                   <option value="">Todos os tipos</option>
                   <option value="carteiro_interno">Carteiro Interno</option>
                   <option value="carteiro_externo">Carteiro Externo</option>
-                  <option value="carteiro_emprestado">Carteiro Emprestado (outra sede)</option>
-                  <option value="terceirizado_interno">Terceirizado Interno</option>
-                  <option value="terceirizado_externo">Terceirizado Externo</option>
+                  <option value="carteiro_emprestado">
+                    Carteiro Emprestado (outra sede)
+                  </option>
+                  <option value="terceirizado_interno">
+                    Terceirizado Interno
+                  </option>
+                  <option value="terceirizado_externo">
+                    Terceirizado Externo
+                  </option>
                   <option value="motorista">Motorista</option>
                   <option value="limpeza">Limpeza</option>
                 </select>
@@ -1037,11 +1015,21 @@
               </p>
             </div>
             <div class="pagination" id="func-pagination">
-              <button type="button" class="btn btn-secondary btn-icon" id="func-prev" disabled>
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="func-prev"
+                disabled
+              >
                 &larr; Anterior
               </button>
               <span id="func-page-info" class="pagination-info">Página 1</span>
-              <button type="button" class="btn btn-secondary btn-icon" id="func-next" disabled>
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="func-next"
+                disabled
+              >
                 Próxima &rarr;
               </button>
             </div>
@@ -1060,23 +1048,38 @@
                   <option value="">Todos os tipos</option>
                   <option value="carteiro_interno">Carteiro Interno</option>
                   <option value="carteiro_externo">Carteiro Externo</option>
-                  <option value="carteiro_emprestado">Carteiro Emprestado</option>
-                  <option value="terceirizado_interno">Terceirizado Interno</option>
-                  <option value="terceirizado_externo">Terceirizado Externo</option>
+                  <option value="carteiro_emprestado">
+                    Carteiro Emprestado
+                  </option>
+                  <option value="terceirizado_interno">
+                    Terceirizado Interno
+                  </option>
+                  <option value="terceirizado_externo">
+                    Terceirizado Externo
+                  </option>
                   <option value="motorista">Motorista</option>
                   <option value="limpeza">Limpeza</option>
                 </select>
               </div>
-              <button type="button" class="btn btn-secondary btn-icon" id="func-presenca-today">
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="func-presenca-today"
+              >
                 Hoje
               </button>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-save-presenca">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-save-presenca"
+              >
                 Salvar Presenças
               </button>
             </div>
             <p class="field-hint">
-              Marque a situação de cada funcionário nesta data. Funcionários com férias ou
-              atestado já registrado para o dia aparecem pré-marcados automaticamente.
+              Marque a situação de cada funcionário nesta data. Funcionários com
+              férias ou atestado já registrado para o dia aparecem pré-marcados
+              automaticamente.
             </p>
             <div class="manifest-frame">
               <table class="manifest-table">
@@ -1148,23 +1151,82 @@
           <!-- ===== Sub-panel: leave calendar ===== -->
           <div id="subpanel-func-calendario" class="subpanel hidden">
             <div class="func-calendar-toolbar">
-              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-prev">&larr;</button>
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="func-cal-prev"
+              >
+                &larr;
+              </button>
               <h3 id="func-cal-label">&nbsp;</h3>
-              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-next">&rarr;</button>
-              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-today">Hoje</button>
-              <div class="func-cal-view-switch" role="tablist" aria-label="Visualização do calendário">
-                <button type="button" class="func-cal-view-btn" data-cal-view="day">Dia</button>
-                <button type="button" class="func-cal-view-btn" data-cal-view="3day">3 Dias</button>
-                <button type="button" class="func-cal-view-btn active" data-cal-view="week">Semana</button>
-                <button type="button" class="func-cal-view-btn" data-cal-view="month">Mês</button>
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="func-cal-next"
+              >
+                &rarr;
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon"
+                id="func-cal-today"
+              >
+                Hoje
+              </button>
+              <div
+                class="func-cal-view-switch"
+                role="tablist"
+                aria-label="Visualização do calendário"
+              >
+                <button
+                  type="button"
+                  class="func-cal-view-btn"
+                  data-cal-view="day"
+                >
+                  Dia
+                </button>
+                <button
+                  type="button"
+                  class="func-cal-view-btn"
+                  data-cal-view="3day"
+                >
+                  3 Dias
+                </button>
+                <button
+                  type="button"
+                  class="func-cal-view-btn active"
+                  data-cal-view="week"
+                >
+                  Semana
+                </button>
+                <button
+                  type="button"
+                  class="func-cal-view-btn"
+                  data-cal-view="month"
+                >
+                  Mês
+                </button>
               </div>
-              <button type="button" class="btn btn-primary btn-icon" id="btn-new-cal-event">
+              <button
+                type="button"
+                class="btn btn-primary btn-icon"
+                id="btn-new-cal-event"
+              >
                 + Novo Evento/Lembrete
               </button>
               <div class="func-calendar-legend">
-                <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-ferias"></span>Férias</span>
-                <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-atestado"></span>Atestado</span>
-                <span class="func-cal-legend-item"><span class="func-cal-dot func-cal-dot-evento"></span>Evento/Lembrete</span>
+                <span class="func-cal-legend-item"
+                  ><span class="func-cal-dot func-cal-dot-ferias"></span
+                  >Férias</span
+                >
+                <span class="func-cal-legend-item"
+                  ><span class="func-cal-dot func-cal-dot-atestado"></span
+                  >Atestado</span
+                >
+                <span class="func-cal-legend-item"
+                  ><span class="func-cal-dot func-cal-dot-evento"></span
+                  >Evento/Lembrete</span
+                >
               </div>
             </div>
             <div class="func-calendar-grid" id="func-calendar-grid">
@@ -1198,32 +1260,54 @@
         </section>
 
         <!-- ===== MINHA CONTA (PERFIL DO USUÁRIO) ===== -->
-        <section id="panel-account" class="panel" aria-labelledby="account">          
-
+        <section id="panel-account" class="panel" aria-labelledby="account">
           <form id="account-form" class="account-form">
             <p id="account-status" class="account-status hidden"></p>
 
             <div class="field-row">
               <div class="field">
                 <label for="account-full-name">Nome completo</label>
-                <input type="text" id="account-full-name" maxlength="150" placeholder="Seu nome completo">
+                <input
+                  type="text"
+                  id="account-full-name"
+                  maxlength="150"
+                  placeholder="Seu nome completo"
+                />
               </div>
               <div class="field">
                 <label for="account-phone">Telefone</label>
-                <input type="text" id="account-phone" maxlength="30" placeholder="(00) 00000-0000">
+                <input
+                  type="text"
+                  id="account-phone"
+                  maxlength="30"
+                  placeholder="(00) 00000-0000"
+                />
               </div>
             </div>
 
             <div class="field">
               <label for="account-contact-email">E-mail de contato</label>
-              <input type="email" id="account-contact-email" maxlength="150" placeholder="seuemail@exemplo.com">
+              <input
+                type="email"
+                id="account-contact-email"
+                maxlength="150"
+                placeholder="seuemail@exemplo.com"
+              />
             </div>
 
             <div class="modal-actions account-actions">
-              <button type="button" class="btn btn-danger hidden" id="btn-account-delete">
+              <button
+                type="button"
+                class="btn btn-danger hidden"
+                id="btn-account-delete"
+              >
                 Excluir meus dados
               </button>
-              <button type="submit" class="btn btn-primary" id="btn-account-save">
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="btn-account-save"
+              >
                 Salvar
               </button>
             </div>
@@ -1384,6 +1468,209 @@
       </main>
     </div>
 
+    <!-- ===== LOEC ANALYSIS (paste & analyze, any role) ===== -->
+    <!-- ===== LOEC ANALYSIS MODAL ===== -->
+    <div
+      id="loec-analysis-modal"
+      class="modal-overlay hidden"
+      style="z-index: 105"
+    >
+      <div
+        class="modal-slip modal-slip-wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="loec-analysis-title"
+      >
+        <div class="modal-slip-header">
+          <h2 id="loec-analysis-title">Análise de LOEC</h2>
+          <button
+            type="button"
+            class="modal-close"
+            id="loec-analysis-modal-close"
+            aria-label="Fechar"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-slip-body" id="panel-loec-analysis">
+          <p class="field-hint loec-analysis-intro">
+            Cole abaixo o texto da LOEC. O sistema identifica automaticamente as
+            linhas que trazem um código de objeto válido (ex.:
+            <code>AN924300185BR</code>) no formato
+            <code
+              >código&nbsp;&nbsp;ordem&nbsp;&nbsp;logradouro&nbsp;&nbsp;CEP</code
+            >
+            e ignora todo o restante do texto colado.
+          </p>
+
+          <div class="field">
+            <textarea
+              id="loec-analysis-input"
+              rows="10"
+              placeholder="Cole aqui o texto copiado da LOEC..."
+            ></textarea>
+          </div>
+
+          <div class="panel-toolbar">
+            <div></div>
+            <div style="display: flex; gap: 10px">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                id="loec-analysis-clear"
+              >
+                Limpar
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="loec-analysis-run"
+              >
+                Analisar Lista
+              </button>
+            </div>
+          </div>
+
+          <p id="loec-analysis-empty" class="empty-state">
+            Cole o texto da LOEC acima e clique em &ldquo;Analisar Lista&rdquo;
+            para ver os resultados.
+          </p>
+
+          <div id="loec-analysis-results" class="loec-analysis-results hidden">
+            <!-- KPI cards -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-title">Objetos Identificados</div>
+                <div class="stat-value" id="loecx-total-objects">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Tipos Distintos</div>
+                <div class="stat-value" id="loecx-total-types">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Logradouros Distintos</div>
+                <div class="stat-value" id="loecx-total-streets">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">CEPs Distintos</div>
+                <div class="stat-value" id="loecx-total-ceps">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">CEPs Não Cadastrados</div>
+                <div class="stat-value" id="loecx-total-unregistered">
+                  &hellip;
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Linhas Ignoradas</div>
+                <div class="stat-value" id="loecx-total-ignored">0</div>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="stats-columns loec-analysis-charts">
+              <div class="loec-report-chart-box">
+                <div class="stats-section-header">Objetos por Tipo</div>
+                <canvas id="loecx-chart-type" height="220"></canvas>
+              </div>
+              <div class="loec-report-chart-box">
+                <div class="stats-section-header">Top 10 Logradouros</div>
+                <canvas id="loecx-chart-streets" height="220"></canvas>
+              </div>
+            </div>
+
+            <!-- Type breakdown -->
+            <div class="stats-columns">
+              <div class="manifest-frame stats-table-wrapper">
+                <div class="stats-section-header">Resumo por Tipo</div>
+                <table class="manifest-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th class="col-actions">Objetos</th>
+                      <th class="col-actions">%</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loecx-type-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Full sortable / filterable table -->
+            <div class="panel-toolbar loec-analysis-table-toolbar">
+              <div class="search-field">
+                <input
+                  type="search"
+                  id="loecx-filter-search"
+                  placeholder="Buscar por código ou logradouro&hellip;"
+                />
+              </div>
+              <div class="loec-analysis-toolbar-actions">
+                <div class="search-field">
+                  <select id="loecx-filter-type">
+                    <option value="">Todos os tipos</option>
+                  </select>
+                </div>
+                <div
+                  class="loec-analysis-sort-group"
+                  role="group"
+                  aria-label="Ordenar por"
+                >
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-icon loec-sort-btn active"
+                    data-sort="ordem"
+                  >
+                    Ordem
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-icon loec-sort-btn"
+                    data-sort="code"
+                  >
+                    Código
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-icon loec-sort-btn"
+                    data-sort="logradouro"
+                  >
+                    Logradouro
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-icon"
+                  id="loecx-export-csv"
+                >
+                  Exportar CSV
+                </button>
+              </div>
+            </div>
+
+            <div class="manifest-frame">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Ordem</th>
+                    <th>Código</th>
+                    <th>Tipo</th>
+                    <th>Logradouro</th>
+                    <th>CEP</th>
+                  </tr>
+                </thead>
+                <tbody id="loecx-full-tbody"></tbody>
+              </table>
+              <p id="loecx-full-empty" class="empty-state hidden">
+                Nenhum objeto corresponde ao filtro atual.
+              </p>
+            </div>
+            <p class="pagination-info" id="loecx-count-info"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
     <div id="modal-overlay" class="modal-overlay hidden">
       <div
@@ -1477,7 +1764,11 @@
           >
             Reiniciar
           </button>
-          <button type="button" id="lightbox-download" class="btn btn-primary btn-icon">
+          <button
+            type="button"
+            id="lightbox-download"
+            class="btn btn-primary btn-icon"
+          >
             Baixar
           </button>
         </div>
@@ -1496,8 +1787,10 @@
       "
     >
       <!-- Footer Content -->
-      
-      <div style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)">
+
+      <div
+        style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)"
+      >
         Developed by <strong>Vitor Fernando da Silva</strong>
       </div>
       <a
@@ -1526,7 +1819,15 @@
         </svg>
         github.com/vitortz/cee
       </a>
-      <div style="margin-top: 24px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+      <div
+        style="
+          margin-top: 24px;
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        "
+      >
         <button class="btn btn-secondary" id="btn-contact-us">
           Entrar em Contato
         </button>

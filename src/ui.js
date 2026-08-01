@@ -64,6 +64,9 @@ qsa(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab, true, true));
 });
 
+let hasLoadedZips = false;
+let hasLoadedRules = false;
+
 function switchTab(tab, isManualClick = false, shouldFocus = true) {
     qsa(".tab-btn").forEach((btn) => {
         const active = btn.dataset.tab === tab;
@@ -119,6 +122,18 @@ function switchTab(tab, isManualClick = false, shouldFocus = true) {
                 }
             }
             break;
+        case "zips":
+            if (!hasLoadedZips) {
+                if (typeof loadZips === "function") loadZips(0);
+                hasLoadedZips = true;
+            }
+            break;
+        case "rules":
+            if (!hasLoadedRules) {
+                if (typeof loadRules === "function") loadRules();
+                hasLoadedRules = true;
+            }
+            break;
         case "stats":
             loadStatistics();
             break;
@@ -126,7 +141,11 @@ function switchTab(tab, isManualClick = false, shouldFocus = true) {
             loadCeeSectors();
             break;
         case "daily-ops":
-            loadDailyOps();
+            const dailyOpsDateEl = qs("#daily-ops-date");
+            if (dailyOpsDateEl && typeof todayIsoDate === "function") {
+                dailyOpsDateEl.value = todayIsoDate();
+            }
+            if (typeof loadDailyOps === "function") loadDailyOps();
             break;
         case "helpdesk":
             loadHelpdesk();
@@ -389,14 +408,13 @@ document.addEventListener("keydown", (e) => {
 });
 
 const tabKeyMap = {
-    1: "zips",
-    2: "cepsearch",
-    3: "rules",
-    4: "daily-ops",
-    5: "loec-analysis",
-    6: "helpdesk",
-    7: "account",
-    8: "funcionarios",
+    1: "daily-ops",
+    2: "zips",
+    3: "cepsearch",
+    4: "rules",
+    5: "helpdesk",
+    6: "account",
+    7: "funcionarios",
 };
 
 function canAccessTab(tabName) {

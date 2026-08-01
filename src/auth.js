@@ -237,7 +237,7 @@ async function handleSessionChange(session) {
         // If the role changed (e.g. a fresh login) while this tab was open,
         // bounce back to a tab every role can see.
         if (!canSeeFuncionarios && funcionariosTabEl.classList.contains("active")) {
-            switchTab("zips");
+            switchTab("daily-ops");
         }
     }
 }

@@ -31,7 +31,15 @@ async function submitBugReportForm(e) {
   e.preventDefault();
   const title = qs("#bug-title").value.trim();
   const description = qs("#bug-description").value.trim();
-  const payload = { title, description };
+
+  // Capture browser information
+  const browserInfo = navigator.userAgent;
+
+  const payload = {
+    title,
+    description,
+    browser_info: browserInfo
+  };
 
   const { error } = await sb.from("bug_reports").insert(payload);
 

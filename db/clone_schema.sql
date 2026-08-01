@@ -35,6 +35,36 @@ CREATE TYPE "public"."app_role" AS ENUM (
 
 ALTER TYPE "public"."app_role" OWNER TO "postgres";
 
+CREATE TYPE "public"."employee_attendance_status" AS ENUM (
+    'presente',
+    'falta_justificada',
+    'falta_injustificada',
+    'atestado',
+    'ferias',
+    'folga'
+);
+
+ALTER TYPE "public"."employee_attendance_status" OWNER TO "postgres";
+
+CREATE TYPE "public"."employee_leave_type" AS ENUM (
+    'ferias',
+    'atestado'
+);
+
+ALTER TYPE "public"."employee_leave_type" OWNER TO "postgres";
+
+CREATE TYPE "public"."employee_type" AS ENUM (
+    'carteiro_interno',
+    'carteiro_externo',
+    'terceirizado_interno',
+    'terceirizado_externo',
+    'motorista',
+    'limpeza',
+    'carteiro_emprestado'
+);
+
+ALTER TYPE "public"."employee_type" OWNER TO "postgres";
+
 CREATE TYPE "public"."helpdesk_attachment_kind" AS ENUM (
     'image',
     'video',
@@ -337,6 +367,50 @@ $$;
 
 ALTER FUNCTION "public"."reopen_helpdesk_ticket"("p_ticket_id" bigint) OWNER TO "postgres";
 
+CREATE OR REPLACE FUNCTION "public"."touch_employee_attendance_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."touch_employee_attendance_updated_at"() OWNER TO "postgres";
+
+CREATE OR REPLACE FUNCTION "public"."touch_employee_calendar_events_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."touch_employee_calendar_events_updated_at"() OWNER TO "postgres";
+
+CREATE OR REPLACE FUNCTION "public"."touch_employee_leaves_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."touch_employee_leaves_updated_at"() OWNER TO "postgres";
+
+CREATE OR REPLACE FUNCTION "public"."touch_employees_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."touch_employees_updated_at"() OWNER TO "postgres";
+
 CREATE OR REPLACE FUNCTION "public"."touch_helpdesk_ticket_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -419,7 +493,8 @@ CREATE TABLE IF NOT EXISTS "public"."bug_reports" (
     "id" integer NOT NULL,
     "title" "text" NOT NULL,
     "description" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"()
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "browser_info" "text"
 );
 
 ALTER TABLE "public"."bug_reports" OWNER TO "postgres";
@@ -467,7 +542,8 @@ CREATE TABLE IF NOT EXISTS "public"."contact_messages" (
     "user_id" "uuid",
     "subject" "text" NOT NULL,
     "message" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "attachments" "text"[] DEFAULT '{}'::"text"[]
 );
 
 ALTER TABLE "public"."contact_messages" OWNER TO "postgres";
@@ -485,14 +561,24 @@ CREATE TABLE IF NOT EXISTS "public"."daily_malote_deliveries" (
     "id" integer NOT NULL,
     "log_date" "date" DEFAULT CURRENT_DATE NOT NULL,
     "delivery_time" time without time zone NOT NULL,
-    "carteiro_name" "text" NOT NULL,
+    "carteiro_name" "text",
     "malote_count" integer NOT NULL,
     "notes" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "daily_malote_deliveries_malote_count_check" CHECK (("malote_count" >= 0))
+    "source_type" "text" DEFAULT 'manual'::"text" NOT NULL,
+    "raw_text" "text",
+    "report" "jsonb",
+    CONSTRAINT "daily_malote_deliveries_malote_count_check" CHECK (("malote_count" >= 0)),
+    CONSTRAINT "daily_malote_deliveries_source_type_check" CHECK (("source_type" = ANY (ARRAY['manual'::"text", 'malote_paste'::"text"])))
 );
 
 ALTER TABLE "public"."daily_malote_deliveries" OWNER TO "postgres";
+
+COMMENT ON COLUMN "public"."daily_malote_deliveries"."source_type" IS 'manual = registrado pelo formulário "+ Registrar Malote"; malote_paste = registrado via "+ Colar Malotes"';
+
+COMMENT ON COLUMN "public"."daily_malote_deliveries"."raw_text" IS 'Texto original colado pelo usuário no formulário "+ Colar Malotes" (somente quando source_type = malote_paste)';
+
+COMMENT ON COLUMN "public"."daily_malote_deliveries"."report" IS 'Relatório completo (totais + detalhamento por SE) calculado no momento da colagem, somente quando source_type = malote_paste';
 
 CREATE SEQUENCE IF NOT EXISTS "public"."daily_malote_deliveries_id_seq"
     AS integer
@@ -622,6 +708,169 @@ CREATE SEQUENCE IF NOT EXISTS "public"."daily_truck_arrivals_id_seq"
 ALTER SEQUENCE "public"."daily_truck_arrivals_id_seq" OWNER TO "postgres";
 
 ALTER SEQUENCE "public"."daily_truck_arrivals_id_seq" OWNED BY "public"."daily_truck_arrivals"."id";
+
+CREATE TABLE IF NOT EXISTS "public"."employee_attendance" (
+    "id" bigint NOT NULL,
+    "employee_id" bigint NOT NULL,
+    "log_date" "date" NOT NULL,
+    "status" "public"."employee_attendance_status" NOT NULL,
+    "notes" "text",
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+ALTER TABLE "public"."employee_attendance" OWNER TO "postgres";
+
+COMMENT ON TABLE "public"."employee_attendance" IS 'Histórico de presença diária de cada funcionário (um registro por funcionário/dia).';
+
+ALTER TABLE "public"."employee_attendance" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."employee_attendance_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+CREATE TABLE IF NOT EXISTS "public"."employee_calendar_events" (
+    "id" bigint NOT NULL,
+    "title" "text" NOT NULL,
+    "description" "text",
+    "start_date" "date" NOT NULL,
+    "end_date" "date" NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "employee_calendar_events_date_order" CHECK (("end_date" >= "start_date")),
+    CONSTRAINT "employee_calendar_events_title_not_blank" CHECK (("btrim"("title") <> ''::"text"))
+);
+
+ALTER TABLE "public"."employee_calendar_events" OWNER TO "postgres";
+
+COMMENT ON TABLE "public"."employee_calendar_events" IS 'Eventos e lembretes livres (reuniões, treinamentos, avisos) mostrados no calendário do quadro de funcionários. Não vinculados a um funcionário específico.';
+
+ALTER TABLE "public"."employee_calendar_events" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."employee_calendar_events_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+CREATE TABLE IF NOT EXISTS "public"."employee_leaves" (
+    "id" bigint NOT NULL,
+    "employee_id" bigint NOT NULL,
+    "leave_type" "public"."employee_leave_type" NOT NULL,
+    "start_date" "date" NOT NULL,
+    "end_date" "date" NOT NULL,
+    "reason" "text",
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "employee_leaves_date_order" CHECK (("end_date" >= "start_date"))
+);
+
+ALTER TABLE "public"."employee_leaves" OWNER TO "postgres";
+
+COMMENT ON TABLE "public"."employee_leaves" IS 'Períodos de férias e atestado por funcionário. reason é usado sobretudo em atestados (motivo opcional).';
+
+COMMENT ON COLUMN "public"."employee_leaves"."reason" IS 'Motivo do atestado (opcional). Não obrigatório para férias.';
+
+CREATE TABLE IF NOT EXISTS "public"."employees" (
+    "id" bigint NOT NULL,
+    "full_name" "public"."citext" NOT NULL,
+    "employee_type" "public"."employee_type" DEFAULT 'carteiro_interno'::"public"."employee_type" NOT NULL,
+    "email" "text",
+    "phone" "text",
+    "cpf" "text",
+    "address" "text",
+    "active" boolean DEFAULT true NOT NULL,
+    "notes" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "origin_branch" "text",
+    CONSTRAINT "employees_cpf_format" CHECK ((("cpf" IS NULL) OR ("cpf" ~ '^\d{11}$'::"text"))),
+    CONSTRAINT "employees_email_format" CHECK ((("email" IS NULL) OR ("email" ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'::"text")))
+);
+
+ALTER TABLE "public"."employees" OWNER TO "postgres";
+
+COMMENT ON TABLE "public"."employees" IS 'Quadro completo de funcionários: carteiros (internos/externos), terceirizados (internos/externos), motoristas e limpeza. Somente admin/supervisor têm acesso.';
+
+COMMENT ON COLUMN "public"."employees"."cpf" IS 'Somente dígitos (11), sem máscara. Opcional.';
+
+COMMENT ON COLUMN "public"."employees"."active" IS 'false = funcionário desligado (mantido para histórico, some das listagens padrão).';
+
+COMMENT ON COLUMN "public"."employees"."origin_branch" IS 'Sede/unidade de origem, usado sobretudo para carteiro_emprestado (de onde ele veio ajudar).';
+
+CREATE OR REPLACE VIEW "public"."employee_current_status" WITH ("security_invoker"='true') AS
+ SELECT "e"."id" AS "employee_id",
+    "e"."full_name",
+    "e"."employee_type",
+    "e"."active",
+    "ferias"."end_date" AS "ferias_until",
+    "ferias"."start_date" AS "ferias_since",
+    "atestado"."end_date" AS "atestado_until",
+    "atestado"."start_date" AS "atestado_since",
+    "atestado"."reason" AS "atestado_reason",
+        CASE
+            WHEN ("atestado"."id" IS NOT NULL) THEN 'atestado'::"text"
+            WHEN ("ferias"."id" IS NOT NULL) THEN 'ferias'::"text"
+            ELSE 'ativo'::"text"
+        END AS "current_situation"
+   FROM (("public"."employees" "e"
+     LEFT JOIN LATERAL ( SELECT "l"."id",
+            "l"."start_date",
+            "l"."end_date"
+           FROM "public"."employee_leaves" "l"
+          WHERE (("l"."employee_id" = "e"."id") AND ("l"."leave_type" = 'ferias'::"public"."employee_leave_type") AND ((CURRENT_DATE >= "l"."start_date") AND (CURRENT_DATE <= "l"."end_date")))
+          ORDER BY "l"."end_date" DESC
+         LIMIT 1) "ferias" ON (true))
+     LEFT JOIN LATERAL ( SELECT "l"."id",
+            "l"."start_date",
+            "l"."end_date",
+            "l"."reason"
+           FROM "public"."employee_leaves" "l"
+          WHERE (("l"."employee_id" = "e"."id") AND ("l"."leave_type" = 'atestado'::"public"."employee_leave_type") AND ((CURRENT_DATE >= "l"."start_date") AND (CURRENT_DATE <= "l"."end_date")))
+          ORDER BY "l"."end_date" DESC
+         LIMIT 1) "atestado" ON (true))
+  WHERE ("e"."active" = true);
+
+ALTER VIEW "public"."employee_current_status" OWNER TO "postgres";
+
+ALTER TABLE "public"."employee_leaves" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."employee_leaves_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+CREATE OR REPLACE VIEW "public"."employee_upcoming_vacations" WITH ("security_invoker"='true') AS
+ SELECT "l"."id",
+    "l"."employee_id",
+    "e"."full_name",
+    "e"."employee_type",
+    "l"."start_date",
+    "l"."end_date"
+   FROM ("public"."employee_leaves" "l"
+     JOIN "public"."employees" "e" ON (("e"."id" = "l"."employee_id")))
+  WHERE (("l"."leave_type" = 'ferias'::"public"."employee_leave_type") AND ("l"."start_date" >= CURRENT_DATE))
+  ORDER BY "l"."start_date";
+
+ALTER VIEW "public"."employee_upcoming_vacations" OWNER TO "postgres";
+
+ALTER TABLE "public"."employees" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."employees_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 CREATE TABLE IF NOT EXISTS "public"."global_api_logs" (
     "id" integer NOT NULL,
@@ -981,6 +1230,21 @@ ALTER TABLE ONLY "public"."daily_operation_notes"
 ALTER TABLE ONLY "public"."daily_truck_arrivals"
     ADD CONSTRAINT "daily_truck_arrivals_pkey" PRIMARY KEY ("id");
 
+ALTER TABLE ONLY "public"."employee_attendance"
+    ADD CONSTRAINT "employee_attendance_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."employee_attendance"
+    ADD CONSTRAINT "employee_attendance_unique_day" UNIQUE ("employee_id", "log_date");
+
+ALTER TABLE ONLY "public"."employee_calendar_events"
+    ADD CONSTRAINT "employee_calendar_events_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."employee_leaves"
+    ADD CONSTRAINT "employee_leaves_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."employees"
+    ADD CONSTRAINT "employees_pkey" PRIMARY KEY ("id");
+
 ALTER TABLE ONLY "public"."global_api_logs"
     ADD CONSTRAINT "global_api_logs_pkey" PRIMARY KEY ("id");
 
@@ -1019,6 +1283,24 @@ ALTER TABLE ONLY "public"."zip_codes"
 
 ALTER TABLE ONLY "public"."zip_codes"
     ADD CONSTRAINT "zip_codes_street_id_zip_code_key" UNIQUE ("street_id", "zip_code");
+
+CREATE INDEX "employee_attendance_employee_idx" ON "public"."employee_attendance" USING "btree" ("employee_id");
+
+CREATE INDEX "employee_attendance_log_date_idx" ON "public"."employee_attendance" USING "btree" ("log_date");
+
+CREATE INDEX "employee_calendar_events_range_idx" ON "public"."employee_calendar_events" USING "btree" ("start_date", "end_date");
+
+CREATE INDEX "employee_leaves_employee_idx" ON "public"."employee_leaves" USING "btree" ("employee_id");
+
+CREATE INDEX "employee_leaves_range_idx" ON "public"."employee_leaves" USING "btree" ("leave_type", "start_date", "end_date");
+
+CREATE INDEX "employees_active_idx" ON "public"."employees" USING "btree" ("active");
+
+CREATE UNIQUE INDEX "employees_cpf_unique_idx" ON "public"."employees" USING "btree" ("cpf") WHERE ("cpf" IS NOT NULL);
+
+CREATE INDEX "employees_full_name_idx" ON "public"."employees" USING "btree" ("full_name");
+
+CREATE INDEX "employees_type_idx" ON "public"."employees" USING "btree" ("employee_type");
 
 CREATE INDEX "helpdesk_attachments_message_idx" ON "public"."helpdesk_attachments" USING "btree" ("message_id");
 
@@ -1060,12 +1342,35 @@ CREATE OR REPLACE TRIGGER "trg_cee_sectors_updated_at" BEFORE UPDATE ON "public"
 
 CREATE OR REPLACE TRIGGER "trg_daily_operation_notes_updated_at" BEFORE UPDATE ON "public"."daily_operation_notes" FOR EACH ROW EXECUTE FUNCTION "public"."update_cee_sectors_updated_at"();
 
+CREATE OR REPLACE TRIGGER "trg_employee_attendance_touch_updated_at" BEFORE UPDATE ON "public"."employee_attendance" FOR EACH ROW EXECUTE FUNCTION "public"."touch_employee_attendance_updated_at"();
+
+CREATE OR REPLACE TRIGGER "trg_employee_calendar_events_touch_updated_at" BEFORE UPDATE ON "public"."employee_calendar_events" FOR EACH ROW EXECUTE FUNCTION "public"."touch_employee_calendar_events_updated_at"();
+
+CREATE OR REPLACE TRIGGER "trg_employee_leaves_touch_updated_at" BEFORE UPDATE ON "public"."employee_leaves" FOR EACH ROW EXECUTE FUNCTION "public"."touch_employee_leaves_updated_at"();
+
+CREATE OR REPLACE TRIGGER "trg_employees_touch_updated_at" BEFORE UPDATE ON "public"."employees" FOR EACH ROW EXECUTE FUNCTION "public"."touch_employees_updated_at"();
+
 CREATE OR REPLACE TRIGGER "trg_update_streets_search_text" BEFORE INSERT OR UPDATE ON "public"."streets" FOR EACH ROW EXECUTE FUNCTION "public"."update_streets_search_text"();
 
 CREATE OR REPLACE TRIGGER "trg_user_profiles_updated_at" BEFORE UPDATE ON "public"."user_profiles" FOR EACH ROW EXECUTE FUNCTION "public"."touch_user_profiles_updated_at"();
 
 ALTER TABLE ONLY "public"."contact_messages"
     ADD CONSTRAINT "contact_messages_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+ALTER TABLE ONLY "public"."employee_attendance"
+    ADD CONSTRAINT "employee_attendance_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+ALTER TABLE ONLY "public"."employee_attendance"
+    ADD CONSTRAINT "employee_attendance_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE CASCADE;
+
+ALTER TABLE ONLY "public"."employee_calendar_events"
+    ADD CONSTRAINT "employee_calendar_events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+ALTER TABLE ONLY "public"."employee_leaves"
+    ADD CONSTRAINT "employee_leaves_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+ALTER TABLE ONLY "public"."employee_leaves"
+    ADD CONSTRAINT "employee_leaves_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "public"."helpdesk_attachments"
     ADD CONSTRAINT "helpdesk_attachments_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "public"."helpdesk_messages"("id") ON DELETE CASCADE;
@@ -1150,6 +1455,22 @@ CREATE POLICY "daily_truck_arrivals_select_auth" ON "public"."daily_truck_arriva
 
 CREATE POLICY "daily_truck_arrivals_write_ops" ON "public"."daily_truck_arrivals" TO "authenticated" USING (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"]))) WITH CHECK (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"])));
 
+ALTER TABLE "public"."employee_attendance" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "employee_attendance_admin_supervisor_only" ON "public"."employee_attendance" TO "authenticated" USING (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"]))) WITH CHECK (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"])));
+
+ALTER TABLE "public"."employee_calendar_events" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "employee_calendar_events_admin_supervisor_only" ON "public"."employee_calendar_events" TO "authenticated" USING (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"]))) WITH CHECK (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"])));
+
+ALTER TABLE "public"."employee_leaves" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "employee_leaves_admin_supervisor_only" ON "public"."employee_leaves" TO "authenticated" USING (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"]))) WITH CHECK (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"])));
+
+ALTER TABLE "public"."employees" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "employees_admin_supervisor_only" ON "public"."employees" TO "authenticated" USING (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"]))) WITH CHECK (("public"."auth_role"() = ANY (ARRAY['admin'::"public"."app_role", 'supervisor'::"public"."app_role"])));
+
 ALTER TABLE "public"."global_api_logs" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE "public"."helpdesk_attachments" ENABLE ROW LEVEL SECURITY;
@@ -1179,6 +1500,8 @@ CREATE POLICY "helpdesk_ticket_supervisors_select" ON "public"."helpdesk_ticket_
   WHERE (("t"."id" = "helpdesk_ticket_supervisors"."ticket_id") AND ("t"."carteiro_id" = "auth"."uid"()))))));
 
 ALTER TABLE "public"."helpdesk_tickets" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "helpdesk_tickets_delete" ON "public"."helpdesk_tickets" FOR DELETE TO "authenticated" USING (("public"."auth_role"() = 'admin'::"public"."app_role"));
 
 CREATE POLICY "helpdesk_tickets_insert" ON "public"."helpdesk_tickets" FOR INSERT TO "authenticated" WITH CHECK ((("public"."auth_role"() = 'carteiro'::"public"."app_role") AND ("carteiro_id" = "auth"."uid"())));
 
@@ -1624,6 +1947,22 @@ GRANT ALL ON FUNCTION "public"."texticregexne"("public"."citext", "public"."cite
 GRANT ALL ON FUNCTION "public"."texticregexne"("public"."citext", "public"."citext") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."texticregexne"("public"."citext", "public"."citext") TO "service_role";
 
+GRANT ALL ON FUNCTION "public"."touch_employee_attendance_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."touch_employee_attendance_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."touch_employee_attendance_updated_at"() TO "service_role";
+
+GRANT ALL ON FUNCTION "public"."touch_employee_calendar_events_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."touch_employee_calendar_events_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."touch_employee_calendar_events_updated_at"() TO "service_role";
+
+GRANT ALL ON FUNCTION "public"."touch_employee_leaves_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."touch_employee_leaves_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."touch_employee_leaves_updated_at"() TO "service_role";
+
+GRANT ALL ON FUNCTION "public"."touch_employees_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."touch_employees_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."touch_employees_updated_at"() TO "service_role";
+
 GRANT ALL ON FUNCTION "public"."touch_helpdesk_ticket_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."touch_helpdesk_ticket_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."touch_helpdesk_ticket_updated_at"() TO "service_role";
@@ -1762,6 +2101,46 @@ GRANT ALL ON TABLE "public"."daily_operation_summary" TO "service_role";
 GRANT ALL ON SEQUENCE "public"."daily_truck_arrivals_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."daily_truck_arrivals_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."daily_truck_arrivals_id_seq" TO "service_role";
+
+GRANT ALL ON TABLE "public"."employee_attendance" TO "anon";
+GRANT ALL ON TABLE "public"."employee_attendance" TO "authenticated";
+GRANT ALL ON TABLE "public"."employee_attendance" TO "service_role";
+
+GRANT ALL ON SEQUENCE "public"."employee_attendance_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."employee_attendance_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."employee_attendance_id_seq" TO "service_role";
+
+GRANT ALL ON TABLE "public"."employee_calendar_events" TO "anon";
+GRANT ALL ON TABLE "public"."employee_calendar_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."employee_calendar_events" TO "service_role";
+
+GRANT ALL ON SEQUENCE "public"."employee_calendar_events_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."employee_calendar_events_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."employee_calendar_events_id_seq" TO "service_role";
+
+GRANT ALL ON TABLE "public"."employee_leaves" TO "anon";
+GRANT ALL ON TABLE "public"."employee_leaves" TO "authenticated";
+GRANT ALL ON TABLE "public"."employee_leaves" TO "service_role";
+
+GRANT ALL ON TABLE "public"."employees" TO "anon";
+GRANT ALL ON TABLE "public"."employees" TO "authenticated";
+GRANT ALL ON TABLE "public"."employees" TO "service_role";
+
+GRANT ALL ON TABLE "public"."employee_current_status" TO "anon";
+GRANT ALL ON TABLE "public"."employee_current_status" TO "authenticated";
+GRANT ALL ON TABLE "public"."employee_current_status" TO "service_role";
+
+GRANT ALL ON SEQUENCE "public"."employee_leaves_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."employee_leaves_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."employee_leaves_id_seq" TO "service_role";
+
+GRANT ALL ON TABLE "public"."employee_upcoming_vacations" TO "anon";
+GRANT ALL ON TABLE "public"."employee_upcoming_vacations" TO "authenticated";
+GRANT ALL ON TABLE "public"."employee_upcoming_vacations" TO "service_role";
+
+GRANT ALL ON SEQUENCE "public"."employees_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."employees_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."employees_id_seq" TO "service_role";
 
 GRANT ALL ON TABLE "public"."global_api_logs" TO "anon";
 GRANT ALL ON TABLE "public"."global_api_logs" TO "authenticated";

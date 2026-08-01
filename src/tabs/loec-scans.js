@@ -341,8 +341,15 @@ async function submitScanForm(e) {
 
     closeModal();
     showToast("LOEC record saved successfully!");
-    await loadDailyOps();
+
+    // Reload only the scans table and the top summary KPIs
+    const date = getDailyOpsDate();
+    await Promise.all([
+        loadDailyScans(date),
+        loadDailyOpsSummary(date)
+    ]);
 }
+
 
 async function deleteDailyScan(id) {
     openDeleteConfirm("este registro de leitura", null, async () => {
@@ -353,7 +360,13 @@ async function deleteDailyScan(id) {
         }
         closeModal();
         showToast("Registro excluído.");
-        await loadDailyOps();
+
+        // Reload only the scans table and the top summary KPIs
+        const date = getDailyOpsDate();
+        await Promise.all([
+            loadDailyScans(date),
+            loadDailyOpsSummary(date)
+        ]);
     });
 }
 
@@ -624,7 +637,11 @@ async function submitLoecPasteForm(e) {
 
     closeModal();
     showToast(`${report.total.objects} objetos em ${report.total.district_count} distritos registrados com sucesso!`);
-    await loadDailyOps();
+    const date = getDailyOpsDate();
+    await Promise.all([
+        loadDailyScans(date),
+        loadDailyOpsSummary(date)
+    ]);
 }
 
 // --- LOEC Report Details Modal ---

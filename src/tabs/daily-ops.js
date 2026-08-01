@@ -127,7 +127,12 @@ async function submitTruckForm(e) {
     }
     closeModal();
     showToast("Caminhão registrado com sucesso!");
-    await loadDailyOps();
+
+    const date = getDailyOpsDate();
+    await Promise.all([
+        loadDailyTrucks(date),
+        loadDailyOpsSummary(date)
+    ]);
 }
 
 async function deleteDailyTruck(id) {
@@ -142,7 +147,12 @@ async function deleteDailyTruck(id) {
         }
         closeModal();
         showToast("Registro excluído.");
-        await loadDailyOps();
+
+        const date = getDailyOpsDate();
+        await Promise.all([
+            loadDailyTrucks(date),
+            loadDailyOpsSummary(date)
+        ]);
     });
 }
 
@@ -222,7 +232,12 @@ async function submitMaloteForm(e) {
     }
     closeModal();
     showToast("Malote registrado.");
-    await loadDailyOps();
+
+    const date = getDailyOpsDate();
+    await Promise.all([
+        loadDailyMalotes(date),
+        loadDailyOpsSummary(date)
+    ]);
 }
 
 async function deleteDailyMalote(id) {
@@ -237,7 +252,12 @@ async function deleteDailyMalote(id) {
         }
         closeModal();
         showToast("Registro excluído.");
-        await loadDailyOps();
+
+        const date = getDailyOpsDate();
+        await Promise.all([
+            loadDailyMalotes(date),
+            loadDailyOpsSummary(date)
+        ]);
     });
 }
 
@@ -366,5 +386,31 @@ if (btnDailyOpsToday) {
     btnDailyOpsToday.addEventListener("click", () => {
         qs("#daily-ops-date").value = todayIsoDate();
         loadDailyOps();
+    });
+}
+
+// --- Modal: LOEC Analysis ---
+const btnOpenLoecAnalysis = qs("#btn-open-loec-analysis");
+const loecAnalysisModal = qs("#loec-analysis-modal");
+const loecAnalysisModalClose = qs("#loec-analysis-modal-close");
+
+if (btnOpenLoecAnalysis) {
+    btnOpenLoecAnalysis.addEventListener("click", () => {
+        loecAnalysisModal.classList.remove("hidden");
+    });
+}
+
+if (loecAnalysisModalClose) {
+    loecAnalysisModalClose.addEventListener("click", () => {
+        loecAnalysisModal.classList.add("hidden");
+    });
+}
+
+// Close the modal when clicking outside the slip body
+if (loecAnalysisModal) {
+    loecAnalysisModal.addEventListener("click", (e) => {
+        if (e.target === loecAnalysisModal) {
+            loecAnalysisModal.classList.add("hidden");
+        }
     });
 }
