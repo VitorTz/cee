@@ -1,0 +1,23 @@
+{
+  "name": "CEE Operações",
+  "short_name": "CEE",
+  "description": "Sistema de Gestão Operacional do Centro de Entrega de Encomendas",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fdfbf5",
+  "theme_color": "#00447c",
+  "icons": [
+    {
+      "src": "res/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "res/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
