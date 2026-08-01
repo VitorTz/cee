@@ -110,7 +110,7 @@ async function loadDailyScans(date) {
                     </span>
                 </td>
                 <td>
-                    <span style="font-size: 1rem; color: var(--ink-soft);">
+                    <span style="font-size: 0.85rem; color: var(--ink-soft);">
                         ${escapeHtml(prevRecord.notes || "")}
                     </span>
                 </td>
@@ -322,11 +322,6 @@ function scanFormTemplate() {
   `;
 }
 
-function openScanForm() {
-    openModal("Registrar LOECs", scanFormTemplate());
-    qs("#scan-cancel").addEventListener("click", closeModal);
-    qs("#scan-form").addEventListener("submit", submitScanForm);
-}
 
 async function submitScanForm(e) {
     e.preventDefault();

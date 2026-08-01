@@ -68,7 +68,8 @@ let funcActiveEmployeesCache = null; // [{id, full_name, employee_type}] for sel
 
 let funcCalendarDate = new Date();
 funcCalendarDate.setDate(1);
-let funcCalendarEventsCache = []; // events overlapping the month currently on screen
+let funcCalendarViewMode = "week"; // "day" | "3day" | "week" | "month"
+let funcCalendarEventsCache = []; // events overlapping the range currently on screen
 
 // --- Helpers ---------------------------------------------------------------
 
@@ -78,11 +79,18 @@ function formatDateBR(isoDate) {
     return `${d}/${m}/${y}`;
 }
 
-function formatCPF(digits) {
-    if (!digits) return "";
-    const clean = digits.replace(/\D/g, "");
-    if (clean.length !== 11) return digits;
-    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+// Builds a wa.me link from a Brazilian phone number. Returns null when the
+// stored value doesn't look like a usable number, so callers can skip
+// rendering the button entirely.
+function whatsappLink(phone) {
+    if (!phone) return null;
+    let digits = phone.replace(/\D/g, "");
+    if (!digits) return null;
+    if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+        digits = `55${digits}`;
+    }
+    if (digits.length < 12 || digits.length > 13) return null;
+    return `https://wa.me/${digits}`;
 }
 
 function funcSituationLabel(situation) {
@@ -188,13 +196,11 @@ async function loadFuncList() {
 
     if (funcSearchTerm.trim()) {
         const term = funcSearchTerm.trim();
-        const digits = term.replace(/\D/g, "");
         const orParts = [
             `full_name.ilike.%${term}%`,
             `email.ilike.%${term}%`,
             `phone.ilike.%${term}%`,
         ];
-        if (digits) orParts.push(`cpf.ilike.%${digits}%`);
         query = query.or(orParts.join(","));
     }
 
@@ -224,19 +230,50 @@ async function loadFuncList() {
 function renderFuncRow(emp) {
     const status = funcStatusMap[emp.id];
     const situation = !emp.active ? "inativo" : status ? status.current_situation : "ativo";
+
     const originNote =
         emp.employee_type === "carteiro_emprestado" && emp.origin_branch
             ? `<span class="func-origin-note">de: ${escapeHtml(emp.origin_branch)}</span>`
             : "";
+
+    const wa = whatsappLink(emp.phone);
+
+    const waIcon = wa
+        ? `<a class="contact-icon wa-icon" href="${wa}" target="_blank" rel="noopener" title="WhatsApp">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+             </svg>
+           </a>`
+        : "";
+
+    const emailIcon = emp.email
+        ? `<a class="contact-icon email-icon" href="mailto:${encodeURIComponent(emp.email)}" title="E-mail">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+               <polyline points="22,6 12,13 2,6"></polyline>
+             </svg>
+           </a>`
+        : "";
+
     return `
     <tr data-emp-id="${emp.id}">
       <td>${escapeHtml(emp.full_name)}</td>
       <td>${funcTypeBadge(emp.employee_type)}${originNote}</td>
-      <td>${escapeHtml(emp.phone || "—")}</td>
-      <td>${escapeHtml(emp.email || "—")}</td>
-      <td>${emp.cpf ? escapeHtml(formatCPF(emp.cpf)) : "—"}</td>
+      <td>
+        <div class="contact-wrapper">
+            <span>${escapeHtml(emp.phone || "—")}</span>
+            ${waIcon}
+        </div>
+      </td>
+      <td>
+        <div class="contact-wrapper">
+            <span>${escapeHtml(emp.email || "—")}</span>
+            ${emailIcon}
+        </div>
+      </td>
       <td><span class="func-situation-badge func-situation-${situation}">${funcSituationLabel(situation)}</span></td>
       <td class="col-actions">
+        <button type="button" class="btn btn-secondary btn-icon" data-history-func="${emp.id}">Histórico</button>
         <button type="button" class="btn btn-secondary btn-icon" data-edit-func="${emp.id}">Editar</button>
         <button type="button" class="btn btn-secondary btn-icon" data-toggle-func="${emp.id}">${emp.active ? "Desligar" : "Reativar"}</button>
         <button type="button" class="btn btn-danger btn-icon" data-delete-func="${emp.id}">Excluir</button>
@@ -253,6 +290,9 @@ function wireFuncRowActions() {
     });
     qsa("[data-delete-func]").forEach((btn) => {
         btn.addEventListener("click", () => confirmDeleteFunc(Number(btn.dataset.deleteFunc)));
+    });
+    qsa("[data-history-func]").forEach((btn) => {
+        btn.addEventListener("click", () => openFuncHistoryModal(Number(btn.dataset.historyFunc)));
     });
 }
 
@@ -303,7 +343,6 @@ function funcEmployeeFormTemplate(emp) {
         employee_type: "carteiro_interno",
         email: "",
         phone: "",
-        cpf: "",
         address: "",
         notes: "",
         origin_branch: "",
@@ -327,16 +366,12 @@ function funcEmployeeFormTemplate(emp) {
       </div>
       <div class="field-row">
         <div class="field">
-          <label for="func-f-phone">Telefone</label>
+          <label for="func-f-phone">Telefone <span style="font-weight:400;color:var(--ink-soft)">(usado para o botão de WhatsApp)</span></label>
           <input type="text" id="func-f-phone" maxlength="30" placeholder="(00) 00000-0000" value="${escapeHtml(e.phone || "")}">
         </div>
         <div class="field">
           <label for="func-f-email">E-mail</label>
           <input type="email" id="func-f-email" maxlength="150" value="${escapeHtml(e.email || "")}">
-        </div>
-        <div class="field">
-          <label for="func-f-cpf">CPF</label>
-          <input type="text" id="func-f-cpf" maxlength="14" placeholder="000.000.000-00" value="${e.cpf ? formatCPF(e.cpf) : ""}">
         </div>
       </div>
       <div class="field">
@@ -380,20 +415,12 @@ async function openFuncEmployeeModal(id) {
             return;
         }
 
-        const cpfDigits = qs("#func-f-cpf").value.replace(/\D/g, "");
-        if (cpfDigits && cpfDigits.length !== 11) {
-            errorEl.textContent = "CPF deve ter 11 dígitos (ou fique em branco).";
-            errorEl.classList.remove("hidden");
-            return;
-        }
-
         const selectedType = qs("#func-f-type").value;
         const payload = {
             full_name: fullName,
             employee_type: selectedType,
             phone: qs("#func-f-phone").value.trim() || null,
             email: qs("#func-f-email").value.trim() || null,
-            cpf: cpfDigits || null,
             address: qs("#func-f-address").value.trim() || null,
             notes: qs("#func-f-notes").value.trim() || null,
             origin_branch: EMPLOYEE_TYPES_WITH_ORIGIN.has(selectedType)
@@ -406,9 +433,7 @@ async function openFuncEmployeeModal(id) {
             : await sb.from("employees").insert(payload);
 
         if (error) {
-            errorEl.textContent = error.message.includes("employees_cpf_unique")
-                ? "Já existe um funcionário cadastrado com esse CPF."
-                : "Não foi possível salvar. Tente novamente.";
+            errorEl.textContent = "Não foi possível salvar. Tente novamente.";
             errorEl.classList.remove("hidden");
             return;
         }
@@ -419,6 +444,123 @@ async function openFuncEmployeeModal(id) {
         await loadFuncList();
         await refreshFuncStatusSummary();
     });
+}
+
+// --- Per-employee history (presence, faults, leaves) — current & past months
+
+function funcHistoryShellTemplate() {
+    return `
+    <div class="func-hist-toolbar">
+      <button type="button" class="btn btn-secondary btn-icon" id="func-hist-prev">&larr;</button>
+      <h4 id="func-hist-label">&nbsp;</h4>
+      <button type="button" class="btn btn-secondary btn-icon" id="func-hist-next">&rarr;</button>
+      <button type="button" class="btn btn-secondary btn-icon" id="func-hist-current">Mês Atual</button>
+    </div>
+    <div id="func-hist-body"><p class="empty-state">Carregando&hellip;</p></div>`;
+}
+
+async function renderFuncHistoryMonth(employeeId, monthDate) {
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    qs("#func-hist-label").textContent = `${FUNC_MONTH_LABELS[month]} de ${year}`;
+
+    const monthStart = isoDate(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthEnd = isoDate(year, month, daysInMonth);
+
+    const body = qs("#func-hist-body");
+    body.innerHTML = `<p class="empty-state">Carregando&hellip;</p>`;
+
+    const [{ data: attendance, error: attError }, { data: leaves, error: leavesError }] =
+        await Promise.all([
+            sb
+                .from("employee_attendance")
+                .select("log_date, status, notes")
+                .eq("employee_id", employeeId)
+                .gte("log_date", monthStart)
+                .lte("log_date", monthEnd)
+                .order("log_date"),
+            sb
+                .from("employee_leaves")
+                .select("leave_type, start_date, end_date, reason")
+                .eq("employee_id", employeeId)
+                .lte("start_date", monthEnd)
+                .gte("end_date", monthStart)
+                .order("start_date"),
+        ]);
+
+    const attendanceRows = attError || !attendance ? [] : attendance;
+    const leaveRows = leavesError || !leaves ? [] : leaves;
+
+    const attendanceHtml =
+        attendanceRows.length === 0
+            ? `<p class="empty-state">Nenhum registro de presença neste mês.</p>`
+            : `<table class="func-hist-table">
+          <thead><tr><th>Data</th><th>Situação</th><th>Observação</th></tr></thead>
+          <tbody>
+            ${attendanceRows
+                .map(
+                    (a) => `
+              <tr>
+                <td>${formatDateBR(a.log_date)}</td>
+                <td><span class="func-hist-status-tag func-hist-status-${a.status}">${ATTENDANCE_STATUS_LABELS[a.status] || a.status}</span></td>
+                <td>${escapeHtml(a.notes || "—")}</td>
+              </tr>`,
+                )
+                .join("")}
+          </tbody>
+        </table>`;
+
+    const leavesHtml =
+        leaveRows.length === 0
+            ? `<p class="empty-state">Nenhuma férias/atestado neste mês.</p>`
+            : `<table class="func-hist-table">
+          <thead><tr><th>Tipo</th><th>Período</th><th>Motivo</th></tr></thead>
+          <tbody>
+            ${leaveRows
+                .map(
+                    (l) => `
+              <tr>
+                <td>${l.leave_type === "ferias" ? "Férias" : "Atestado"}</td>
+                <td>${formatDateBR(l.start_date)} a ${formatDateBR(l.end_date)}</td>
+                <td>${escapeHtml(l.reason || "—")}</td>
+              </tr>`,
+                )
+                .join("")}
+          </tbody>
+        </table>`;
+
+    body.innerHTML = `
+      <div class="func-hist-section-title">Presenças e Faltas</div>
+      ${attendanceHtml}
+      <div class="func-hist-section-title">Férias e Atestados</div>
+      ${leavesHtml}`;
+}
+
+async function openFuncHistoryModal(employeeId) {
+    const { data: emp } = await sb.from("employees").select("full_name").eq("id", employeeId).maybeSingle();
+    const employeeName = emp ? emp.full_name : "Funcionário";
+
+    let monthDate = new Date();
+    monthDate.setDate(1);
+
+    openModal(`Histórico de ${escapeHtml(employeeName)}`, funcHistoryShellTemplate(), { wide: true });
+
+    qs("#func-hist-prev").addEventListener("click", () => {
+        monthDate.setMonth(monthDate.getMonth() - 1);
+        renderFuncHistoryMonth(employeeId, monthDate);
+    });
+    qs("#func-hist-next").addEventListener("click", () => {
+        monthDate.setMonth(monthDate.getMonth() + 1);
+        renderFuncHistoryMonth(employeeId, monthDate);
+    });
+    qs("#func-hist-current").addEventListener("click", () => {
+        monthDate = new Date();
+        monthDate.setDate(1);
+        renderFuncHistoryMonth(employeeId, monthDate);
+    });
+
+    await renderFuncHistoryMonth(employeeId, monthDate);
 }
 
 // --- Sub-panel: daily attendance --------------------------------------------
@@ -433,11 +575,15 @@ async function loadFuncPresenca() {
     tbody.innerHTML = `<tr class="loading-row"><td colspan="4">Carregando&hellip;</td></tr>`;
     emptyEl.classList.add("hidden");
 
-    const employeesP = sb
+    let employeesQuery = sb
         .from("employees")
         .select("id, full_name, employee_type")
         .eq("active", true)
         .order("full_name");
+    const typeFilter = qs("#func-presenca-filter-type").value;
+    if (typeFilter) employeesQuery = employeesQuery.eq("employee_type", typeFilter);
+
+    const employeesP = employeesQuery;
     const attendanceP = sb.from("employee_attendance").select("*").eq("log_date", logDate);
     const leavesP = sb
         .from("employee_leaves")
@@ -705,30 +851,96 @@ function isoDate(year, month, day) {
     return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-// Spreads any row with a start_date/end_date across every day-of-month it
-// touches within [monthStart, monthEnd], tagged with `kind` so the renderer
-// can tell leaves and free-form events apart.
-function bucketByDay(rows, kind, monthStart, monthEnd, daysInMonth, byDay) {
+function isoDateFromDate(date) {
+    return isoDate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// Spreads any row with a start_date/end_date across every ISO date it
+// touches within [rangeStart, rangeEnd], tagged with `kind` so the renderer
+// can tell leaves and free-form events apart. Keyed by full ISO date (not
+// day-of-month) so it works for ranges that span a month boundary — which
+// happens as soon as you're not looking at a whole-month view.
+function bucketByDate(rows, kind, rangeStart, rangeEnd, byDate) {
     rows.forEach((row) => {
-        const from = row.start_date < monthStart ? 1 : Number(row.start_date.slice(8, 10));
-        const to = row.end_date > monthEnd ? daysInMonth : Number(row.end_date.slice(8, 10));
-        for (let d = from; d <= to; d++) {
-            byDay[d].push({ kind, ...row });
+        const from = row.start_date < rangeStart ? rangeStart : row.start_date;
+        const to = row.end_date > rangeEnd ? rangeEnd : row.end_date;
+        const cursor = new Date(`${from}T00:00:00`);
+        const toDate = new Date(`${to}T00:00:00`);
+        while (cursor <= toDate) {
+            const iso = isoDateFromDate(cursor);
+            if (!byDate[iso]) byDate[iso] = [];
+            byDate[iso].push({ kind, ...row });
+            cursor.setDate(cursor.getDate() + 1);
         }
     });
+}
+
+// Computes which days are visible for the current view mode, anchored on
+// funcCalendarDate. Month keeps the classic grid (with leading blanks for
+// alignment); day/3-day/week are just a run of consecutive days.
+function funcCalendarVisibleRange(mode, anchor) {
+    const year = anchor.getFullYear();
+    const month = anchor.getMonth();
+
+    if (mode === "month") {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const days = [];
+        for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
+        return {
+            days,
+            leadingBlanks: new Date(year, month, 1).getDay(),
+            label: `${FUNC_MONTH_LABELS[month]} de ${year}`,
+        };
+    }
+
+    if (mode === "week") {
+        const start = new Date(anchor);
+        start.setDate(start.getDate() - start.getDay());
+        const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            return d;
+        });
+        return {
+            days,
+            leadingBlanks: 0,
+            label: `${formatDateBR(isoDateFromDate(days[0]))} – ${formatDateBR(isoDateFromDate(days[6]))}`,
+        };
+    }
+
+    if (mode === "3day") {
+        const days = Array.from({ length: 3 }, (_, i) => {
+            const d = new Date(anchor);
+            d.setDate(anchor.getDate() + i);
+            return d;
+        });
+        return {
+            days,
+            leadingBlanks: 0,
+            label: `${formatDateBR(isoDateFromDate(days[0]))} – ${formatDateBR(isoDateFromDate(days[2]))}`,
+        };
+    }
+
+    // day
+    return { days: [new Date(anchor)], leadingBlanks: 0, label: formatDateBR(isoDateFromDate(anchor)) };
+}
+
+function funcCalendarStep(direction) {
+    if (funcCalendarViewMode === "month") funcCalendarDate.setMonth(funcCalendarDate.getMonth() + direction);
+    else if (funcCalendarViewMode === "week") funcCalendarDate.setDate(funcCalendarDate.getDate() + direction * 7);
+    else if (funcCalendarViewMode === "3day") funcCalendarDate.setDate(funcCalendarDate.getDate() + direction * 3);
+    else funcCalendarDate.setDate(funcCalendarDate.getDate() + direction);
 }
 
 async function loadFuncCalendar() {
     const grid = qs("#func-calendar-grid");
     grid.innerHTML = `<div class="empty-state">Carregando calendário&hellip;</div>`;
 
-    const year = funcCalendarDate.getFullYear();
-    const month = funcCalendarDate.getMonth();
-    qs("#func-cal-label").textContent = `${FUNC_MONTH_LABELS[month]} de ${year}`;
+    const { days, leadingBlanks, label } = funcCalendarVisibleRange(funcCalendarViewMode, funcCalendarDate);
+    qs("#func-cal-label").textContent = label;
 
-    const monthStart = isoDate(year, month, 1);
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const monthEnd = isoDate(year, month, daysInMonth);
+    const rangeStart = isoDateFromDate(days[0]);
+    const rangeEnd = isoDateFromDate(days[days.length - 1]);
 
     // Leaves and events live in different tables — fetch both at once
     // instead of waiting on one before starting the other.
@@ -737,36 +949,42 @@ async function loadFuncCalendar() {
             sb
                 .from("employee_leaves")
                 .select("id, leave_type, start_date, end_date, reason, employees(full_name)")
-                .lte("start_date", monthEnd)
-                .gte("end_date", monthStart),
+                .lte("start_date", rangeEnd)
+                .gte("end_date", rangeStart),
             sb
                 .from("employee_calendar_events")
                 .select("id, title, description, start_date, end_date")
-                .lte("start_date", monthEnd)
-                .gte("end_date", monthStart)
+                .lte("start_date", rangeEnd)
+                .gte("end_date", rangeStart)
                 .order("start_date"),
         ]);
 
     const leaves = leavesError || !leavesData ? [] : leavesData;
     funcCalendarEventsCache = eventsError || !eventsData ? [] : eventsData;
 
-    const byDay = {};
-    for (let d = 1; d <= daysInMonth; d++) byDay[d] = [];
-    bucketByDay(leaves, "leave", monthStart, monthEnd, daysInMonth, byDay);
-    bucketByDay(funcCalendarEventsCache, "event", monthStart, monthEnd, daysInMonth, byDay);
+    const byDate = {};
+    bucketByDate(leaves, "leave", rangeStart, rangeEnd, byDate);
+    bucketByDate(funcCalendarEventsCache, "event", rangeStart, rangeEnd, byDate);
 
-    const firstWeekday = new Date(year, month, 1).getDay();
     const todayStr = todayIsoDate();
+    const isMonth = funcCalendarViewMode === "month";
+    // Fewer days on screen means more room per cell, so show more tags
+    // before collapsing into "+N mais".
+    const maxTagsShown = isMonth ? 2 : 8;
 
-    let html = FUNC_WEEKDAY_LABELS.map((w) => `<div class="func-cal-weekday">${w}</div>`).join("");
-    for (let i = 0; i < firstWeekday; i++) {
-        html += `<div class="func-cal-day func-cal-day-empty"></div>`;
+    let html = "";
+    if (isMonth) {
+        html += FUNC_WEEKDAY_LABELS.map((w) => `<div class="func-cal-weekday">${w}</div>`).join("");
+        for (let i = 0; i < leadingBlanks; i++) {
+            html += `<div class="func-cal-day func-cal-day-empty"></div>`;
+        }
     }
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dayIso = isoDate(year, month, d);
-        const dayItems = byDay[d];
+
+    days.forEach((d) => {
+        const dayIso = isoDateFromDate(d);
+        const dayItems = byDate[dayIso] || [];
         const isToday = dayIso === todayStr;
-        const shown = dayItems.slice(0, 2);
+        const shown = dayItems.slice(0, maxTagsShown);
         const rest = dayItems.length - shown.length;
         const tagsHtml =
             shown
@@ -777,26 +995,30 @@ async function loadFuncCalendar() {
                     return `<span class="func-cal-tag func-cal-tag-${cls}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
                 })
                 .join("") + (rest > 0 ? `<span class="func-cal-tag-more" data-cal-day="${dayIso}">+${rest} mais</span>` : "");
+        const weekdayLabel = isMonth
+            ? ""
+            : `<span class="func-cal-day-weekday-label">${FUNC_WEEKDAY_LABELS[d.getDay()]}</span>`;
 
         html += `
       <div class="func-cal-day ${isToday ? "func-cal-day-today" : ""}" data-cal-day="${dayIso}">
-        <span class="func-cal-day-num">${d}</span>
+        ${weekdayLabel}
+        <span class="func-cal-day-num">${d.getDate()}</span>
         <div class="func-cal-day-tags">${tagsHtml}</div>
       </div>`;
-    }
+    });
 
+    grid.className = `func-calendar-grid${isMonth ? "" : ` func-cal-grid-${funcCalendarViewMode}`}`;
     grid.innerHTML = html;
 
     qsa("[data-cal-day]", grid).forEach((el) => {
-        el.addEventListener("click", () => showFuncCalendarDayModal(el.dataset.calDay, byDay));
+        el.addEventListener("click", () => showFuncCalendarDayModal(el.dataset.calDay, byDate));
     });
 
     renderFuncEventsList();
 }
 
-function showFuncCalendarDayModal(dayIso, byDay) {
-    const day = Number(dayIso.slice(8, 10));
-    const items = byDay[day] || [];
+function showFuncCalendarDayModal(dayIso, byDate) {
+    const items = byDate[dayIso] || [];
     const bodyHtml =
         items.length === 0
             ? `<p class="empty-state">Nada registrado neste dia.</p>`
@@ -991,6 +1213,7 @@ function wireFuncionariosEvents() {
     qs("#btn-new-func").addEventListener("click", () => openFuncEmployeeModal(null));
 
     qs("#func-presenca-date").addEventListener("change", loadFuncPresenca);
+    qs("#func-presenca-filter-type").addEventListener("change", loadFuncPresenca);
     qs("#func-presenca-today").addEventListener("click", () => {
         qs("#func-presenca-date").value = todayIsoDate();
         loadFuncPresenca();
@@ -1002,17 +1225,27 @@ function wireFuncionariosEvents() {
     qs("#btn-new-leave").addEventListener("click", () => openFuncLeaveModal(null));
 
     qs("#func-cal-prev").addEventListener("click", () => {
-        funcCalendarDate.setMonth(funcCalendarDate.getMonth() - 1);
+        funcCalendarStep(-1);
         loadFuncCalendar();
     });
     qs("#func-cal-next").addEventListener("click", () => {
-        funcCalendarDate.setMonth(funcCalendarDate.getMonth() + 1);
+        funcCalendarStep(1);
         loadFuncCalendar();
     });
     qs("#func-cal-today").addEventListener("click", () => {
         funcCalendarDate = new Date();
-        funcCalendarDate.setDate(1);
+        if (funcCalendarViewMode === "month") funcCalendarDate.setDate(1);
         loadFuncCalendar();
+    });
+    qsa(".func-cal-view-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            if (btn.classList.contains("active")) return;
+            funcCalendarViewMode = btn.dataset.calView;
+            qsa(".func-cal-view-btn").forEach((b) => b.classList.toggle("active", b === btn));
+            funcCalendarDate = new Date();
+            if (funcCalendarViewMode === "month") funcCalendarDate.setDate(1);
+            loadFuncCalendar();
+        });
     });
     qs("#btn-new-cal-event").addEventListener("click", () => openFuncEventModal(null));
 }
@@ -1022,6 +1255,7 @@ async function loadFuncionarios() {
         funcInitialized = true;
         wireFuncionariosEvents();
     }
+    // Independent requests — run together instead of one after another.
     await Promise.all([ensureActiveEmployeesCache(), refreshFuncStatusSummary()]);
     await loadFuncList();
 }

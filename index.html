@@ -115,14 +115,6 @@
         >
           <span class="tab-index">03</span> Regras de Numeração
         </button>
-        <!-- <button
-          class="tab-btn"
-          data-tab="cee-map"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">04</span> Setores
-        </button> -->
         <button
           class="tab-btn"
           data-tab="daily-ops"
@@ -543,15 +535,8 @@
               <div>
                 <button
                   type="button"
-                  class="btn btn-secondary btn-icon"
-                  id="btn-paste-loec"
-                >
-                  + Colar LOECs
-                </button>
-                <button
-                  type="button"
                   class="btn btn-primary btn-icon"
-                  id="btn-new-scan"
+                  id="btn-paste-loec"
                 >
                   + Registrar LOECs
                 </button>
@@ -596,13 +581,22 @@
           <div class="daily-ops-section">
             <div class="daily-ops-section-header">
               <h3>Chegada de Malotes</h3>
-              <button
-                type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-new-malote"
-              >
-                + Registrar Malote
-              </button>
+              <div>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-icon"
+                  id="btn-analyze-malotes"
+                >
+                  Analisar Malotes
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-icon"
+                  id="btn-paste-malote"
+                >
+                  + Registrar Malotes
+                </button>
+              </div>
             </div>
             <div class="manifest-frame">
               <table class="manifest-table">
@@ -997,7 +991,7 @@
           <div id="subpanel-func-list" class="subpanel active">
             <div class="panel-toolbar">
               <div class="search-field">
-                <input type="search" id="func-search" placeholder="Buscar por nome, CPF, e-mail ou telefone&hellip;" />
+                <input type="search" id="func-search" placeholder="Buscar por nome, e-mail ou telefone&hellip;" />
               </div>
               <div style="display: flex; gap: 10px; flex-wrap: wrap">
                 <select id="func-filter-type">
@@ -1028,14 +1022,13 @@
                     <th>Tipo</th>
                     <th>Telefone</th>
                     <th>E-mail</th>
-                    <th>CPF</th>
                     <th>Situação</th>
                     <th class="col-actions">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="func-tbody">
                   <tr class="loading-row">
-                    <td colspan="7">Carregando&hellip;</td>
+                    <td colspan="6">Carregando&hellip;</td>
                   </tr>
                 </tbody>
               </table>
@@ -1060,6 +1053,19 @@
               <div class="field daily-ops-date-field">
                 <label for="func-presenca-date">Data</label>
                 <input type="date" id="func-presenca-date" />
+              </div>
+              <div class="field">
+                <label for="func-presenca-filter-type">Tipo</label>
+                <select id="func-presenca-filter-type">
+                  <option value="">Todos os tipos</option>
+                  <option value="carteiro_interno">Carteiro Interno</option>
+                  <option value="carteiro_externo">Carteiro Externo</option>
+                  <option value="carteiro_emprestado">Carteiro Emprestado</option>
+                  <option value="terceirizado_interno">Terceirizado Interno</option>
+                  <option value="terceirizado_externo">Terceirizado Externo</option>
+                  <option value="motorista">Motorista</option>
+                  <option value="limpeza">Limpeza</option>
+                </select>
               </div>
               <button type="button" class="btn btn-secondary btn-icon" id="func-presenca-today">
                 Hoje
@@ -1145,7 +1151,13 @@
               <button type="button" class="btn btn-secondary btn-icon" id="func-cal-prev">&larr;</button>
               <h3 id="func-cal-label">&nbsp;</h3>
               <button type="button" class="btn btn-secondary btn-icon" id="func-cal-next">&rarr;</button>
-              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-today">Mês Atual</button>
+              <button type="button" class="btn btn-secondary btn-icon" id="func-cal-today">Hoje</button>
+              <div class="func-cal-view-switch" role="tablist" aria-label="Visualização do calendário">
+                <button type="button" class="func-cal-view-btn" data-cal-view="day">Dia</button>
+                <button type="button" class="func-cal-view-btn" data-cal-view="3day">3 Dias</button>
+                <button type="button" class="func-cal-view-btn active" data-cal-view="week">Semana</button>
+                <button type="button" class="func-cal-view-btn" data-cal-view="month">Mês</button>
+              </div>
               <button type="button" class="btn btn-primary btn-icon" id="btn-new-cal-event">
                 + Novo Evento/Lembrete
               </button>
@@ -1205,45 +1217,6 @@
             <div class="field">
               <label for="account-contact-email">E-mail de contato</label>
               <input type="email" id="account-contact-email" maxlength="150" placeholder="seuemail@exemplo.com">
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; margin-bottom: 4px;">
-              <h3 class="account-section-title" style="margin: 0;">Endereço</h3>
-              <button type="button" class="btn btn-secondary" id="btn-account-clear-address" style="font-size: 0.75rem; padding: 4px 10px;">
-                Limpar Endereço
-              </button>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="account-zip">CEP</label>
-                <input type="text" id="account-zip" maxlength="10" placeholder="88000-000">
-              </div>
-              <div class="field field-grow">
-                <label for="account-street">Rua / Logradouro</label>
-                <input type="text" id="account-street" maxlength="150">
-              </div>
-              <div class="field">
-                <label for="account-number">Número</label>
-                <input type="text" id="account-number" maxlength="20">
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="account-complement">Complemento</label>
-                <input type="text" id="account-complement" maxlength="100">
-              </div>
-              <div class="field">
-                <label for="account-neighborhood">Bairro</label>
-                <input type="text" id="account-neighborhood" maxlength="100">
-              </div>
-              <div class="field">
-                <label for="account-city">Cidade</label>
-                <input type="text" id="account-city" maxlength="100">
-              </div>
-              <div class="field field-small">
-                <label for="account-state">UF</label>
-                <input type="text" id="account-state" maxlength="2">
-              </div>
             </div>
 
             <div class="modal-actions account-actions">
@@ -1579,8 +1552,8 @@
     <script src="src/tabs/zips.js" defer></script>
     <script src="src/tabs/rules.js" defer></script>
     <script src="src/tabs/cep-search.js" defer></script>
-    <!-- <script src="src/tabs/cee-map.js" defer></script> -->
     <script src="src/tabs/loec-scans.js" defer></script>
+    <script src="src/tabs/malote-scans.js" defer></script>
     <script src="src/tabs/daily-ops.js" defer></script>
     <script src="src/tabs/helpdesk.js" defer></script>
     <script src="src/tabs/employees.js" defer></script>

@@ -3652,6 +3652,102 @@ body.restrict-daily #daily-notes-editor.ql-container {
   color: var(--ink-soft);
 }
 
+/* --- Contact quick actions (WhatsApp / e-mail) --- */
+.btn-whatsapp {
+  border-color: #25d366;
+  color: #1a9b4b;
+}
+
+.btn-whatsapp:hover {
+  background: #e6faec;
+}
+
+.btn-email {
+  border-color: var(--correios-blue);
+  color: var(--correios-blue);
+}
+
+.btn-email:hover {
+  background: #e6f0f9;
+}
+
+/* --- Per-employee attendance history modal --- */
+.func-hist-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.func-hist-toolbar h4 {
+  margin: 0;
+  min-width: 150px;
+  text-align: center;
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+  color: var(--correios-blue-deep);
+}
+
+.func-hist-section-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-soft);
+  margin: 18px 0 8px;
+}
+
+.func-hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.func-hist-table th,
+.func-hist-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--paper-line);
+}
+
+.func-hist-status-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.func-hist-status-presente {
+  background: #eaf6ef;
+  color: var(--success-green);
+}
+
+.func-hist-status-falta_justificada {
+  background: #fff8e1;
+  color: #8a6400;
+}
+
+.func-hist-status-falta_injustificada {
+  background: #fbe7e4;
+  color: var(--stamp-red);
+}
+
+.func-hist-status-atestado {
+  background: #fff8e1;
+  color: #8a6400;
+}
+
+.func-hist-status-ferias {
+  background: #e6f0f9;
+  color: var(--correios-blue);
+}
+
+.func-hist-status-folga {
+  background: #eef1f5;
+  color: var(--ink-soft);
+}
 /* --- Calendar --- */
 .func-calendar-toolbar {
   display: flex;
@@ -3659,6 +3755,40 @@ body.restrict-daily #daily-notes-editor.ql-container {
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+}
+
+.func-cal-view-switch {
+  display: inline-flex;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.func-cal-view-btn {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: none;
+  border-right: 1.5px solid var(--paper-line);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.func-cal-view-btn:last-child {
+  border-right: none;
+}
+
+.func-cal-view-btn:hover {
+  background: var(--paper-raised);
+  color: var(--correios-blue-deep);
+}
+
+.func-cal-view-btn.active {
+  background: var(--correios-blue-deep);
+  color: #fff;
 }
 
 .func-calendar-toolbar h3 {
@@ -3707,6 +3837,31 @@ body.restrict-daily #daily-notes-editor.ql-container {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
+}
+
+.func-calendar-grid.func-cal-grid-week {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.func-calendar-grid.func-cal-grid-3day {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.func-calendar-grid.func-cal-grid-day {
+  grid-template-columns: 1fr;
+}
+
+.func-calendar-grid.func-cal-grid-week .func-cal-day,
+.func-calendar-grid.func-cal-grid-3day .func-cal-day,
+.func-calendar-grid.func-cal-grid-day .func-cal-day {
+  min-height: 220px;
+}
+
+.func-cal-day-weekday-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
 .func-cal-weekday {
@@ -3823,4 +3978,39 @@ body.restrict-daily #daily-notes-editor.ql-container {
   .func-cal-legend {
     margin-left: 0;
   }
+}
+
+/* =========================================================================
+   EMPLOYEE TABLE CONTACT ICONS
+   ========================================================================= */
+
+/* Wrapper to align text and icon side by side */
+.contact-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Base styles for the SVG contact icons */
+.contact-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  transition: color 0.15s ease, transform 0.1s ease;
+}
+
+/* Lift icon slightly on hover */
+.contact-icon:hover {
+  transform: translateY(-1px);
+}
+
+/* Brand color for WhatsApp icon on hover */
+.contact-icon.wa-icon:hover {
+  color: #25d366;
+}
+
+/* Brand color for Email icon on hover */
+.contact-icon.email-icon:hover {
+  color: var(--correios-blue);
 }

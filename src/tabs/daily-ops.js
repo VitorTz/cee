@@ -172,10 +172,15 @@ async function loadDailyMalotes(date) {
             (m) => `
     <tr>
       <td>${formatTimeShort(m.delivery_time)}</td>
-      <td>${escapeHtml(m.carteiro_name)}</td>
+      <td>${m.carteiro_name ? escapeHtml(m.carteiro_name) : '<span class="field-hint">Colagem automática</span>'}</td>
       <td><span class="count-badge">${m.malote_count}</span></td>
       <td>${escapeHtml(m.notes || "")}</td>
-      <td class="col-actions"><button class="btn btn-danger btn-icon" data-delete-malote="${m.id}">Excluir</button></td>
+      <td class="col-actions">
+        <span class="row-actions">
+          ${m.source_type === "malote_paste" ? `<button class="btn btn-secondary btn-icon" data-view-malote="${m.id}">Detalhes</button>` : ""}
+          <button class="btn btn-danger btn-icon" data-delete-malote="${m.id}">Excluir</button>
+        </span>
+      </td>
     </tr>
   `,
         )
@@ -199,11 +204,6 @@ function maloteFormTemplate() {
   `;
 }
 
-function openMaloteForm() {
-    openModal("Registrar Malote", maloteFormTemplate());
-    qs("#malote-cancel").addEventListener("click", closeModal);
-    qs("#malote-form").addEventListener("submit", submitMaloteForm);
-}
 
 async function submitMaloteForm(e) {
     e.preventDefault();
@@ -318,7 +318,7 @@ qs("#daily-trucks-tbody").addEventListener("click", (e) => {
     if (btn) deleteDailyTruck(btn.dataset.deleteTruck);
 });
 
-qs("#btn-new-scan").addEventListener("click", openScanForm);
+
 qs("#daily-scans-tbody").addEventListener("click", (e) => {
     const deleteBtn = e.target.closest("[data-delete-scan]");
     const viewBtn = e.target.closest("[data-view-scan]");
@@ -331,11 +331,24 @@ qs("#daily-scans-tbody").addEventListener("click", (e) => {
     }
 });
 
-qs("#btn-new-malote").addEventListener("click", openMaloteForm);
+
 qs("#daily-malotes-tbody").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-delete-malote]");
-    if (btn) deleteDailyMalote(btn.dataset.deleteMalote);
+    const deleteBtn = e.target.closest("[data-delete-malote]");
+    const viewBtn = e.target.closest("[data-view-malote]");
+    if (deleteBtn) deleteDailyMalote(deleteBtn.dataset.deleteMalote);
+    if (viewBtn) {
+        const record = dailyMalotesCache.find(
+            (m) => String(m.id) === viewBtn.dataset.viewMalote,
+        );
+        if (record) openMaloteReportModal(record);
+    }
 });
+
+const btnPasteMalote = qs("#btn-paste-malote");
+if (btnPasteMalote) btnPasteMalote.addEventListener("click", openMalotePasteForm);
+
+const btnAnalyzeMalotes = qs("#btn-analyze-malotes");
+if (btnAnalyzeMalotes) btnAnalyzeMalotes.addEventListener("click", openMaloteAnalysisModal);
 
 qs('#btn-paste-loec').addEventListener('click', openLoecPasteForm);
 
