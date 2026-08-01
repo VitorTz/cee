@@ -752,6 +752,31 @@ function loecReportTemplate(record, report) {
 
     return `
     <div class="loec-report">
+
+      <!-- PAINEL DE OFFSET LOCAL -->
+      <div class="cee-offset-panel" style="margin-bottom: 20px;">
+        <h3>Offset Local de Distritos</h3>
+        <p class="field-hint">
+          Soma ou subtrai o valor aos distritos dos setores selecionados. Esta alteração é <strong>apenas visual</strong> para análise e não será enviada ao banco de dados.
+        </p>
+        <div class="cee-offset-controls">
+          <div class="field cee-offset-value-field">
+            <label for="loec-modal-offset">Offset</label>
+            <input type="number" id="loec-modal-offset" step="1" placeholder="Ex: 50 ou -50">
+          </div>
+          <div class="cee-offset-sectors" id="loec-modal-sectors" style="padding-top: 22px;">
+            <label class="cee-offset-checkbox"><input type="checkbox" value="AB"> A/B</label>
+            <label class="cee-offset-checkbox"><input type="checkbox" value="CD"> C/D</label>
+            <label class="cee-offset-checkbox"><input type="checkbox" value="EF"> E/F</label>
+            <label class="cee-offset-checkbox"><input type="checkbox" value="GH"> G/H</label>
+          </div>
+          <div class="cee-offset-actions">
+            <button type="button" class="btn btn-primary" id="btn-loec-modal-apply">Aplicar</button>
+            <button type="button" class="btn btn-secondary" id="btn-loec-modal-reset">Restaurar</button>
+          </div>
+        </div>
+      </div>
+
       <div class="loec-legend">
         <span class="loec-legend-item"><span class="count-badge legend-swatch">00</span> Objetos (T.Obj)</span>
         <span class="loec-legend-item"><span class="points-badge legend-swatch">00</span> Pontos (T.Pontos)</span>
@@ -890,17 +915,126 @@ function renderLoecReportCharts(report) {
     });
 }
 
+
+// Function to open the LOEC Report Modal and manage the local offset state
 function openLoecReportModal(record) {
     const hasFullReport = record.source_type === "loec_paste" && record.report;
     const title = `LOECs &middot; ${formatTimeShort(record.scan_time)}`;
 
-    openModal(
-        title,
-        hasFullReport
-            ? loecReportTemplate(record, record.report)
-            : loecSimpleReportTemplate(record),
-        hasFullReport ? { wide: true } : {},
-    );
+    // Keep the original JSON string intact to allow resetting the offset
+    const originalReportJSON = hasFullReport ? JSON.stringify(record.report) : null;
+    let currentReport = hasFullReport ? JSON.parse(originalReportJSON) : null;
 
-    if (hasFullReport) renderLoecReportCharts(record.report);
+    // Internal function to render the modal with the current memory state
+    function render() {
+        // Clear previous charts before injecting new HTML to prevent memory leaks
+        if (typeof loecReportChartInstances !== "undefined" && loecReportChartInstances.length) {
+            loecReportChartInstances.forEach((chart) => chart.destroy());
+            loecReportChartInstances = [];
+        }
+
+        openModal(
+            title,
+            hasFullReport
+                ? loecReportTemplate(record, currentReport)
+                : loecSimpleReportTemplate(record),
+            hasFullReport ? { wide: true } : {},
+        );
+
+        if (hasFullReport) {
+            renderLoecReportCharts(currentReport);
+
+            // Reattach event listeners to the offset buttons after HTML is injected
+            const btnApply = document.querySelector('#btn-loec-modal-apply');
+            const btnReset = document.querySelector('#btn-loec-modal-reset');
+            const inputOffset = document.querySelector('#loec-modal-offset');
+
+            if (btnApply) {
+                btnApply.addEventListener('click', () => {
+                    const offsetValue = Number(inputOffset.value);
+
+                    if (isNaN(offsetValue) || offsetValue === 0) {
+                        showToast("Por favor, insira um valor número válido.", "error");
+                        return;
+                    }
+
+                    const checkboxes = document.querySelectorAll('#loec-modal-sectors input[type="checkbox"]:checked');
+                    const selectedSectors = Array.from(checkboxes).map(cb => cb.value);
+
+                    if (selectedSectors.length === 0) {
+                        showToast("Selecione pelo menos um setor para aplicar offset.", "error");
+                        return;
+                    }
+
+                    // Revert to the original report to prevent cumulative offsets
+                    const originalReport = JSON.parse(originalReportJSON);
+
+                    // 1. Gather all raw districts from the original report
+                    const allDistricts = [];
+                    if (originalReport.sectors) {
+                        originalReport.sectors.forEach(s => {
+                            if (s.districts) allDistricts.push(...s.districts);
+                        });
+                    }
+                    if (originalReport.unmatched_districts) {
+                        allDistricts.push(...originalReport.unmatched_districts);
+                    }
+
+                    // 2. Reconstruct the sectors based on the original report's ranges
+                    let mockSectors = [];
+                    if (originalReport.sectors) {
+                        mockSectors = originalReport.sectors.map(s => {
+                            const parts = s.range.split('-');
+                            return {
+                                code: s.code,
+                                label: s.label,
+                                base_start: Number(parts[0]),
+                                base_end: Number(parts[1]),
+                                current_offset: 0 // Will be modified below
+                            };
+                        });
+                    }
+
+                    // 3. Apply the user's local offset to shift the affected sector boundaries
+                    mockSectors.forEach(sector => {
+                        const normalizedCode = (sector.code || sector.label || "").replace(/[^a-zA-Z]/g, "").toUpperCase();
+                        if (selectedSectors.includes(normalizedCode)) {
+                            sector.current_offset = offsetValue;
+                        }
+                    });
+
+                    // 4. Rebuild the report using the existing parsing logic with the shifted boundaries.
+                    // This causes districts to organically fall into or out of the modified sectors.
+                    if (typeof buildLoecReport === "function") {
+                        currentReport = buildLoecReport(allDistricts, mockSectors);
+                    } else {
+                        showToast("Error: buildLoecReport function not found.", "error");
+                        return;
+                    }
+
+                    render(); // Re-render the modal visually
+                    showToast("Offset aplicado.");
+
+                    // Restore the input values so the user sees what was applied
+                    const newInput = document.querySelector('#loec-modal-offset');
+                    if (newInput) newInput.value = offsetValue;
+
+                    selectedSectors.forEach(code => {
+                        const cb = document.querySelector(`#loec-modal-sectors input[value="${code}"]`);
+                        if (cb) cb.checked = true;
+                    });
+                });
+            }
+
+            if (btnReset) {
+                btnReset.addEventListener('click', () => {
+                    currentReport = JSON.parse(originalReportJSON); // Revert to original
+                    render(); // Re-render
+                    showToast("Valores padrão redefinidos.");
+                });
+            }
+        }
+    }
+
+    render(); // Initial execution when opening the modal
 }

@@ -508,15 +508,12 @@ function maloteAnalysisTemplate(date, analysis) {
 
     return `
     <div class="loec-report">
-      <p class="field-hint">Análise consolidada de ${escapeHtml(dateStr)} &middot; ${t.paste_events} colagem${t.paste_events === 1 ? "" : "ns"} + ${t.manual_events} registro${t.manual_events === 1 ? "" : "s"} manual${t.manual_events === 1 ? "" : "is"}</p>
-
       <div class="loec-report-summary">
         ${maloteReportStatCard("Total de malotes", t.overall_count)}
         ${maloteReportStatCard("Peso total (colados)", `${pesoKg} kg`)}
         ${maloteReportStatCard("SEs distintos", t.se_count)}
         ${maloteReportStatCard("CEPs distintos", t.cep_count)}
         ${maloteReportStatCard("Serviços distintos", t.servico_count)}
-        ${maloteReportStatCard("Sem detalhamento (manual)", t.manual_count)}
       </div>
 
       <div class="loec-report-chart-box">

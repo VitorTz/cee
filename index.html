@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CEE</title>
-    <!-- <link rel="shortcut icon" href="res/favicon_io/favicon.ico" type="image/x-icon"> -->
     <link rel="icon" type="image/svg+xml" href="res/fav.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -347,123 +346,6 @@
             >
               Próxima &rarr;
             </button>
-          </div>
-        </section>
-
-        <!-- CEE Internal Floorplan Map Panel -->
-        <section id="panel-cee-map" class="panel" aria-labelledby="cee-map">
-          <!-- Sector numbering offset controls -->
-          <div class="cee-offset-panel">
-            <h3>Offset de Numeração por Setor</h3>
-            <p class="field-hint">
-              O offset soma (ou subtrai, se negativo) a quantidade informada aos
-              números de início e fim dos setores marcados abaixo.
-            </p>
-            <div class="cee-offset-controls">
-              <div class="field cee-offset-value-field">
-                <label for="cee-offset-value">Offset</label>
-                <input
-                  type="number"
-                  id="cee-offset-value"
-                  step="1"
-                  placeholder="Ex.: 50 ou -50"
-                />
-              </div>
-              <div class="cee-offset-sectors" id="cee-offset-sectors">
-                <span class="empty-state">Carregando setores&hellip;</span>
-              </div>
-              <div class="cee-offset-actions">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  id="cee-offset-apply"
-                >
-                  Aplicar Offset
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  id="cee-offset-reset"
-                >
-                  Zerar Selecionados
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="cee-floorplan">
-            <!-- Main operational sectors grid -->
-            <div class="cee-layout-grid">
-              <!-- Left side: Sectors G/H and E/F -->
-              <div class="cee-side">
-                <h3>Setor G/H &amp; Setor E/F</h3>
-
-                <!-- Table layout for G/H and E/F -->
-                <div class="cee-table">
-                  <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="AB">
-                      A/B (301-306)
-                    </div>
-                    <div class="cee-cell support-zone">Recondicionamento</div>
-                    <div class="cee-cell support-zone">ME</div>
-                    <div class="cee-cell support-zone">Caixa Postal</div>
-                  </div>
-                  <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="GH">
-                      G/H (330-339)
-                    </div>
-                    <div class="cee-cell comp">Computador 1</div>
-                  </div>
-                  <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="EF">
-                      E/F (307-321)
-                    </div>
-                    <div class="cee-cell comp">Computador 2</div>
-                  </div>
-                  <div class="cee-table-row">
-                    <div class="cee-cell cee-sector" data-sector="CD">
-                      C/D (322-329)
-                    </div>
-                    <div class="cee-cell empty"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Right side: Sectors A/B and C/D -->
-              <div class="cee-side">
-                <h3>Setor A/B &amp; Setor C/D</h3>
-
-                <!-- Table layout for A/B and C/D -->
-                <div class="cee-table">
-                  <div class="cee-table-row">
-                    <div class="cee-cell support-zone">Caixa Postal</div>
-                    <div class="cee-cell support-zone">ME</div>
-                    <div class="cee-cell support-zone">Recondicionamento</div>
-                    <div class="cee-cell cee-sector" data-sector="GH">
-                      G/H (330-339)
-                    </div>
-                  </div>
-                  <div class="cee-table-row">
-                    <div class="cee-cell comp">Computador 1</div>
-                    <div class="cee-cell cee-sector" data-sector="AB">
-                      A/B (301-306)
-                    </div>
-                  </div>
-                  <div class="cee-table-row">
-                    <div class="cee-cell comp">Computador 2</div>
-                    <div class="cee-cell cee-sector" data-sector="CD">
-                      C/D (322-329)
-                    </div>
-                  </div>
-                  <div class="cee-table-row">
-                    <div class="cee-cell empty"></div>
-                    <div class="cee-cell cee-sector" data-sector="EF">
-                      E/F (307-321)
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -1468,8 +1350,33 @@
       </main>
     </div>
 
+    <!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+      <div
+        class="modal-slip"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <div class="modal-slip-header">
+          <!-- <span class="modal-corner-stamp">CEP</span> -->
+          <h2 id="modal-title">Título</h2>
+          <button
+            type="button"
+            class="modal-close"
+            id="modal-close"
+            aria-label="Fechar"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-slip-body" id="modal-body">
+          <!-- injected by app.js -->
+        </div>
+      </div>
+    </div>
+
     <!-- ===== LOEC ANALYSIS (paste & analyze, any role) ===== -->
-    <!-- ===== LOEC ANALYSIS MODAL ===== -->
     <div
       id="loec-analysis-modal"
       class="modal-overlay hidden"
@@ -1667,32 +1574,6 @@
             </div>
             <p class="pagination-info" id="loecx-count-info"></p>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
-    <div id="modal-overlay" class="modal-overlay hidden">
-      <div
-        class="modal-slip"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div class="modal-slip-header">
-          <!-- <span class="modal-corner-stamp">CEP</span> -->
-          <h2 id="modal-title">Título</h2>
-          <button
-            type="button"
-            class="modal-close"
-            id="modal-close"
-            aria-label="Fechar"
-          >
-            &times;
-          </button>
-        </div>
-        <div class="modal-slip-body" id="modal-body">
-          <!-- injected by app.js -->
         </div>
       </div>
     </div>
