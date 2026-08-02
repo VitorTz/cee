@@ -1,4 +1,14 @@
-import { qs, qsa } from "./utils.js";
+import { qs, qsa, todayIsoDate, escapeHtml } from "./utils.js";
+import { cepSearchState, setCepSearchState } from "./tabs/cep-search.js";
+import { loadDailyOps } from "./tabs/daily-ops.js";
+import { loadZips } from "./tabs/zips.js";
+import { loadRules } from "./tabs/rules.js";
+import { loadGeocoding } from "./tabs/geocoding.js";
+import { loadFuncionarios, onFuncionariosSubtabChange } from "./tabs/employees.js";
+import { loadHelpdeskTickets } from "./tabs/helpdesk.js";
+import { loadAccountPage } from "./tabs/account.js";
+import { currentUserRole, currentUser, UserRoles } from "./supabase-client.js";
+import { loadMetricsDashboard } from "./tabs/metrics.js";
 
 // --- Toasts ---
 export function showToast(message, type = "success") {
@@ -109,12 +119,12 @@ export function switchTab(tab, isManualClick = false, shouldFocus = true) {
                 const emptyEl = qs("#cepsearch-empty");
                 if (emptyEl) emptyEl.classList.remove("hidden");
 
-                cepSearchState = {
+                setCepSearchState({
                     streetId: null,
                     street: null,
                     breakdown: [],
                     searchLogged: false,
-                };
+                })
 
                 // Only trigger autofocus if explicitly allowed
                 if (shouldFocus) {
@@ -126,22 +136,16 @@ export function switchTab(tab, isManualClick = false, shouldFocus = true) {
             break;
         case "zips":
             if (!hasLoadedZips) {
-                if (typeof loadZips === "function") loadZips(0);
+                loadZips(0);
                 hasLoadedZips = true;
             }
             break;
         case "rules":
             if (!hasLoadedRules) {
-                if (typeof loadRules === "function") loadRules();
+                loadRules();
                 hasLoadedRules = true;
             }
-            break;
-        case "stats":
-            loadStatistics();
-            break;
-        case "cee-map":
-            loadCeeSectors();
-            break;
+            break;        
         case "daily-ops":
             const dailyOpsDateEl = qs("#daily-ops-date");
             if (dailyOpsDateEl && typeof todayIsoDate === "function") {
@@ -150,16 +154,19 @@ export function switchTab(tab, isManualClick = false, shouldFocus = true) {
             if (typeof loadDailyOps === "function") loadDailyOps();
             break;
         case "helpdesk":
-            loadHelpdesk();
+            loadHelpdeskTickets();
             break;
         case "account":
-            if (typeof loadAccountPage === "function") loadAccountPage();
+            loadAccountPage();
             break;
         case "funcionarios":
-            if (typeof loadFuncionarios === "function") loadFuncionarios();
+            loadFuncionarios();
             break;
         case "metrics":
             loadMetricsDashboard()
+            break;
+        case "geocoding":
+            loadGeocoding();
             break;
         default:
             break;
@@ -186,9 +193,7 @@ function switchSubtab(btn) {
         panel.classList.toggle("hidden", panel.id !== `subpanel-${target}`);
     });
 
-    if (typeof onFuncionariosSubtabChange === "function") {
-        onFuncionariosSubtabChange(target);
-    }
+    onFuncionariosSubtabChange(target);
 }
 
 // --- Mobile Menu Toggle ---
@@ -254,7 +259,7 @@ function renderLightboxItem() {
     if (nextBtn) nextBtn.classList.toggle("hidden", lightboxItems.length <= 1);
 }
 
-function openLightbox(items, startIndex = 0, downloadFn = null) {
+export function openLightbox(items, startIndex = 0, downloadFn = null) {
     if (!lightboxOverlayEl || !items || items.length === 0) return;
     lightboxItems = items;
     lightboxIndex = Math.max(0, Math.min(startIndex, items.length - 1));
@@ -263,20 +268,20 @@ function openLightbox(items, startIndex = 0, downloadFn = null) {
     renderLightboxItem();
 }
 
-function closeLightbox() {
+export function closeLightbox() {
     if (!lightboxOverlayEl) return;
     lightboxOverlayEl.classList.add("hidden");
     qs("#lightbox-stage").innerHTML = "";
     lightboxItems = [];
 }
 
-function lightboxShowRelative(delta) {
+export function lightboxShowRelative(delta) {
     if (lightboxItems.length === 0) return;
     lightboxIndex = (lightboxIndex + delta + lightboxItems.length) % lightboxItems.length;
     renderLightboxItem();
 }
 
-function lightboxApplyZoom() {
+export function lightboxApplyZoom() {
     const img = qs("#lightbox-image");
     if (img) img.style.transform = `scale(${lightboxZoomLevel})`;
 }
@@ -360,12 +365,12 @@ document.addEventListener("keydown", (e) => {
             resetRulesFilterZipSelect();
 
         if (typeof cepSearchState !== "undefined") {
-            cepSearchState = {
+            setCepSearchState({
                 streetId: null,
                 street: null,
                 breakdown: [],
                 searchLogged: false,
-            };
+            })
         }
 
         const resultsEl = qs("#cepsearch-results");
@@ -382,9 +387,11 @@ document.addEventListener("keydown", (e) => {
             loadDailyOps();
         }
 
-        if (typeof loadCeeSectors === "function") loadCeeSectors();
+        loadCeeSectors();
 
-        if (typeof loadFuncionarios === "function") loadFuncionarios();
+        loadFuncionarios();
+
+        resetGeocodingPanel();
 
         showToast("Todos os campos e filtros foram limpos.");
     }
@@ -417,6 +424,7 @@ const tabKeyMap = {
     5: "helpdesk",
     6: "account",
     7: "funcionarios",
+    8: "geocoding",
 };
 
 function canAccessTab(tabName) {

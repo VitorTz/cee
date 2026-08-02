@@ -29,7 +29,7 @@ export function formatNeighborhoods(neighborhoods) {
 }
 
 // --- ZIP Code Normalization ---
-const ZIP_REGEX = /^880[0-6][0-9]-[0-9]{3}$/;
+export const ZIP_REGEX = /^880[0-6][0-9]-[0-9]{3}$/;
 
 export function normalizeZipDigits(raw) {
     let digits = (raw || "").replace(/\D/g, "");

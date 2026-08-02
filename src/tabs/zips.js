@@ -2,8 +2,11 @@
 // MODULE: ZIP CODES (CRUD)
 // =============================================================================
 
-import { qs, normalizeSearchTerm, digitsToZipPattern } from "../utils.js";
+import { qs, normalizeSearchTerm, digitsToZipPattern, normalizeZipDigits, escapeHtml, formatNeighborhoods, attachZipMask, ZIP_REGEX } from "../utils.js";
+import { initStreetCombobox } from "../combobox.js";
 import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+import { goToCepSearch } from "./cep-search.js";
+import { rulesFilterStreetId, loadRulesFilterZipOptions } from "./rules.js";
 import { sb } from "../supabase-client.js";
 
 const ZIPS_PAGE_SIZE = 32;

@@ -1,4 +1,6 @@
-import { qs } from "../utils.js";
+import { qs, formatTimeShort, escapeHtml } from "../utils.js";
+import { sb } from "../supabase-client.js";
+import { dailyScansCache, setDailyScansCache, getDailyOpsDate, loadDailyOpsSummary } from "./daily-ops.js";
 import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
 
 
@@ -6,9 +8,9 @@ let dailyLoecChartInstance = null;
 // Chart.js instances created inside the LOEC report modal (total + per-sector charts).
 // closeModal() destroys these whenever the modal is dismissed, regardless of which
 // modal is currently open, so it's safe to just keep pushing into this array.
-let loecReportChartInstances = [];
+export let loecReportChartInstances = [];
 
-async function loadDailyScans(date) {
+export async function loadDailyScans(date) {
     const tbody = qs("#daily-scans-tbody");
     const emptyEl = qs("#daily-scans-empty");
 
@@ -42,7 +44,7 @@ async function loadDailyScans(date) {
         return;
     }
 
-    dailyScansCache = currentRecords || [];
+    setDailyScansCache(currentRecords || []);
 
     let html = "";
     let hasRecords = false;
@@ -354,7 +356,7 @@ async function submitScanForm(e) {
 }
 
 
-async function deleteDailyScan(id) {
+export async function deleteDailyScan(id) {
     openDeleteConfirm("este registro de leitura", null, async () => {
         const { error } = await sb.from("daily_object_scans").delete().eq("id", id);
         if (error) {
@@ -920,7 +922,7 @@ function renderLoecReportCharts(report) {
 
 
 // Function to open the LOEC Report Modal and manage the local offset state
-function openLoecReportModal(record) {
+export function openLoecReportModal(record) {
     const hasFullReport = record.source_type === "loec_paste" && record.report;
     const title = `LOECs &middot; ${formatTimeShort(record.scan_time)}`;
 

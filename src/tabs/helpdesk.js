@@ -7,9 +7,18 @@
 // responder qualquer chamado, em qualquer estado. RLS no banco é quem
 // realmente garante isso — o JS abaixo só reflete essas mesmas regras na UI.
 
-import { qs, qsa } from "../utils.js";
-import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
-import { sb } from "../supabase-client.js";
+import {
+    showToast,
+    openModal,
+    closeModal,
+    openDeleteConfirm,
+    openLightbox,
+    closeLightbox,
+    lightboxApplyZoom,
+    lightboxShowRelative
+} from "../ui.js";
+import { qs, qsa, escapeHtml, todayIsoDate, isValidCPF, hasOnlyDigits } from "../utils.js";
+import { sb, currentUser, currentUserRole, UserRoles } from "../supabase-client.js";
 
 const HELPDESK_BUCKET = "helpdesk-media";
 const HELPDESK_MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -288,7 +297,7 @@ function canWriteHelpdeskTicket(ticket) {
 
 // --- Ticket list ---------------------------------------------------------
 
-async function loadHelpdeskTickets() {
+export async function loadHelpdeskTickets() {
     const listEl = qs("#helpdesk-ticket-list");
     if (!listEl) return;
 

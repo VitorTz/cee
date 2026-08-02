@@ -28,6 +28,7 @@ const ASSETS_TO_CACHE = [
     'src/tabs/rules.js',
     'src/tabs/streets.js',
     'src/tabs/zips.js',
+    'src/tabs/geocoding.js',
 
     '/res/fav.svg',
     'res/icon-192.png',

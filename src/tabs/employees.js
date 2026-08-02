@@ -9,6 +9,8 @@
 
 import { currentUser, sb } from "../supabase-client.js";
 import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+import { qs, qsa, escapeHtml, todayIsoDate } from "../utils.js";
+
 
 const EMPLOYEE_TYPE_LABELS = {
     carteiro_interno: "Carteiro Interno",
@@ -1166,7 +1168,7 @@ function confirmDeleteEvent(id) {
 
 // --- Wiring & entry point ----------------------------------------------------
 
-function onFuncionariosSubtabChange(target) {
+export function onFuncionariosSubtabChange(target) {
     switch (target) {
         case "func-list":
             loadFuncList();
@@ -1253,7 +1255,7 @@ function wireFuncionariosEvents() {
     qs("#btn-new-cal-event").addEventListener("click", () => openFuncEventModal(null));
 }
 
-async function loadFuncionarios() {
+export async function loadFuncionarios() {
     if (!funcInitialized) {
         funcInitialized = true;
         wireFuncionariosEvents();

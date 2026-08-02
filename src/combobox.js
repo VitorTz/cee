@@ -1,4 +1,5 @@
 import { sb } from "./supabase-client.js";
+import { normalizeSearchTerm, digitsToZipPattern, normalizeZipDigits, escapeHtml, formatNeighborhoods } from "./utils.js";
 
 
 async function searchStreetsByTerm(term, limit = 8) {

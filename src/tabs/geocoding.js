@@ -38,26 +38,26 @@ async function geocodeAddress(cep, number) {
 
     // 1. Fast path: check the Supabase cache first.
     const { data: cachedData, error: cacheError } = await sb
-      .from("geocoding_cache")
-      .select("*")
-      .eq("zip_code", normalizedCep)
-      .eq("street_number", normalizedNumber)
-      .maybeSingle();
+        .from("geocoding_cache")
+        .select("*")
+        .eq("zip_code", normalizedCep)
+        .eq("street_number", normalizedNumber)
+        .maybeSingle();
 
     if (cacheError) {
         console.error("Falha ao consultar cache de geocoding:", cacheError);
     }
 
     if (cachedData) {
-      return {
-          lat: Number(cachedData.lat),
-          lon: Number(cachedData.lon),
-          location_type: cachedData.location_type,
-          formatted_address: cachedData.formatted_address,
-          cep: normalizedCep,
-          number: normalizedNumber,
-          source: "cache",
-      };
+        return {
+            lat: Number(cachedData.lat),
+            lon: Number(cachedData.lon),
+            location_type: cachedData.location_type,
+            formatted_address: cachedData.formatted_address,
+            cep: normalizedCep,
+            number: normalizedNumber,
+            source: "cache",
+        };
   }
 
     // 2. Cache miss: delegate to the secure Edge Function.
@@ -388,9 +388,9 @@ async function runBatch() {
                 row.lon = result.lon;
                 row.formattedAddress = result.formatted_address;
       } catch (error) {
-              row.status = "error";
-              row.errorMessage = error.message || "Falha desconhecida.";
-          }
+            row.status = "error";
+            row.errorMessage = error.message || "Falha desconhecida.";
+        }
 
           updateBatchRowEl(row);
           updateBatchStats(rows);

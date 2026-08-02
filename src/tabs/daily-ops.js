@@ -2,21 +2,27 @@
 // MODULE: DAILY OPERATIONS (CEE)
 // =============================================================================
 
-import { qs } from "../utils.js";
+import { qs, todayIsoDate, formatTimeShort, escapeHtml } from "../utils.js";
 import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
-import { openMalotePasteForm, openMaloteAnalysisModal } from "./malote-scans.js";
-import { openLoecPasteForm } from "./loec-scans.js";
+import { openMalotePasteForm, openMaloteAnalysisModal, openMaloteReportModal } from "./malote-scans.js";
+import { sb, currentUserRole, UserRoles } from "../supabase-client.js";
+import { openLoecPasteForm, openLoecReportModal, loadDailyScans, deleteDailyScan } from "./loec-scans.js";
 
-function getDailyOpsDate() {
+export function getDailyOpsDate() {
     const input = qs("#daily-ops-date");
     return (input && input.value) || todayIsoDate();
 }
 
-let dailyTrucksCache = [];
-let dailyScansCache = []
-let dailyMalotesCache = [];
+export let dailyTrucksCache = [];
+export let dailyScansCache = []
+export let dailyMalotesCache = [];
 
-async function loadDailyOps() {
+
+export function setDailyScansCache(cache) {
+    dailyScansCache = cache
+}
+
+export async function loadDailyOps() {
     const dateInput = qs("#daily-ops-date");
     if (dateInput && !dateInput.value) dateInput.value = todayIsoDate();
     const date = getDailyOpsDate();
@@ -30,7 +36,7 @@ async function loadDailyOps() {
     ]);
 }
 
-async function loadDailyOpsSummary(date) {
+export async function loadDailyOpsSummary(date) {
     const { data, error } = await sb
         .from("daily_operation_summary")
         .select("*")

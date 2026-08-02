@@ -19,10 +19,11 @@
 // Expected row shape (7+ whitespace-separated tokens):
 //   <SE> <CEP Destino> <Serviço> <Código de Barras> <Peso (g)> <Data> <Hora>
 // e.g. "SE/SC  89700-176  44105  89700176441050000104198540000800372  00520  31/07/2026 16:12:09"
-import { qs } from "../utils.js";
+import { qs, formatTimeShort, escapeHtml } from "../utils.js";
 import { sb } from "../supabase-client.js";
 import { showToast, openModal, closeModal } from "../ui.js";
-
+import { loecReportChartInstances } from "./loec-scans.js";
+import { getDailyOpsDate, dailyMalotesCache, loadDailyOps } from "./daily-ops.js";
 
 
 function parseMalotePasteText(text) {
@@ -297,7 +298,7 @@ function renderMaloteReportChart(report) {
     );
 }
 
-function openMaloteReportModal(record) {
+export function openMaloteReportModal(record) {
     const hasFullReport = record.source_type === "malote_paste" && record.report;
     const title = `Malotes &middot; ${formatTimeShort(record.delivery_time)}`;
 

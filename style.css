@@ -3970,3 +3970,136 @@ body.restrict-daily #daily-notes-editor.ql-container {
 .contact-icon.email-icon:hover {
   color: var(--correios-blue);
 }
+/* =========================================================================
+   25. GEOCODING TAB (single & batch address lookup)
+   ========================================================================= */
+
+.geo-result-card {
+  border: 2px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-slip);
+  margin-bottom: 18px;
+}
+
+.geo-result-card.hidden {
+  display: none;
+}
+
+.geo-result-card-body {
+  padding: 20px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px 22px;
+}
+
+.geo-result-field-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 3px;
+}
+
+.geo-result-field-value {
+  font-size: 0.98rem;
+  color: var(--ink);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.geo-result-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 22px;
+  background: #fffaf0;
+  border-top: 1.5px solid var(--paper-line);
+  flex-wrap: wrap;
+}
+
+.geo-source-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-soft);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.geo-source-cache {
+  border-color: var(--correios-blue);
+  color: var(--correios-blue-deep);
+  background: #eef4fa;
+}
+
+.geo-source-api {
+  border-color: var(--success-green);
+  color: var(--success-green);
+  background: #eaf6ef;
+}
+
+.geo-source-error,
+.geo-status-error {
+  border-color: var(--stamp-red);
+  color: var(--stamp-red);
+  background: #fbeae7;
+}
+
+.geo-status-pending {
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+  background: #f4f1e6;
+}
+
+.geo-status-processing {
+  border-color: var(--correios-yellow-deep);
+  color: #8a6400;
+  background: #fff8e1;
+}
+
+.geo-progress {
+  margin: 4px 0 18px;
+}
+
+.geo-progress.hidden {
+  display: none;
+}
+
+.geo-progress-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--paper-line);
+  overflow: hidden;
+}
+
+.geo-progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--correios-yellow-deep), var(--correios-blue));
+  transition: width 0.2s ease;
+}
+
+.geo-row-error td {
+  color: var(--stamp-red);
+}
+
+.geo-map-link {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--correios-blue-deep);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.geo-map-link:hover {
+  text-decoration: underline;
+}

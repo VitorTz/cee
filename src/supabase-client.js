@@ -190,7 +190,7 @@ class SupabaseWrapper {
     }
 }
 
-const supabaseWrapper = new SupabaseWrapper(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabaseWrapper = new SupabaseWrapper(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         persistSession: true,
         autoRefreshToken: true,

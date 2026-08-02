@@ -6,7 +6,7 @@ import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
 import { initStreetCombobox } from "../combobox.js";
 
 const RULES_PAGE_SIZE = 25;
-let rulesFilterStreetId = "";
+export let rulesFilterStreetId = "";
 let rulesFilterZipId = "";
 let rulesPage = 0;
 let rulesTotalCount = 0;
@@ -20,7 +20,7 @@ function resetRulesFilterZipSelect() {
   rulesFilterZipSelect.disabled = true;
 }
 
-async function loadRulesFilterZipOptions(streetId) {
+export async function loadRulesFilterZipOptions(streetId) {
   if (!streetId) {
     resetRulesFilterZipSelect();
     return;
@@ -49,7 +49,7 @@ const rulesFilterCombobox = initStreetCombobox({
   },
 });
 
-async function loadRules(page = 0) {
+export async function loadRules(page = 0) {
   const tbody = qs("#rules-tbody");
   const emptyEl = qs("#rules-empty");
 

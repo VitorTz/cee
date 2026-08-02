@@ -5,7 +5,8 @@
 // Accounts are created by the admin via the Supabase Auth panel; roles live
 // in the `user_roles` table and are set by the admin in the Table Editor.
 import { sb, UserRoles, appInitialized, setAppInitialized, initSupabasePing, currentUser, setCurrentUser, currentUserRole, setCurrentUserRole } from "./supabase-client.js";
-import { qs, isValidCPF } from "./utils.js";
+import { qs, isValidCPF, hasOnlyDigits } from "./utils.js";
+import { switchTab } from "./ui.js";
 import { init } from "../app.js";
 
 const loginScreenEl = qs("#login-screen");
@@ -119,7 +120,7 @@ async function fetchCurrentUserDisplayName() {
     return data.full_name || null;
 }
 
-function updateUserBar() {
+export function updateUserBar() {
     if (userBarEmailEl) {
         const email = currentUser?.email || "";
         const syntheticSuffix = `@${ID_LOGIN_DOMAIN}`;

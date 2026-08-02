@@ -1,18 +1,23 @@
 // =============================================================================
 // MODULE: CEP SEARCH ENGINE
 // =============================================================================
-import { qs } from "../utils.js";
+import { qs, escapeHtml, formatNeighborhoods } from "../utils.js";
+import { sb } from "../supabase-client.js";
 import { switchTab } from "../ui.js";
 import { initStreetCombobox } from "../combobox.js";
 
 const SIDE_LABELS = { odd: "Ímpar", even: "Par", both: "Ambos" };
 
-let cepSearchState = {
+export let cepSearchState = {
     streetId: null,
     street: null,
     breakdown: [],
     searchLogged: false,
 };
+
+export function setCepSearchState(state) {
+    cepSearchState = state
+}
 
 let cepSearchCombobox = null;
 
@@ -20,7 +25,7 @@ let cepSearchCombobox = null;
  * Invoked by external modules (e.g., clicking 'Consultar' in a table)
  * to prepopulate the search and attempt to find a match.
  */
-async function goToCepSearch(zipCodeStr) {
+export async function goToCepSearch(zipCodeStr) {
     switchTab("cepsearch");
 
     // Attempt to resolve the street automatically

@@ -1,5 +1,7 @@
 import { qs } from "../utils.js";
-import { sb } from "../supabase-client.js";
+import { showToast, openDeleteConfirm, closeModal } from "../ui.js";
+import { sb, currentUser } from "../supabase-client.js";
+import { updateUserBar } from "../auth.js";
 
 
 let accountProfile = null;
@@ -48,7 +50,7 @@ function accountReadForm() {
 /**
  * Loads the user's profile from the database and populates the form.
  */
-async function loadAccountPage() {
+export async function loadAccountPage() {
     const formEl = qs("#account-form");
     if (!formEl || !currentUser) return;
 
@@ -67,6 +69,7 @@ async function loadAccountPage() {
 
     accountProfile = data;
     accountLoaded = true;
+
     accountFillForm(data);
     accountSetStatus(
         data ? "" : "Você ainda não preencheu seus dados. Complete abaixo.",
@@ -115,8 +118,7 @@ async function saveAccountProfile(e) {
     accountSetStatus("Dados salvos com sucesso.");
     showToast("Perfil atualizado com sucesso!");
 
-    // Attempt to update the user bar if the function exists
-    if (typeof updateUserBar === "function") updateUserBar();
+    updateUserBar();
 
     const deleteBtn = qs("#btn-account-delete");
     if (deleteBtn) deleteBtn.classList.remove("hidden");

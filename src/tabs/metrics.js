@@ -3,8 +3,8 @@
 // Fetches data from SupabaseMetricsWrapper and renders Charts/Tables
 // =============================================================================
 
-import { sb } from "../supabase-client.js";
-import { qs } from "../utils.js";
+import { sb, currentUserRole, supabaseWrapper } from "../supabase-client.js";
+import { qs, escapeHtml } from "../utils.js";
 
 
 let metricsMethodChart = null;
@@ -15,7 +15,7 @@ let currentMetricsView = 'local'; // 'local' or 'global'
  * Loads the metrics data based on the selected view and updates the UI.
  * Prevents execution if the user is not an admin.
  */
-async function loadMetricsDashboard() {
+export async function loadMetricsDashboard() {
     if (currentUserRole !== "admin") return;
 
     const btnRefresh = qs("#btn-refresh-metrics");

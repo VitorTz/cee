@@ -176,6 +176,15 @@
         >
           <span class="tab-index">8</span> Supabase Metrics
         </button>
+        <button
+          class="tab-btn"
+          id="geocoding-tab"
+          data-tab="geocoding"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="tab-index">09</span> Geocodificação
+        </button>
       </nav>
 
       <main>
@@ -1351,6 +1360,152 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <!-- ===== GEOCODING ===== -->
+        <section id="panel-geocoding" class="panel" aria-labelledby="geocoding">
+          <nav class="subtabs" role="tablist" aria-label="Seções de geocodificação">
+            <button
+              type="button"
+              class="subtab-btn active"
+              data-subtab="geo-single"
+              role="tab"
+              aria-selected="true"
+            >
+              Consulta Individual
+            </button>
+            <button
+              type="button"
+              class="subtab-btn"
+              data-subtab="geo-batch"
+              role="tab"
+              aria-selected="false"
+            >
+              Consulta em Lote
+            </button>
+          </nav>
+
+          <!-- ===== Sub-panel: single CEP + number lookup ===== -->
+          <div id="subpanel-geo-single" class="subpanel active">
+            <form id="geo-single-form" class="cepsearch-form">
+              <div class="field">
+                <label for="geo-single-cep">CEP</label>
+                <input
+                  type="text"
+                  id="geo-single-cep"
+                  placeholder="Ex.: 88056-300"
+                  autocomplete="off"
+                  required
+                />
+                <p class="field-hint">Informe um CEP da base (880XX-XXX).</p>
+              </div>
+              <div class="field">
+                <label for="geo-single-number">Número do imóvel</label>
+                <input
+                  type="text"
+                  id="geo-single-number"
+                  placeholder="Ex.: 123 (deixe em branco para S/N)"
+                  autocomplete="off"
+                />
+                <p class="field-hint">Opcional. Sem número, usamos "S/N".</p>
+              </div>
+            </form>
+            <div style="margin-bottom: 18px">
+              <button type="submit" form="geo-single-form" class="btn btn-primary" id="geo-single-submit">
+                Buscar Coordenadas
+              </button>
+            </div>
+
+            <div id="geo-single-result" class="geo-result-card hidden"></div>
+            <p id="geo-single-empty" class="empty-state">
+              Informe um CEP para localizar as coordenadas.
+            </p>
+          </div>
+
+          <!-- ===== Sub-panel: batch lookup from pasted table text ===== -->
+          <div id="subpanel-geo-batch" class="subpanel hidden">
+            <div class="field">
+              <label for="geo-batch-input">Colar dados (formato de tabela, colunas separadas por tabulação)</label>
+              <textarea
+                id="geo-batch-input"
+                rows="8"
+                placeholder="Cole aqui as linhas copiadas da planilha, com colunas de Endereço e CEP&hellip;"
+              ></textarea>
+              <p class="field-hint">
+                Detectamos automaticamente a coluna de CEP e usamos a coluna anterior como
+                Endereço, extraindo o número do final (ou "S/N").
+              </p>
+            </div>
+
+            <div class="panel-toolbar">
+              <div class="field-row" style="align-items: flex-end; gap: 16px; margin-bottom: 0">
+                <div class="field" style="margin-bottom: 0; max-width: 220px">
+                  <label for="geo-batch-concurrency">Requisições simultâneas</label>
+                  <input
+                    type="number"
+                    id="geo-batch-concurrency"
+                    min="1"
+                    max="20"
+                    value="20"
+                  />
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px">
+                <button type="button" class="btn btn-secondary" id="geo-batch-cancel" disabled>
+                  Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="geo-batch-run">
+                  Processar em Lote
+                </button>
+              </div>
+            </div>
+
+            <div class="stats-grid" id="geo-batch-summary" style="display: none">
+              <div class="stat-card">
+                <div class="stat-title">Total</div>
+                <div class="stat-value" id="geo-batch-stat-total">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Processados</div>
+                <div class="stat-value" id="geo-batch-stat-done">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Sucesso</div>
+                <div class="stat-value" id="geo-batch-stat-success">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Erros</div>
+                <div class="stat-value" id="geo-batch-stat-error">0</div>
+              </div>
+            </div>
+
+            <div class="geo-progress hidden" id="geo-batch-progress">
+              <div class="geo-progress-bar">
+                <div class="geo-progress-bar-fill" id="geo-batch-progress-fill"></div>
+              </div>
+            </div>
+
+            <div class="manifest-frame" id="geo-batch-results-frame" style="display: none">
+              <table class="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Objeto</th>
+                    <th>Endereço</th>
+                    <th>Número</th>
+                    <th>CEP</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Origem</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="geo-batch-tbody"></tbody>
+              </table>
+            </div>
+            <p id="geo-batch-empty" class="empty-state">
+              Cole os dados acima e clique em "Processar em Lote" para começar.
+            </p>
           </div>
         </section>
       </main>
