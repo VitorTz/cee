@@ -31,10 +31,8 @@ jobs:
       - name: Generate config.js with environment variables
         # This step creates the config.js file dynamically using GitHub Secrets
         run: |
-          echo "window.ENV = {" > config.js
-          echo "  SUPABASE_URL: '${{ secrets.SUPABASE_URL }}'," >> config.js
-          echo "  SUPABASE_ANON_KEY: '${{ secrets.SUPABASE_ANON_KEY }}'" >> config.js
-          echo "};" >> config.js
+          echo "export const SUPABASE_URL = '${{ secrets.SUPABASE_URL }}';" > config.js
+          echo "export const SUPABASE_ANON_KEY = '${{ secrets.SUPABASE_ANON_KEY }}';" > config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
