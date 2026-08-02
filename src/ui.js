@@ -424,7 +424,7 @@ const tabKeyMap = {
     5: "helpdesk",
     6: "account",
     7: "funcionarios",
-    8: "geocoding",
+    // 8: "geocoding",
 };
 
 function canAccessTab(tabName) {

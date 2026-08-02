@@ -2,6 +2,7 @@
 // MODULE: STREET MANAGEMENT
 // =============================================================================
 
+import { sb } from "../supabase-client.js";
 import { showToast, openModal, closeModal } from "../ui.js";
 import { qs } from "../utils.js";
 

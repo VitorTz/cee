@@ -445,7 +445,353 @@ export function resetGeocodingPanel() {
     setBatchRunningUI(false);
 }
 
+
+const OSRM_BASE_URL = 'https://router.project-osrm.org/trip/v1/driving';
+const OSMR_SOURCE = "https://download.geofabrik.de/south-america/brazil/sul-latest.osm.pbf"
+const CEE_START_POINT = { lon: -48.5311624, lat: -27.6632354, zip: "88047-401", number: "1899" };
+
+/**
+ * Optimizes a route for a single vehicle given an array of coordinates.
+ * 
+ * @param {Array<{lon: number, lat: number, zip: string, number: string, code: string | undefined | null}>} locations 
+ * @param {Object} startPoint - The mandatory starting location
+ * @returns {Promise<Object>} The optimized route and ordered waypoints
+ */
+export async function getOptimizedRoute(locations, startPoint = CEE_START_POINT) {
+    if (!locations || locations.length < 2) {
+        throw new Error('At least two locations are required to generate a route.');
+    }
+
+    // Ensure the starting point is always the first item in the array
+    if (locations.length !== 0 && (locations[0].lat !== startPoint.lat || locations[0].lon !== startPoint.lon)) {
+        locations = [startPoint, ...locations];
+    }
+
+    // 1. OSRM expects coordinates in the format: longitude,latitude separated by semicolons
+    const coordsString = locations
+        .map(loc => `${loc.lon},${loc.lat}`)
+        .join(';');
+
+    const url = `${OSRM_BASE_URL}/${coordsString}?steps=true`;
+
+    try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`OSRM API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.code !== 'Ok') {
+            throw new Error(`OSRM routing failed: ${data.code}`);
+        }
+        console.log(data)
+
+        // 5. Map the optimized waypoint order back to the original locations
+        const optimizedOrder = locations
+            .map((loc, index) => {
+                const wp = data.waypoints[index];
+                return {
+                    ...loc,
+                    waypoint_index: wp.waypoint_index,
+                    snapping_distance: wp.distance
+                };
+            })
+            .sort((a, b) => a.waypoint_index - b.waypoint_index);
+
+        return {
+            durationSeconds: data.trips[0].duration,
+            distanceMeters: data.trips[0].distance,
+            geometry: data.trips[0].geometry,
+            optimizedLocations: optimizedOrder
+        };
+
+    } catch (error) {
+        console.error('Failed to optimize route:', error);
+        throw error;
+    }
+}
+
+
 // ui.js dispatches to these by bare identifier (`typeof loadGeocoding === "function"`),
 // matching every other tab module in this app, so expose them globally.
 window.loadGeocoding = loadGeocoding;
 window.resetGeocodingPanel = resetGeocodingPanel;
+
+// =============================================================================
+// ROUTE OPTIMIZATION (Map & OSRM Integration)
+// =============================================================================
+const routeManualForm = qs("#geo-route-manual-form");
+const routeCodeInput = qs("#geo-route-code");
+const routeCepInput = qs("#geo-route-cep");
+const routeNumberInput = qs("#geo-route-number");
+const routePasteInput = qs("#geo-route-paste");
+const routeAddPastedBtn = qs("#geo-route-add-pasted");
+const routeGenerateBtn = qs("#geo-route-generate");
+const routeTbody = qs("#geo-route-tbody");
+const routeCount = qs("#geo-route-count");
+const routeMapContainer = qs("#geo-route-map");
+const routeStats = qs("#geo-route-stats");
+const routeTime = qs("#geo-route-time");
+const routeDistance = qs("#geo-route-distance");
+
+let routeItems = []; // Stores pending delivery items
+let leafletMap = null;
+let routeLayer = null;
+let markersLayer = null;
+
+// Ensure CEP mask is applied to the new manual input
+if (routeCepInput) attachZipMask(routeCepInput);
+
+/**
+ * Initializes the Leaflet map centered on Florianópolis
+ */
+function initRouteMap() {
+    if (leafletMap) return;
+
+    // Default center at CEE Florianópolis
+    leafletMap = L.map(routeMapContainer).setView([CEE_START_POINT.lat, CEE_START_POINT.lon], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(leafletMap);
+
+    markersLayer = L.layerGroup().addTo(leafletMap);
+}
+
+/**
+ * Updates the UI table with pending delivery items
+ */
+function renderRouteTable() {
+    routeCount.textContent = routeItems.length;
+
+    if (routeItems.length === 0) {
+        routeTbody.innerHTML = '<tr class="empty-state"><td colspan="4">No packages added.</td></tr>';
+        return;
+    }
+
+    routeTbody.innerHTML = routeItems.map((item, index) => `
+        <tr>
+            <td>${escapeHtml(item.code || "N/A")}</td>
+            <td class="zip-code-cell">${escapeHtml(item.cep)}</td>
+            <td>${escapeHtml(item.number || "S/N")}</td>
+            <td class="col-actions">
+                <button type="button" class="btn btn-danger btn-icon" onclick="removeRouteItem(${index})">X</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Attach globally so the inline onclick works
+window.removeRouteItem = function (index) {
+    routeItems.splice(index, 1);
+    renderRouteTable();
+};
+
+/**
+ * Handles adding a single item from the manual form
+ */
+if (routeManualForm) {
+    routeManualForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const cep = routeCepInput.value.trim();
+        if (!ZIP_REGEX.test(normalizeCep(cep))) {
+            showToast("Invalid CEP format.", "error");
+            return;
+        }
+
+        routeItems.push({
+            code: routeCodeInput.value.trim(),
+            cep: normalizeCep(cep),
+            number: routeNumberInput.value.trim() || "S/N"
+        });
+
+        routeManualForm.reset();
+        routeCodeInput.focus();
+        renderRouteTable();
+    });
+}
+
+/**
+ * Handles bulk adding from the pasted textarea
+ * Reuses the existing parseBatchInput function which handles the specific table format
+ */
+if (routeAddPastedBtn) {
+    routeAddPastedBtn.addEventListener("click", () => {
+        const rawText = routePasteInput.value;
+        if (!rawText.trim()) return;
+
+        const { rows, skipped } = parseBatchInput(rawText);
+
+        rows.forEach(row => {
+            routeItems.push({
+                code: row.objeto,
+                cep: row.cep,
+                number: row.number || "S/N"
+            });
+        });
+
+        routePasteInput.value = "";
+        renderRouteTable();
+
+        if (rows.length > 0) {
+            showToast(`${rows.length} packages added successfully.`);
+        }
+        if (skipped > 0) {
+            showToast(`${skipped} rows skipped (No CEP found).`, "error");
+        }
+    });
+}
+
+/**
+ * Decodes the OSRM geometry polyline into LatLng array for Leaflet
+ */
+function decodePolyline(encoded) {
+    let points = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
+
+    while (index < len) {
+        let b, shift = 0, result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        points.push([lat / 1E5, lng / 1E5]);
+    }
+    return points;
+}
+
+
+/**
+ * Orchestrates Geocoding -> Routing -> Map Rendering
+ */
+if (routeGenerateBtn) {
+    routeGenerateBtn.addEventListener("click", async () => {
+        if (routeItems.length === 0) {
+            showToast("Add at least one package to generate a route.", "error");
+            return;
+        }
+
+        initRouteMap();
+        routeGenerateBtn.disabled = true;
+        routeGenerateBtn.textContent = "Geocoding and Routing...";
+
+        try {
+            // 1. Geocode all items
+            const geocodedLocations = [];
+            const MAX_CONCURRENT_REQUESTS = 20;
+            const queue = [...routeItems];
+            // Determine the actual number of workers to spawn (prevents spawning 20 if we only have 5 items)
+            const poolSize = Math.min(MAX_CONCURRENT_REQUESTS, routeItems.length);
+            const workers = [];
+
+            /**
+             * Async worker that picks the next item from the queue and processes it.
+             * It keeps running until the queue is completely empty.
+             */
+            async function worker() {
+                while (queue.length > 0) {
+                    // Safely remove the first item from the queue
+                    const item = queue.shift();
+
+                    try {
+                        const geoResult = await geocodeAddress(item.cep, item.number);
+
+                        // Push directly to the shared array (safe in JS due to Event Loop)
+                        geocodedLocations.push({
+                            id: item.code || `${item.cep} ${item.number}`,
+                            lat: geoResult.lat,
+                            lon: geoResult.lon,
+                            cep: item.cep,
+                            number: item.number
+                        });
+                    } catch (err) {
+                        console.warn(`Failed to geocode ${item.cep} ${item.number}`, err);
+                        showToast(`Failed to locate: ${item.cep}. Skipping...`, "error");
+                    }
+                }
+            }
+
+            // Spawn the workers
+            for (let i = 0; i < poolSize; i++) {
+                workers.push(worker());
+            }
+
+            // Await until all workers finish their tasks
+            await Promise.all(workers);
+
+            if (geocodedLocations.length < 1) {
+                throw new Error("Could not geocode enough valid locations to create a route.");
+            }
+
+            // 2. Fetch Optimized Route using existing getOptimizedRoute function
+            const routeData = await getOptimizedRoute(geocodedLocations, CEE_START_POINT);
+
+            // 3. Render Route on Map
+            if (routeLayer) leafletMap.removeLayer(routeLayer);
+            markersLayer.clearLayers();
+
+            // Decode OSRM geometry and draw the polyline path
+            const latlngs = decodePolyline(routeData.geometry);
+            routeLayer = L.polyline(latlngs, { color: '#00447c', weight: 5, opacity: 0.8 }).addTo(leafletMap);
+            leafletMap.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+
+            // Add Markers with optimized order
+            routeData.optimizedLocations.forEach((loc, idx) => {
+                const isStart = idx === 0;
+
+                // Create a custom numbered icon
+                const iconHtml = `<div style="background-color: ${isStart ? '#c6432e' : '#ffcc00'}; color: ${isStart ? '#fff' : '#002b54'}; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid #002b54; font-weight: bold; font-family: 'Space Mono', monospace; font-size: 12px;">${idx}</div>`;
+
+                const customIcon = L.divIcon({
+                    html: iconHtml,
+                    className: 'custom-route-marker',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+
+                const popupContent = isStart
+                    ? `<b>Origem (CEE)</b><br>Start Point`
+                    : `<b>Stop ${idx}</b><br>Obj: ${loc.id}<br>CEP: ${loc.cep}<br>Num: ${loc.number}`;
+
+                L.marker([loc.lat, loc.lon], { icon: customIcon })
+                    .bindPopup(popupContent)
+                    .addTo(markersLayer);
+            });
+
+            // 4. Update Stats UI
+            const mins = Math.round(routeData.durationSeconds / 60);
+            const kms = (routeData.distanceMeters / 1000).toFixed(1);
+            routeTime.textContent = `${mins} min`;
+            routeDistance.textContent = `${kms} km`;
+            routeStats.style.display = 'flex';
+
+            showToast("Route generated successfully!");
+
+        } catch (error) {
+            console.error("Routing error:", error);
+            showToast(error.message || "Failed to generate route.", "error");
+        } finally {
+            routeGenerateBtn.disabled = false;
+            routeGenerateBtn.textContent = "Traçar Melhor Rota";
+        }
+    });
+}

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CEE</title>    
+    <title>CEE</title>
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#00447c" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -25,6 +25,12 @@
       rel="stylesheet"
     />
     <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    <!-- Leaflet CSS & JS for Route Mapping -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   </head>
   <body>
     <!-- ===== Login Screen ===== -->
@@ -176,7 +182,7 @@
         >
           <span class="tab-index">8</span> Supabase Metrics
         </button>
-        <button
+        <!-- <button
           class="tab-btn"
           id="geocoding-tab"
           data-tab="geocoding"
@@ -184,7 +190,7 @@
           aria-selected="false"
         >
           <span class="tab-index">09</span> Geocodificação
-        </button>
+        </button> -->
       </nav>
 
       <main>
@@ -1364,8 +1370,12 @@
         </section>
 
         <!-- ===== GEOCODING ===== -->
-        <section id="panel-geocoding" class="panel" aria-labelledby="geocoding">
-          <nav class="subtabs" role="tablist" aria-label="Seções de geocodificação">
+        <section id="panel-geocoding" class="panel hidden aria-labelledby="geocoding">
+          <nav
+            class="subtabs"
+            role="tablist"
+            aria-label="Seções de geocodificação"
+          >
             <button
               type="button"
               class="subtab-btn active"
@@ -1383,6 +1393,15 @@
               aria-selected="false"
             >
               Consulta em Lote
+            </button>
+            <button
+              type="button"
+              class="subtab-btn"
+              data-subtab="geo-route"
+              role="tab"
+              aria-selected="false"
+            >
+              Otimização de Rota
             </button>
           </nav>
 
@@ -1412,7 +1431,12 @@
               </div>
             </form>
             <div style="margin-bottom: 18px">
-              <button type="submit" form="geo-single-form" class="btn btn-primary" id="geo-single-submit">
+              <button
+                type="submit"
+                form="geo-single-form"
+                class="btn btn-primary"
+                id="geo-single-submit"
+              >
                 Buscar Coordenadas
               </button>
             </div>
@@ -1426,22 +1450,30 @@
           <!-- ===== Sub-panel: batch lookup from pasted table text ===== -->
           <div id="subpanel-geo-batch" class="subpanel hidden">
             <div class="field">
-              <label for="geo-batch-input">Colar dados (formato de tabela, colunas separadas por tabulação)</label>
+              <label for="geo-batch-input"
+                >Colar dados (formato de tabela, colunas separadas por
+                tabulação)</label
+              >
               <textarea
                 id="geo-batch-input"
                 rows="8"
                 placeholder="Cole aqui as linhas copiadas da planilha, com colunas de Endereço e CEP&hellip;"
               ></textarea>
               <p class="field-hint">
-                Detectamos automaticamente a coluna de CEP e usamos a coluna anterior como
-                Endereço, extraindo o número do final (ou "S/N").
+                Detectamos automaticamente a coluna de CEP e usamos a coluna
+                anterior como Endereço, extraindo o número do final (ou "S/N").
               </p>
             </div>
 
             <div class="panel-toolbar">
-              <div class="field-row" style="align-items: flex-end; gap: 16px; margin-bottom: 0">
+              <div
+                class="field-row"
+                style="align-items: flex-end; gap: 16px; margin-bottom: 0"
+              >
                 <div class="field" style="margin-bottom: 0; max-width: 220px">
-                  <label for="geo-batch-concurrency">Requisições simultâneas</label>
+                  <label for="geo-batch-concurrency"
+                    >Requisições simultâneas</label
+                  >
                   <input
                     type="number"
                     id="geo-batch-concurrency"
@@ -1452,16 +1484,29 @@
                 </div>
               </div>
               <div style="display: flex; gap: 10px">
-                <button type="button" class="btn btn-secondary" id="geo-batch-cancel" disabled>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="geo-batch-cancel"
+                  disabled
+                >
                   Cancelar
                 </button>
-                <button type="button" class="btn btn-primary" id="geo-batch-run">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  id="geo-batch-run"
+                >
                   Processar em Lote
                 </button>
               </div>
             </div>
 
-            <div class="stats-grid" id="geo-batch-summary" style="display: none">
+            <div
+              class="stats-grid"
+              id="geo-batch-summary"
+              style="display: none"
+            >
               <div class="stat-card">
                 <div class="stat-title">Total</div>
                 <div class="stat-value" id="geo-batch-stat-total">0</div>
@@ -1482,11 +1527,18 @@
 
             <div class="geo-progress hidden" id="geo-batch-progress">
               <div class="geo-progress-bar">
-                <div class="geo-progress-bar-fill" id="geo-batch-progress-fill"></div>
+                <div
+                  class="geo-progress-bar-fill"
+                  id="geo-batch-progress-fill"
+                ></div>
               </div>
             </div>
 
-            <div class="manifest-frame" id="geo-batch-results-frame" style="display: none">
+            <div
+              class="manifest-frame"
+              id="geo-batch-results-frame"
+              style="display: none"
+            >
               <table class="manifest-table">
                 <thead>
                   <tr>
@@ -1506,6 +1558,146 @@
             <p id="geo-batch-empty" class="empty-state">
               Cole os dados acima e clique em "Processar em Lote" para começar.
             </p>
+          </div>
+          <!-- Add the new Route Optimization subpanel -->
+          <div id="subpanel-geo-route" class="subpanel hidden">
+            <div class="cepsearch-split-layout">
+              <!-- Left Column: Input Form and List -->
+              <div class="cepsearch-results-col">
+                <!-- Manual Input Form -->
+                <form
+                  id="geo-route-manual-form"
+                  class="cepsearch-form"
+                  style="grid-template-columns: 1fr 1fr 1fr"
+                >
+                  <div class="field">
+                    <label for="geo-route-code"
+                      >Cód. Encomenda (Opcional)</label
+                    >
+                    <input
+                      type="text"
+                      id="geo-route-code"
+                      placeholder="Ex: AP026280784BR"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="geo-route-cep">CEP (Obrigatório)</label>
+                    <input
+                      type="text"
+                      id="geo-route-cep"
+                      placeholder="88056-300"
+                      required
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="geo-route-number">Número (Opcional)</label>
+                    <input
+                      type="text"
+                      id="geo-route-number"
+                      placeholder="Ex: 1186 ou S/N"
+                      autocomplete="off"
+                    />
+                  </div>
+                </form>
+                <div style="margin-bottom: 16px">
+                  <button
+                    type="submit"
+                    form="geo-route-manual-form"
+                    class="btn btn-secondary"
+                  >
+                    + Adicionar Manualmente
+                  </button>
+                </div>
+
+                <hr class="manual-divider" style="margin: 16px 0" />
+
+                <!-- Paste Area -->
+                <div class="field">
+                  <label for="geo-route-paste"
+                    >Ou cole a lista de encomendas (Formato Tabela)</label
+                  >
+                  <textarea
+                    id="geo-route-paste"
+                    rows="4"
+                    placeholder="Cole as linhas copiadas da planilha aqui..."
+                  ></textarea>
+                </div>
+                <div style="margin-bottom: 16px">
+                  <button
+                    type="button"
+                    id="geo-route-add-pasted"
+                    class="btn btn-secondary"
+                  >
+                    + Adicionar da Tabela
+                  </button>
+                </div>
+
+                <!-- Pending List -->
+                <div class="stats-section-header">
+                  Lista de Encomendas (<span id="geo-route-count">0</span>)
+                </div>
+                <div
+                  class="manifest-frame"
+                  style="
+                    max-height: 300px;
+                    overflow-y: auto;
+                    margin-bottom: 16px;
+                  "
+                >
+                  <table class="manifest-table">
+                    <thead>
+                      <tr>
+                        <th>Objeto</th>
+                        <th>CEP</th>
+                        <th>Número</th>
+                        <th class="col-actions">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody id="geo-route-tbody">
+                      <tr class="empty-state">
+                        <td colspan="4">Nenhuma encomenda adicionada.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <button
+                  type="button"
+                  id="geo-route-generate"
+                  class="btn btn-primary"
+                  style="width: 100%"
+                >
+                  Traçar Melhor Rota
+                </button>
+              </div>
+
+              <!-- Right Column: Map and Route Instructions -->
+              <div class="cepsearch-map-col">
+                <div
+                  id="geo-route-map"
+                  class="street-map-container"
+                  style="height: 500px"
+                ></div>
+
+                <!-- Route Stats -->
+                <div
+                  class="stats-grid"
+                  style="margin-top: 16px; display: none"
+                  id="geo-route-stats"
+                >
+                  <div class="stat-card">
+                    <div class="stat-title">Tempo Estimado</div>
+                    <div class="stat-value" id="geo-route-time">0 min</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-title">Distância</div>
+                    <div class="stat-value" id="geo-route-distance">0 km</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -1879,7 +2071,7 @@
       </div>
     </footer>
     <!-- ===== Toast / postmark stamp confirmation ===== -->
-    <div id="toast-container" class="toast-container" aria-live="polite"></div>    
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <script src="config.js" type="module" defer></script>
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"

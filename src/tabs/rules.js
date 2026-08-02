@@ -1,9 +1,12 @@
 // =============================================================================
 // MODULE: NUMBERING RULES
 // =============================================================================
-import { qs } from "../utils.js";
+import { qs, escapeHtml } from "../utils.js";
+import { sb } from "../supabase-client.js";
 import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
 import { initStreetCombobox } from "../combobox.js";
+import { SIDE_LABELS } from "./cep-search.js";
+import { loadZipsLite, populateZipSelect } from "./zips.js";
 
 const RULES_PAGE_SIZE = 25;
 export let rulesFilterStreetId = "";

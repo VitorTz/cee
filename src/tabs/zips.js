@@ -15,7 +15,7 @@ let zipsPage = 0;
 let zipsTotalCount = 0;
 let zipsSearchDebounce = null;
 
-async function loadZipsLite(filterStreetId = "") {
+export async function loadZipsLite(filterStreetId = "") {
   let query = sb
     .from("zip_codes")
     .select("id, zip_code, street_id, streets(name)")
@@ -29,7 +29,7 @@ async function loadZipsLite(filterStreetId = "") {
   return data;
 }
 
-function populateZipSelect(selectEl, zipList, selectedId) {
+export function populateZipSelect(selectEl, zipList, selectedId) {
   const options = ['<option value="">Selecione um CEP&hellip;</option>'].concat(
     zipList.map(
       (z) =>
