@@ -7,6 +7,9 @@
 // só é visível/editável por admin ou supervisor — reforçado tanto aqui
 // (esconder a aba) quanto no banco via RLS (ver employees_schema.sql).
 
+import { currentUser, sb } from "../supabase-client.js";
+import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+
 const EMPLOYEE_TYPE_LABELS = {
     carteiro_interno: "Carteiro Interno",
     carteiro_externo: "Carteiro Externo",

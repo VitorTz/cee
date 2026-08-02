@@ -2,6 +2,11 @@
 // MODULE: DAILY OPERATIONS (CEE)
 // =============================================================================
 
+import { qs } from "../utils.js";
+import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+import { openMalotePasteForm, openMaloteAnalysisModal } from "./malote-scans.js";
+import { openLoecPasteForm } from "./loec-scans.js";
+
 function getDailyOpsDate() {
     const input = qs("#daily-ops-date");
     return (input && input.value) || todayIsoDate();

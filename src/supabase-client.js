@@ -1,4 +1,5 @@
-
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
+import { qs } from "./utils.js";
 
 class AsyncMutex {
     constructor() {
@@ -189,9 +190,6 @@ class SupabaseWrapper {
     }
 }
 
-
-const SUPABASE_URL = window.ENV.SUPABASE_URL;
-const SUPABASE_ANON_KEY = window.ENV.SUPABASE_ANON_KEY;
 const supabaseWrapper = new SupabaseWrapper(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         persistSession: true,
@@ -200,19 +198,32 @@ const supabaseWrapper = new SupabaseWrapper(SUPABASE_URL, SUPABASE_ANON_KEY, {
     },
 });
 
-const UserRoles = Object.freeze({
+export const UserRoles = Object.freeze({
     ADMIN: 'admin',
     SUPERVISOR: 'supervisor',
     CARTEIRO: 'carteiro'
 });
 
-let currentUser = null;
-let currentUserRole = null;
-let appInitialized = false;
 let supabasePingInitialized = false;
-const sb = supabaseWrapper.getClient();
+export let appInitialized = false;
+export let currentUserRole = null;
+export let currentUser = null;
+export const sb = supabaseWrapper.getClient();
 
-function initSupabasePing() {
+
+export function setCurrentUser(user) {
+    currentUser = user;
+}
+
+export function setCurrentUserRole(role) {
+    currentUserRole = role
+}
+
+export function setAppInitialized(value) {
+    appInitialized = value
+}
+
+export function initSupabasePing() {
     const dot = qs('#ping-dot');
     const text = qs('#ping-text');
     supabasePingInitialized = true;

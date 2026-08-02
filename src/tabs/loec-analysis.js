@@ -5,6 +5,9 @@
 // network call is a read-only cross-check against zip_codes (which every
 // authenticated role can already SELECT), so this tab needs no extra RLS.
 
+import { qs, qsa } from "../utils.js";
+import { showToast } from "../ui.js";
+
 const LOEC_ANALYSIS_CODE_REGEX = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const LOEC_ANALYSIS_CEP_REGEX = /^\d{5}-?\d{3}$/;
 

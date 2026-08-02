@@ -1,4 +1,5 @@
-
+import { initHelpdeskNotifications } from "./src/tabs/helpdesk.js";
+import { switchTab } from "./src/ui.js";
 
 // Registra o Service Worker para habilitar o PWA
 if ('serviceWorker' in navigator) {
@@ -14,7 +15,7 @@ if ('serviceWorker' in navigator) {
 }
 
 
-async function init() {
+export async function init() {
   initHelpdeskNotifications();
   switchTab("daily-ops");
 }

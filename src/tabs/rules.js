@@ -1,6 +1,9 @@
 // =============================================================================
 // MODULE: NUMBERING RULES
 // =============================================================================
+import { qs } from "../utils.js";
+import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+import { initStreetCombobox } from "../combobox.js";
 
 const RULES_PAGE_SIZE = 25;
 let rulesFilterStreetId = "";

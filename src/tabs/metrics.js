@@ -3,6 +3,10 @@
 // Fetches data from SupabaseMetricsWrapper and renders Charts/Tables
 // =============================================================================
 
+import { sb } from "../supabase-client.js";
+import { qs } from "../utils.js";
+
+
 let metricsMethodChart = null;
 let metricsStatusChart = null;
 let currentMetricsView = 'local'; // 'local' or 'global'

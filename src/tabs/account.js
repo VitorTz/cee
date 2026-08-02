@@ -1,3 +1,7 @@
+import { qs } from "../utils.js";
+import { sb } from "../supabase-client.js";
+
+
 let accountProfile = null;
 let accountLoaded = false;
 let accountDirty = false;

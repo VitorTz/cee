@@ -19,6 +19,12 @@
 // Expected row shape (7+ whitespace-separated tokens):
 //   <SE> <CEP Destino> <Serviço> <Código de Barras> <Peso (g)> <Data> <Hora>
 // e.g. "SE/SC  89700-176  44105  89700176441050000104198540000800372  00520  31/07/2026 16:12:09"
+import { qs } from "../utils.js";
+import { sb } from "../supabase-client.js";
+import { showToast, openModal, closeModal } from "../ui.js";
+
+
+
 function parseMalotePasteText(text) {
     const lines = (text || "").split("\n");
     const items = [];
@@ -112,7 +118,7 @@ function malotePasteFormTemplate() {
   `;
 }
 
-function openMalotePasteForm() {
+export function openMalotePasteForm() {
     openModal("Colar Lista de Malotes", malotePasteFormTemplate());
     qs("#malote-paste-cancel").addEventListener("click", closeModal);
     qs("#malote-paste-form").addEventListener("submit", submitMalotePasteForm);
@@ -606,7 +612,7 @@ function renderMaloteAnalysisCharts(analysis) {
     }
 }
 
-function openMaloteAnalysisModal() {
+export function openMaloteAnalysisModal() {
     const date = getDailyOpsDate();
 
     if (!dailyMalotesCache || dailyMalotesCache.length === 0) {

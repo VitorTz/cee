@@ -1,6 +1,8 @@
 // =============================================================================
 // MODULE: CONTACT US
 // =============================================================================
+import { showToast, openModal, closeModal } from "../ui.js";
+import { qs } from "../utils.js";
 
 const MAX_CONTACT_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 let contactSelectedFiles = [];

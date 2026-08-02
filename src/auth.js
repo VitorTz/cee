@@ -4,7 +4,9 @@
 // Every screen in this app requires an authenticated Supabase session.
 // Accounts are created by the admin via the Supabase Auth panel; roles live
 // in the `user_roles` table and are set by the admin in the Table Editor.
-
+import { sb, UserRoles, appInitialized, setAppInitialized, initSupabasePing, currentUser, setCurrentUser, currentUserRole, setCurrentUserRole } from "./supabase-client.js";
+import { qs, isValidCPF } from "./utils.js";
+import { init } from "../app.js";
 
 const loginScreenEl = qs("#login-screen");
 const appShellEl = qs("#app-shell");
@@ -148,28 +150,28 @@ function updateUserBar() {
 }
 
 async function showApp(session) {
-    currentUser = session.user;
+    setCurrentUser(session.user)
 
     if (loginScreenEl) loginScreenEl.classList.add("hidden");
     if (appShellEl) appShellEl.classList.remove("hidden");
     setLoginError(null);
     if (loginFormEl) loginFormEl.reset();
 
-    currentUserRole = await fetchCurrentUserRole();
+    setCurrentUserRole(await fetchCurrentUserRole())
     applyRolePermissions(currentUserRole);
     updateUserBar();
 
     if (!appInitialized) {
-        appInitialized = true;
+        setAppInitialized(true);
         await init();
         initSupabasePing();
     }
 }
 
-function showLogin() {
-    currentUser = null;
-    currentUserRole = null;
-    appInitialized = false;
+function showLogin() {    
+    setCurrentUser(null);
+    setCurrentUserRole(null);
+    setAppInitialized(false);
     if (appShellEl) appShellEl.classList.add("hidden");
     if (loginScreenEl) loginScreenEl.classList.remove("hidden");
     setLoginLoading(false);

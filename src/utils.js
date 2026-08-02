@@ -1,10 +1,10 @@
 // --- DOM Helpers (needed by the auth block right below) ---
-const qs = (sel, root = document) => root.querySelector(sel);
-const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+export const qs = (sel, root = document) => root.querySelector(sel);
+export const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 let currentTab = '';
 
-function normalizeSearchTerm(term) {
+export function normalizeSearchTerm(term) {
     const withoutAccents = term
         .trim()
         .toLowerCase()
@@ -14,7 +14,7 @@ function normalizeSearchTerm(term) {
     return withoutAccents.replace(/[^a-z0-9]+/g, "%");
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
     if (value === null || value === undefined) return "";
     return String(value)
         .replace(/&/g, "&amp;")
@@ -23,7 +23,7 @@ function escapeHtml(value) {
         .replace(/"/g, "&quot;");
 }
 
-function formatNeighborhoods(neighborhoods) {
+export function formatNeighborhoods(neighborhoods) {
     if (Array.isArray(neighborhoods)) return neighborhoods.join(", ");
     return neighborhoods || "—";
 }
@@ -31,7 +31,7 @@ function formatNeighborhoods(neighborhoods) {
 // --- ZIP Code Normalization ---
 const ZIP_REGEX = /^880[0-6][0-9]-[0-9]{3}$/;
 
-function normalizeZipDigits(raw) {
+export function normalizeZipDigits(raw) {
     let digits = (raw || "").replace(/\D/g, "");
     if (!digits) return "";
     if (!digits.startsWith("880")) {
@@ -40,13 +40,13 @@ function normalizeZipDigits(raw) {
     return digits.slice(0, 8);
 }
 
-function digitsToZipPattern(digits) {
+export function digitsToZipPattern(digits) {
     if (!digits) return "";
     if (digits.length > 5) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
     return digits;
 }
 
-function attachZipMask(inputEl) {
+export function attachZipMask(inputEl) {
     inputEl.addEventListener("input", () => {
         let digits = inputEl.value.replace(/\D/g, "").slice(0, 8);
         if (digits.length > 5) digits = `${digits.slice(0, 5)}-${digits.slice(5)}`;
@@ -59,18 +59,18 @@ function attachZipMask(inputEl) {
 }
 
 // --- Date & Time Helpers ---
-function todayIsoDate() {
+export function todayIsoDate() {
     const now = new Date();
     const offsetMs = now.getTimezoneOffset() * 60000;
     return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
 }
 
-function formatTimeShort(value) {
+export function formatTimeShort(value) {
     if (!value) return "&mdash;";
     return value.slice(0, 5);
 }
 
-function isValidCPF(value) {
+export function isValidCPF(value) {
     const cpf = value.replace(/\D/g, "");
 
     // CPF must have exactly 11 digits
@@ -110,11 +110,39 @@ function isValidCPF(value) {
     return digit === Number(cpf[10]);
 }
 
-function getLeftOfChar(value, char) {
+export function getLeftOfChar(value, char) {
     const index = value.indexOf(char);
     return index === -1 ? value : value.slice(0, index);
 }
 
-function hasOnlyDigits(value) {
+export function hasOnlyDigits(value) {
     return /^\d+$/.test(value);
+}
+
+/**
+ * Normalizes a CEP string to the standard "880XX-XXX" format.
+ * Handles 8-digit strings ("88047103" -> "88047-103") and 
+ * 5-digit strings ("47103" -> "88047-103").
+ * 
+ * @param {string|number} rawCep - The raw CEP input.
+ * @returns {string} The formatted CEP.
+ */
+export function normalizeCep(rawCep) {
+    if (!rawCep) return "";
+
+    // Remove all non-numeric characters
+    let cleanCep = String(rawCep).replace(/\D/g, "");
+
+    // If it's exactly 5 digits, prepend the default "880" prefix
+    if (cleanCep.length === 5) {
+        cleanCep = "880" + cleanCep;
+    }
+
+    // If it has exactly 8 digits, apply the standard XXXXX-XXX mask
+    if (cleanCep.length === 8) {
+        return cleanCep.replace(/^(\d{5})(\d{3})$/, "$1-$2");
+    }
+
+    // Return the cleaned string if it doesn't match the expected lengths
+    return cleanCep;
 }

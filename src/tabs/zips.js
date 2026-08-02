@@ -2,6 +2,10 @@
 // MODULE: ZIP CODES (CRUD)
 // =============================================================================
 
+import { qs, normalizeSearchTerm, digitsToZipPattern } from "../utils.js";
+import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+import { sb } from "../supabase-client.js";
+
 const ZIPS_PAGE_SIZE = 32;
 let zipsSearchTerm = "";
 let zipsPage = 0;
@@ -34,7 +38,7 @@ function populateZipSelect(selectEl, zipList, selectedId) {
   selectEl.innerHTML = options.join("");
 }
 
-async function loadZips(page = 0) {
+export async function loadZips(page = 0) {
   const tbody = qs("#zips-tbody");
   const emptyEl = qs("#zips-empty");
   zipsPage = page;

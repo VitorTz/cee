@@ -1,5 +1,7 @@
+import { qs, qsa } from "./utils.js";
+
 // --- Toasts ---
-function showToast(message, type = "success") {
+export function showToast(message, type = "success") {
     const container = qs("#toast-container");
     const toast = document.createElement("div");
     toast.className = `toast ${type === "error" ? "toast-error" : ""}`.trim();
@@ -16,14 +18,14 @@ const modalOverlay = qs("#modal-overlay");
 const modalTitleEl = qs("#modal-title");
 const modalBodyEl = qs("#modal-body");
 
-function openModal(title, bodyHtml, options = {}) {
+export function openModal(title, bodyHtml, options = {}) {
     modalTitleEl.innerHTML = title;
     modalBodyEl.innerHTML = bodyHtml;
     qs(".modal-slip").classList.toggle("modal-slip-wide", Boolean(options.wide));
     modalOverlay.classList.remove("hidden");
 }
 
-function closeModal() {
+export function closeModal() {
     modalOverlay.classList.add("hidden");
     modalBodyEl.innerHTML = "";
     qs(".modal-slip").classList.remove("modal-slip-wide");
@@ -53,7 +55,7 @@ function deleteConfirmTemplate(label, warning) {
   `;
 }
 
-function openDeleteConfirm(label, warning, onConfirm) {
+export function openDeleteConfirm(label, warning, onConfirm) {
     openModal("Confirmar exclusão", deleteConfirmTemplate(label, warning));
     qs("#confirm-cancel").addEventListener("click", closeModal);
     qs("#confirm-delete").addEventListener("click", onConfirm);
@@ -67,7 +69,7 @@ qsa(".tab-btn").forEach((btn) => {
 let hasLoadedZips = false;
 let hasLoadedRules = false;
 
-function switchTab(tab, isManualClick = false, shouldFocus = true) {
+export function switchTab(tab, isManualClick = false, shouldFocus = true) {
     qsa(".tab-btn").forEach((btn) => {
         const active = btn.dataset.tab === tab;
         btn.classList.toggle("active", active);

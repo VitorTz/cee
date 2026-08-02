@@ -7,6 +7,10 @@
 // responder qualquer chamado, em qualquer estado. RLS no banco é quem
 // realmente garante isso — o JS abaixo só reflete essas mesmas regras na UI.
 
+import { qs, qsa } from "../utils.js";
+import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+import { sb } from "../supabase-client.js";
+
 const HELPDESK_BUCKET = "helpdesk-media";
 const HELPDESK_MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -1345,7 +1349,7 @@ function triggerHelpdeskNotification(title, body) {
 /**
  * Initializes global realtime listeners for new tickets and messages.
  */
-function initHelpdeskNotifications() {
+export function initHelpdeskNotifications() {
     if (helpdeskGlobalChannel) {
         sb.removeChannel(helpdeskGlobalChannel);
     }

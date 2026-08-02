@@ -1,3 +1,6 @@
+import { qs } from "../utils.js";
+import { showToast, openModal, closeModal, openDeleteConfirm } from "../ui.js";
+
 
 let dailyLoecChartInstance = null;
 // Chart.js instances created inside the LOEC report modal (total + per-sector charts).
@@ -386,7 +389,7 @@ function loecPasteFormTemplate() {
   `;
 }
 
-function openLoecPasteForm() {
+export function openLoecPasteForm() {
     openModal('Colar Registros de LOEC', loecPasteFormTemplate());
     qs('#loec-paste-cancel').addEventListener('click', closeModal);
     qs('#loec-paste-form').addEventListener('submit', submitLoecPasteForm);

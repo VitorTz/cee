@@ -1,6 +1,9 @@
 // =============================================================================
 // MODULE: CEP SEARCH ENGINE
 // =============================================================================
+import { qs } from "../utils.js";
+import { switchTab } from "../ui.js";
+import { initStreetCombobox } from "../combobox.js";
 
 const SIDE_LABELS = { odd: "Ímpar", even: "Par", both: "Ambos" };
 

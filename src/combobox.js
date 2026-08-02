@@ -1,3 +1,5 @@
+import { sb } from "./supabase-client.js";
+
 
 async function searchStreetsByTerm(term, limit = 8) {
     if (!term.trim()) return [];
@@ -33,7 +35,7 @@ async function searchStreetsByTerm(term, limit = 8) {
     return error ? [] : data;
 }
 
-function initStreetCombobox({ inputEl, suggestionsEl, onSelect }) {
+export function initStreetCombobox({ inputEl, suggestionsEl, onSelect }) {
     let debounceHandle = null;
     let activeIndex = -1;
     let currentMatches = [];

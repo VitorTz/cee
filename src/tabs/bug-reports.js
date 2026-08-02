@@ -1,6 +1,10 @@
 // =============================================================================
 // MODULE: BUG REPORTS
 // =============================================================================
+import { qs } from "../utils.js";
+import { showToast, openModal, closeModal } from "../ui.js";
+import { sb } from "../supabase-client.js";
+
 
 function bugReportFormTemplate() {
   return `
