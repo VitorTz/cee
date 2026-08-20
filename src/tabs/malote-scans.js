@@ -131,7 +131,7 @@ async function submitMalotePasteForm(e) {
     const { items } = parseMalotePasteText(rawText);
 
     if (items.length === 0) {
-        showToast("Nenhum malote válido encontrado no texto colado.", "error");
+      showToast("Nenhum malote válido encontrado no texto fornecido.", "error");
         return;
     }
 
@@ -243,7 +243,7 @@ function maloteReportTemplate(record, report) {
       ${record.raw_text
             ? `
       <details class="loec-report-raw">
-        <summary>Ver texto original colado</summary>
+        <summary>Ver texto original</summary>
         <pre>${escapeHtml(record.raw_text)}</pre>
       </details>`
             : ""
@@ -418,7 +418,7 @@ function buildDailyMaloteAnalysis(records) {
 
 function maloteAnalysisSeTableTemplate(se_groups) {
     if (se_groups.length === 0) {
-        return `<p class="empty-state">Nenhum malote detalhado (colado) registrado hoje.</p>`;
+      return `<p class="empty-state">Nenhum malote registrado hoje.</p>`;
     }
     return `
     <div class="manifest-frame">
@@ -449,7 +449,7 @@ function maloteAnalysisSeTableTemplate(se_groups) {
 
 function maloteAnalysisCepTableTemplate(top_ceps) {
     if (top_ceps.length === 0) {
-        return `<p class="empty-state">Nenhum malote detalhado (colado) registrado hoje.</p>`;
+      return `<p class="empty-state">Nenhum malote detalhado registrado hoje.</p>`;
     }
     return `
     <div class="manifest-frame">
@@ -477,7 +477,7 @@ function maloteAnalysisCepTableTemplate(top_ceps) {
 
 function maloteAnalysisServicoTableTemplate(servico_groups) {
     if (servico_groups.length === 0) {
-        return `<p class="empty-state">Nenhum malote detalhado (colado) registrado hoje.</p>`;
+      return `<p class="empty-state">Nenhum malote detalhado registrado hoje.</p>`;
     }
     return `
     <div class="manifest-frame">
@@ -517,7 +517,7 @@ function maloteAnalysisTemplate(date, analysis) {
     <div class="loec-report">
       <div class="loec-report-summary">
         ${maloteReportStatCard("Total de malotes", t.overall_count)}
-        ${maloteReportStatCard("Peso total (colados)", `${pesoKg} kg`)}
+        ${maloteReportStatCard("Peso total", `${pesoKg} kg`)}
         ${maloteReportStatCard("SEs distintos", t.se_count)}
         ${maloteReportStatCard("CEPs distintos", t.cep_count)}
         ${maloteReportStatCard("Serviços distintos", t.servico_count)}

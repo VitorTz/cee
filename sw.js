@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
     'src/tabs/zips.js',
     'src/tabs/geocoding.js',
 
+    // icons
     '/res/fav.svg',
     'res/icon-192.png',
     'res/icon-512.png'
