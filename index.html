@@ -1,188 +1,110 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CEE</title>
-    <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#00447c" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="CEE" />
-    <link rel="apple-touch-icon" href="res/icon-192.png" />
-    <link rel="icon" type="image/svg+xml" href="res/fav.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link
-      href="https://cdn.quilljs.com/1.3.7/quill.snow.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
-    <!-- Leaflet CSS & JS for Route Mapping -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  </head>
-  <body>
-    <!-- ===== Login Screen ===== -->
-    <div id="login-screen" class="login-screen">
-      <form id="login-form" class="login-card" autocomplete="on">
-        <div class="field">
-          <label for="login-identifier">matrícula ou cpf</label>
-          <input
-            type="text"
-            id="login-identifier"
-            name="identifier"
-            inputmode="text"
-            autocomplete="username"
-            required
-          />
-        </div>
-        <div class="field">
-          <label for="login-password">Senha</label>
-          <input
-            type="password"
-            id="login-password"
-            name="password"
-            autocomplete="current-password"
-            required
-          />
-        </div>
-        <div id="login-error" class="field-error login-error hidden"></div>
-        <button
-          type="submit"
-          class="btn btn-primary login-submit"
-          id="login-submit"
-        >
-          Entrar
-        </button>
-        <p class="login-footnote">
-          Não possui uma conta? Solicite acesso ao administrador do sistema.
-        </p>
-      </form>
-    </div>
 
-    <div id="supabase-ping" class="ping-overlay hidden">
-      <span id="ping-dot" class="ping-dot"></span>
-      <span id="ping-text">-- ms</span>
-    </div>
-    <div class="app-shell hidden" id="app-shell">
-      <!-- ===== User bar ===== -->
-      <div class="user-bar" id="user-bar">
-        <div class="user-bar-info">
-          <span class="user-bar-email" id="user-bar-email"></span>
-          <span class="role-badge" id="user-bar-role"></span>
-        </div>
-        <button
-          type="button"
-          class="btn btn-secondary btn-icon"
-          id="btn-logout"
-        >
-          Sair
-        </button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CEE</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#00447c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="CEE" />
+  <link rel="apple-touch-icon" href="res/icon-192.png" />
+  <link rel="icon" type="image/svg+xml" href="res/fav.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet" />
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js" defer></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+  <!-- ===== Login Screen ===== -->
+  <div id="login-screen" class="login-screen">
+    <form id="login-form" class="login-card" autocomplete="on">
+      <div class="field">
+        <label for="login-identifier">matrícula ou cpf</label>
+        <input type="text" id="login-identifier" name="identifier" inputmode="text" autocomplete="username" required />
       </div>
-
-      <!-- ===== Tabs ===== -->
-      <!-- Mobile menu toggle button -->
-      <button
-        type="button"
-        id="mobile-menu-toggle"
-        class="mobile-menu-btn"
-        aria-expanded="false"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-          ></path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-        <span>Menu de Módulos</span>
+      <div class="field">
+        <label for="login-password">Senha</label>
+        <input type="password" id="login-password" name="password" autocomplete="current-password" required />
+      </div>
+      <div id="login-error" class="field-error login-error hidden"></div>
+      <button type="submit" class="btn btn-primary login-submit" id="login-submit">
+        Entrar
       </button>
-      <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
-        <button
-          class="tab-btn active"
-          data-tab="daily-ops"
-          role="tab"
-          aria-selected="true"
-        >
-          <span class="tab-index">01</span> Registros
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="zips"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">02</span> CEPs
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="cepsearch"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">03</span> Consulta de Endereços
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="rules"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">04</span> Regras de Numeração
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="helpdesk"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">05</span> Help Desk
-        </button>
-        <button
-          class="tab-btn"
-          data-tab="account"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">06</span> Minha Conta
-        </button>
-        <button
-          class="tab-btn supervisor-only hidden"
-          id="funcionarios-tab"
-          data-tab="funcionarios"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">07</span> Quadro de Funcionários
-        </button>
-        <button
-          class="tab-btn admin-only hidden"
-          id="metrics-tab"
-          data-tab="metrics"
-          role="tab"
-          aria-selected="false"
-        >
-          <span class="tab-index">8</span> Supabase Metrics
-        </button>
-        <!-- <button
+      <p class="login-footnote">
+        Não possui uma conta? Solicite acesso ao administrador do sistema.
+      </p>
+    </form>
+  </div>
+
+  <div id="supabase-ping" class="ping-overlay hidden">
+    <span id="ping-dot" class="ping-dot"></span>
+    <span id="ping-text">-- ms</span>
+  </div>
+  <div class="app-shell hidden" id="app-shell">
+    <!-- ===== User bar ===== -->
+    <div class="user-bar" id="user-bar">
+      <div class="user-bar-info">
+        <span class="user-bar-email" id="user-bar-email"></span>
+        <span class="role-badge" id="user-bar-role"></span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-icon" id="btn-logout">
+        Sair
+      </button>
+    </div>
+
+    <!-- ===== Tabs ===== -->
+    <!-- Mobile menu toggle button -->
+    <button type="button" id="mobile-menu-toggle" class="mobile-menu-btn" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path
+          d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+        </path>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+      </svg>
+      <span>Menu de Módulos</span>
+    </button>
+    <nav class="tabs" role="tablist" aria-label="Tabelas do sistema">
+      <button class="tab-btn active" data-tab="daily-ops" role="tab" aria-selected="true">
+        <span class="tab-index">01</span> Registros
+      </button>
+      <button class="tab-btn" data-tab="zips" role="tab" aria-selected="false">
+        <span class="tab-index">02</span> CEPs
+      </button>
+      <button class="tab-btn" data-tab="cepsearch" role="tab" aria-selected="false">
+        <span class="tab-index">03</span> Consulta de Endereços
+      </button>
+      <button class="tab-btn" data-tab="rules" role="tab" aria-selected="false">
+        <span class="tab-index">04</span> Regras de Numeração
+      </button>
+      <button class="tab-btn" data-tab="helpdesk" role="tab" aria-selected="false">
+        <span class="tab-index">05</span> Help Desk
+      </button>
+      <button class="tab-btn" data-tab="account" role="tab" aria-selected="false">
+        <span class="tab-index">06</span> Minha Conta
+      </button>
+      <button class="tab-btn supervisor-only hidden" id="funcionarios-tab" data-tab="funcionarios" role="tab"
+        aria-selected="false">
+        <span class="tab-index">07</span> Quadro de Funcionários
+      </button>
+      <button class="tab-btn admin-only hidden" id="metrics-tab" data-tab="metrics" role="tab" aria-selected="false">
+        <span class="tab-index">8</span> Supabase Metrics
+      </button>
+      <!-- <button
           class="tab-btn"
           id="geocoding-tab"
           data-tab="geocoding"
@@ -191,1912 +113,1240 @@
         >
           <span class="tab-index">09</span> Geocodificação
         </button> -->
-      </nav>
+    </nav>
 
-      <main>
-        <!-- ===== ZIP CODES ===== -->
-        <section id="panel-zips" class="panel" aria-labelledby="zips">
-          <div class="panel-toolbar">
-            <div class="search-field">
-              <input
-                type="search"
-                id="zips-search"
-                placeholder="Buscar por CEP ou logradouro&hellip;"
-              />
-            </div>
-            <div style="display: flex; gap: 10px">
-              <button class="btn btn-secondary" id="btn-new-street">
-                + Novo Logradouro
-              </button>
-              <button class="btn btn-primary" id="btn-new-zip">
-                + Novo CEP
-              </button>
-            </div>
+    <main>
+      <!-- ===== ZIP CODES ===== -->
+      <section id="panel-zips" class="panel" aria-labelledby="zips">
+        <div class="panel-toolbar">
+          <div class="search-field">
+            <input type="search" id="zips-search" placeholder="Buscar por CEP ou logradouro&hellip;" />
           </div>
-          <div class="manifest-frame">
-            <table class="manifest-table">
-              <thead>
-                <tr>
-                  <th>CEP</th>
-                  <th>Logradouro</th>
-                  <th>Bairros</th>
-                  <th class="col-actions">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="zips-tbody">
-                <tr class="loading-row">
-                  <td colspan="4">Carregando manifesto&hellip;</td>
-                </tr>
-              </tbody>
-            </table>
-            <p id="zips-empty" class="empty-state hidden">
-              Nenhum CEP encontrado.
-            </p>
-          </div>
-          <div class="pagination" id="zips-pagination">
-            <button
-              type="button"
-              class="btn btn-secondary btn-icon"
-              id="zips-prev"
-              disabled
-            >
-              &larr; Anterior
+          <div style="display: flex; gap: 10px">
+            <button class="btn btn-secondary" id="btn-new-street">
+              + Novo Logradouro
             </button>
-            <span id="zips-page-info" class="pagination-info">Página 1</span>
-            <button
-              type="button"
-              class="btn btn-secondary btn-icon"
-              id="zips-next"
-              disabled
-            >
-              Próxima &rarr;
+            <button class="btn btn-primary" id="btn-new-zip">
+              + Novo CEP
             </button>
           </div>
-        </section>
-
-        <!-- ===== CEP SEARCH ===== -->
-        <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
-          <div class="cepsearch-form">
-            <div class="field">
-              <label for="cepsearch-query">CEP, logradouro ou descrição</label>
-              <div class="combobox-field">
-                <input
-                  type="text"
-                  id="cepsearch-query"
-                  placeholder="Ex.: 88010-000, Felipe Schmidt, Centro&hellip;"
-                  autocomplete="off"
-                />
-                <div
-                  class="combobox-suggestions hidden"
-                  id="cepsearch-query-suggestions"
-                ></div>
-              </div>
-              <p class="field-hint" id="cepsearch-match-hint">
-                Digite para localizar o logradouro.
-              </p>
-            </div>
-            <div class="field">
-              <label for="cepsearch-number">Número do imóvel</label>
-              <input
-                type="number"
-                id="cepsearch-number"
-                min="0"
-                placeholder="Ex.: 123"
-                disabled
-              />
-              <p class="field-hint">Localize o logradouro primeiro.</p>
-            </div>
-          </div>
-
-          <div id="cepsearch-results" class="cepsearch-results hidden"></div>
-          <p id="cepsearch-empty" class="empty-state">
-            Busque um CEP, logradouro ou descrição para começar.
+        </div>
+        <div class="manifest-frame">
+          <table class="manifest-table">
+            <thead>
+              <tr>
+                <th>CEP</th>
+                <th>Logradouro</th>
+                <th>Bairros</th>
+                <th class="col-actions">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="zips-tbody">
+              <tr class="loading-row">
+                <td colspan="4">Carregando manifesto&hellip;</td>
+              </tr>
+            </tbody>
+          </table>
+          <p id="zips-empty" class="empty-state hidden">
+            Nenhum CEP encontrado.
           </p>
-        </section>
+        </div>
+        <div class="pagination" id="zips-pagination">
+          <button type="button" class="btn btn-secondary btn-icon" id="zips-prev" disabled>
+            &larr; Anterior
+          </button>
+          <span id="zips-page-info" class="pagination-info">Página 1</span>
+          <button type="button" class="btn btn-secondary btn-icon" id="zips-next" disabled>
+            Próxima &rarr;
+          </button>
+        </div>
+      </section>
 
-        <!-- ===== NUMBERING RULES ===== -->
-        <section id="panel-rules" class="panel" aria-labelledby="rules">
-          <div class="panel-toolbar">
-            <div class="rules-filter">
-              <div class="combobox-field" id="rules-filter-street-field">
-                <input
-                  type="text"
-                  id="rules-filter-street-search"
-                  autocomplete="off"
-                  placeholder="Filtrar por logradouro&hellip;"
-                />
-                <div
-                  class="combobox-suggestions hidden"
-                  id="rules-filter-street-suggestions"
-                ></div>
-              </div>
-              <select id="rules-filter-zip" disabled>
-                <option value="">Selecione um logradouro&hellip;</option>
-              </select>
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="rules-filter-clear"
-              >
-                Limpar filtro
-              </button>
+      <!-- ===== CEP SEARCH ===== -->
+      <section id="panel-cepsearch" class="panel" aria-labelledby="cepsearch">
+        <div class="cepsearch-form">
+          <div class="field">
+            <label for="cepsearch-query">CEP, logradouro ou descrição</label>
+            <div class="combobox-field">
+              <input type="text" id="cepsearch-query" placeholder="Ex.: 88010-000, Felipe Schmidt, Centro&hellip;"
+                autocomplete="off" />
+              <div class="combobox-suggestions hidden" id="cepsearch-query-suggestions"></div>
             </div>
-            <button class="btn btn-primary" id="btn-new-rule">
-              + Nova Regra
+            <p class="field-hint" id="cepsearch-match-hint">
+              Digite para localizar o logradouro.
+            </p>
+          </div>
+          <div class="field">
+            <label for="cepsearch-number">Número do imóvel</label>
+            <input type="number" id="cepsearch-number" min="0" placeholder="Ex.: 123" disabled />
+            <p class="field-hint">Localize o logradouro primeiro.</p>
+          </div>
+        </div>
+
+        <div id="cepsearch-results" class="cepsearch-results hidden"></div>
+        <p id="cepsearch-empty" class="empty-state">
+          Busque um CEP, logradouro ou descrição para começar.
+        </p>
+      </section>
+
+      <!-- ===== NUMBERING RULES ===== -->
+      <section id="panel-rules" class="panel" aria-labelledby="rules">
+        <div class="panel-toolbar">
+          <div class="rules-filter">
+            <div class="combobox-field" id="rules-filter-street-field">
+              <input type="text" id="rules-filter-street-search" autocomplete="off"
+                placeholder="Filtrar por logradouro&hellip;" />
+              <div class="combobox-suggestions hidden" id="rules-filter-street-suggestions"></div>
+            </div>
+            <select id="rules-filter-zip" disabled>
+              <option value="">Selecione um logradouro&hellip;</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-icon" id="rules-filter-clear">
+              Limpar filtro
+            </button>
+          </div>
+          <button class="btn btn-primary" id="btn-new-rule">
+            + Nova Regra
+          </button>
+        </div>
+        <div class="manifest-frame">
+          <table class="manifest-table">
+            <thead>
+              <tr>
+                <th>CEP</th>
+                <th>Logradouro</th>
+                <th>Início</th>
+                <th>Fim</th>
+                <th>Lado</th>
+                <th>Descrição</th>
+                <th class="col-actions">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="rules-tbody">
+              <tr class="loading-row">
+                <td colspan="7">Carregando manifesto&hellip;</td>
+              </tr>
+            </tbody>
+          </table>
+          <p id="rules-empty" class="empty-state hidden">
+            Nenhuma regra de numeração cadastrada ainda.
+          </p>
+        </div>
+        <!-- Pagination controls for numbering rules -->
+        <div class="pagination" id="rules-pagination">
+          <button type="button" class="btn btn-secondary btn-icon" id="rules-prev" disabled>
+            &larr; Anterior
+          </button>
+          <span id="rules-page-info" class="pagination-info">Página 1</span>
+          <button type="button" class="btn btn-secondary btn-icon" id="rules-next" disabled>
+            Próxima &rarr;
+          </button>
+        </div>
+      </section>
+
+      <!-- ===== DAILY OPERATION LOG ===== -->
+      <section id="panel-daily-ops" class="panel active" aria-labelledby="daily-ops">
+        <div class="panel-toolbar">
+          <div class="field daily-ops-date-field">
+            <label for="daily-ops-date">Data da operação</label>
+            <input type="date" id="daily-ops-date" />
+          </div>
+          <button type="button" class="btn btn-secondary btn-icon" id="daily-ops-today">
+            Hoje
+          </button>
+        </div>
+
+        <!-- KPI summary for the selected day -->
+        <div class="stats-grid" id="daily-ops-summary">
+          <div class="stat-card">
+            <div class="stat-title">Caminhões</div>
+            <div class="stat-value" id="dops-total-trucks">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">CDLs Recebidos</div>
+            <div class="stat-value" id="dops-total-cdls">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Malotes</div>
+            <div class="stat-value" id="dops-total-malotes">0</div>
+          </div>
+        </div>
+
+        <!-- Truck arrivals / CDLs -->
+        <div class="daily-ops-section">
+          <div class="daily-ops-section-header">
+            <h3>Chegada de Caminhões &amp; CDLs</h3>
+            <button type="button" class="btn btn-primary btn-icon" id="btn-new-truck">
+              + Registrar Caminhão
             </button>
           </div>
           <div class="manifest-frame">
             <table class="manifest-table">
               <thead>
                 <tr>
-                  <th>CEP</th>
-                  <th>Logradouro</th>
-                  <th>Início</th>
-                  <th>Fim</th>
-                  <th>Lado</th>
-                  <th>Descrição</th>
+                  <th>Horário</th>
+                  <th>Caminhão</th>
+                  <th>CDLs</th>
+                  <th>Obs.</th>
                   <th class="col-actions">Ações</th>
                 </tr>
               </thead>
-              <tbody id="rules-tbody">
+              <tbody id="daily-trucks-tbody">
                 <tr class="loading-row">
-                  <td colspan="7">Carregando manifesto&hellip;</td>
+                  <td colspan="5">Carregando&hellip;</td>
                 </tr>
               </tbody>
             </table>
-            <p id="rules-empty" class="empty-state hidden">
-              Nenhuma regra de numeração cadastrada ainda.
+            <p id="daily-trucks-empty" class="empty-state hidden">
+              Nenhum caminhão registrado nesta data.
             </p>
           </div>
-          <!-- Pagination controls for numbering rules -->
-          <div class="pagination" id="rules-pagination">
-            <button
-              type="button"
-              class="btn btn-secondary btn-icon"
-              id="rules-prev"
-              disabled
-            >
-              &larr; Anterior
-            </button>
-            <span id="rules-page-info" class="pagination-info">Página 1</span>
-            <button
-              type="button"
-              class="btn btn-secondary btn-icon"
-              id="rules-next"
-              disabled
-            >
-              Próxima &rarr;
-            </button>
-          </div>
-        </section>
+        </div>
 
-        <!-- ===== DAILY OPERATION LOG ===== -->
-        <section
-          id="panel-daily-ops"
-          class="panel active"
-          aria-labelledby="daily-ops"
-        >
-          <div class="panel-toolbar">
-            <div class="field daily-ops-date-field">
-              <label for="daily-ops-date">Data da operação</label>
-              <input type="date" id="daily-ops-date" />
-            </div>
-            <button
-              type="button"
-              class="btn btn-secondary btn-icon"
-              id="daily-ops-today"
-            >
-              Hoje
-            </button>
-          </div>
-
-          <!-- KPI summary for the selected day -->
-          <div class="stats-grid" id="daily-ops-summary">
-            <div class="stat-card">
-              <div class="stat-title">Caminhões</div>
-              <div class="stat-value" id="dops-total-trucks">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">CDLs Recebidos</div>
-              <div class="stat-value" id="dops-total-cdls">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Malotes</div>
-              <div class="stat-value" id="dops-total-malotes">0</div>
-            </div>
-          </div>
-
-          <!-- Truck arrivals / CDLs -->
-          <div class="daily-ops-section">
-            <div class="daily-ops-section-header">
-              <h3>Chegada de Caminhões &amp; CDLs</h3>
-              <button
-                type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-new-truck"
-              >
-                + Registrar Caminhão
+        <!-- Object scans at the LOEC computers -->
+        <div class="daily-ops-section">
+          <div class="daily-ops-section-header">
+            <h3>Objetos em LOEC Suspensa</h3>
+            <div>
+              <button type="button" class="btn btn-secondary btn-icon" id="btn-open-loec-analysis"
+                style="margin-right: 8px">
+                Analisar LOEC
+              </button>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-paste-loec">
+                + Registrar LOECs
               </button>
             </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Horário</th>
-                    <th>Caminhão</th>
-                    <th>CDLs</th>
-                    <th>Obs.</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="daily-trucks-tbody">
-                  <tr class="loading-row">
-                    <td colspan="5">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="daily-trucks-empty" class="empty-state hidden">
-                Nenhum caminhão registrado nesta data.
-              </p>
-            </div>
           </div>
 
-          <!-- Object scans at the LOEC computers -->
-          <div class="daily-ops-section">
-            <div class="daily-ops-section-header">
-              <h3>Objetos em LOEC Suspensa</h3>
-              <div>
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-icon"
-                  id="btn-open-loec-analysis"
-                  style="margin-right: 8px"
-                >
-                  Analisar LOEC
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary btn-icon"
-                  id="btn-paste-loec"
-                >
-                  + Registrar LOECs
-                </button>
-              </div>
-            </div>
-
-            <!-- Chart Container -->
-            <div
-              style="
+          <!-- Chart Container -->
+          <div style="
                 background: var(--paper-raised);
                 padding: 16px;
                 border: 2px solid var(--paper-line);
                 border-radius: var(--radius);
                 margin-bottom: 16px;
-              "
-            >
-              <canvas id="loec-chart" height="160"></canvas>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Horário</th>
-                    <th>Objetos</th>
-                    <th>Obs.</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="daily-scans-tbody">
-                  <tr class="loading-row">
-                    <td colspan="4">Carregandohellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="daily-scans-empty" class="empty-state hidden">
-                Sem registro de LOECs para esta data.
-              </p>
-            </div>
+              ">
+            <canvas id="loec-chart" height="160"></canvas>
           </div>
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>Horário</th>
+                  <th>Objetos</th>
+                  <th>Obs.</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="daily-scans-tbody">
+                <tr class="loading-row">
+                  <td colspan="4">Carregandohellip;</td>
+                </tr>
+              </tbody>
+            </table>
+            <p id="daily-scans-empty" class="empty-state hidden">
+              Sem registro de LOECs para esta data.
+            </p>
+          </div>
+        </div>
 
-          <!-- Malotes -->
-          <div class="daily-ops-section">
-            <div class="daily-ops-section-header">
-              <h3>Exportação de Malotes</h3>
-              <div>
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-icon"
-                  id="btn-analyze-malotes"
-                >
-                  Analisar Malotes
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary btn-icon"
-                  id="btn-paste-malote"
-                >
-                  + Registrar Malotes
-                </button>
-              </div>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Horário</th>
-                    <th>Carteiro</th>
-                    <th>Malotes</th>
-                    <th>Obs.</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="daily-malotes-tbody">
-                  <tr class="loading-row">
-                    <td colspan="5">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="daily-malotes-empty" class="empty-state hidden">
-                Nenhum malote registrado nesta data.
-              </p>
+        <!-- Malotes -->
+        <div class="daily-ops-section">
+          <div class="daily-ops-section-header">
+            <h3>Exportação de Malotes</h3>
+            <div>
+              <button type="button" class="btn btn-secondary btn-icon" id="btn-analyze-malotes">
+                Analisar Malotes
+              </button>
+              <button type="button" class="btn btn-primary btn-icon" id="btn-paste-malote">
+                + Registrar Malotes
+              </button>
             </div>
           </div>
-          <div class="daily-ops-section">
-            <div class="daily-ops-section-header">
-              <h3>Anotações da Operação</h3>
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>Horário</th>
+                  <th>Carteiro</th>
+                  <th>Malotes</th>
+                  <th>Obs.</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="daily-malotes-tbody">
+                <tr class="loading-row">
+                  <td colspan="5">Carregando&hellip;</td>
+                </tr>
+              </tbody>
+            </table>
+            <p id="daily-malotes-empty" class="empty-state hidden">
+              Nenhum malote registrado nesta data.
+            </p>
+          </div>
+        </div>
+        <div class="daily-ops-section">
+          <div class="daily-ops-section-header">
+            <h3>Anotações da Operação</h3>
+          </div>
+          <div class="manifest-frame" style="padding: 16px; background: var(--paper-raised)">
+            <!-- Quill Editor Container -->
+            <div class="editor-wrapper">
+              <div id="daily-notes-editor"></div>
             </div>
-            <div
-              class="manifest-frame"
-              style="padding: 16px; background: var(--paper-raised)"
-            >
-              <!-- Quill Editor Container -->
-              <div class="editor-wrapper">
-                <div id="daily-notes-editor"></div>
-              </div>
-              <div
-                style="
+            <div style="
                   display: flex;
                   justify-content: flex-end;
                   margin-top: 12px;
-                "
-              >
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  id="btn-save-notes"
-                >
-                  Salvar Anotações
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ===== MANUAL / ABOUT PAGE ===== -->
-        <!-- ===== HELP DESK (CHAMADOS) ===== -->
-        <section id="panel-helpdesk" class="panel" aria-labelledby="helpdesk">
-          <div
-            class="helpdesk-filter-bar"
-            id="helpdesk-filter-bar"
-            role="group"
-            aria-label="Filtrar chamados por status"
-          >
-            <button
-              type="button"
-              class="helpdesk-filter-btn active"
-              data-status=""
-            >
-              Todos
-            </button>
-            <button
-              type="button"
-              class="helpdesk-filter-btn"
-              data-status="aberto"
-            >
-              Em espera
-            </button>
-            <button
-              type="button"
-              class="helpdesk-filter-btn"
-              data-status="em_andamento"
-            >
-              Em andamento
-            </button>
-            <button
-              type="button"
-              class="helpdesk-filter-btn"
-              data-status="concluido_sucesso"
-            >
-              Concluídos (sucesso)
-            </button>
-            <button
-              type="button"
-              class="helpdesk-filter-btn"
-              data-status="concluido_sem_sucesso"
-            >
-              Concluídos (sem sucesso)
-            </button>
-          </div>
-
-          <div class="helpdesk-layout">
-            <div class="helpdesk-list-col">
-              <button
-                type="button"
-                class="btn btn-primary"
-                id="btn-new-helpdesk-ticket"
-              >
-                + Novo Chamado
-              </button>
-              <div id="helpdesk-ticket-list" class="helpdesk-ticket-list"></div>
-              <p id="helpdesk-list-empty" class="empty-state hidden">
-                Nenhum chamado encontrado.
-              </p>
-            </div>
-
-            <div class="helpdesk-detail-col">
-              <div id="helpdesk-detail-empty" class="helpdesk-detail-empty">
-                Selecione um chamado à esquerda para ver a conversa.
-              </div>
-
-              <div id="helpdesk-detail" class="helpdesk-detail hidden">
-                <div class="helpdesk-detail-header">
-                  <div class="helpdesk-detail-header-top">
-                    <h3 id="helpdesk-detail-title"></h3>
-                    <span
-                      id="helpdesk-detail-status"
-                      class="helpdesk-status-badge"
-                    ></span>
-                  </div>
-
-                  <div class="helpdesk-detail-header-meta">
-                    <span
-                      class="loec-type-chip"
-                      id="helpdesk-detail-category"
-                    ></span>
-                  </div>
-
-                  <!-- Color Legend for Profile Cards -->
-                  <div
-                    id="helpdesk-profile-legend"
-                    class="helpdesk-profile-legend hidden"
-                  >
-                    <div class="legend-item legend-carteiro">
-                      <div class="legend-color-box"></div>
-                      Carteiro
-                    </div>
-                    <div class="legend-item legend-supervisor">
-                      <div class="legend-color-box"></div>
-                      Supervisor
-                    </div>
-                  </div>
-
-                  <!-- New Flex Grid for Profile Cards -->
-                  <div class="helpdesk-profile-grid">
-                    <div
-                      id="helpdesk-detail-carteiro"
-                      class="helpdesk-detail-carteiro hidden"
-                    ></div>
-                    <div
-                      id="helpdesk-detail-supervisors"
-                      class="helpdesk-detail-supervisors hidden"
-                    ></div>
-                  </div>
-
-                  <div
-                    id="helpdesk-report-box"
-                    class="helpdesk-report-box hidden"
-                  >
-                    <strong>Relatório de conclusão</strong>
-                    <p id="helpdesk-report-text"></p>
-                  </div>
-
-                  <!-- Conclusion actions omitted for brevity, keep them as they are -->
-                  <div
-                    id="helpdesk-conclusion-actions"
-                    class="helpdesk-conclusion-actions hidden"
-                  >
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      id="btn-helpdesk-conclude-success"
-                    >
-                      Concluir com sucesso
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-danger"
-                      id="btn-helpdesk-conclude-failure"
-                    >
-                      Concluir sem sucesso
-                    </button>
-                  </div>
-                  <div
-                    id="helpdesk-reopen-action"
-                    class="helpdesk-conclusion-actions hidden"
-                  >
-                    <div
-                      id="helpdesk-reopen-action"
-                      class="helpdesk-conclusion-actions hidden"
-                    >
-                      <button
-                        type="button"
-                        class="btn btn-secondary"
-                        id="btn-helpdesk-reopen"
-                      >
-                        Reabrir chamado
-                      </button>
-                    </div>
-
-                    <div
-                      id="helpdesk-admin-actions"
-                      class="helpdesk-conclusion-actions hidden"
-                    >
-                      <button
-                        type="button"
-                        class="btn btn-danger"
-                        id="btn-helpdesk-delete"
-                      >
-                        Excluir Chamado
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div id="helpdesk-messages" class="helpdesk-messages"></div>
-
-                <div id="helpdesk-composer" class="helpdesk-composer-wrap">
-                  <form id="helpdesk-composer-form" class="helpdesk-composer">
-                    <div
-                      class="helpdesk-file-list"
-                      id="helpdesk-composer-files"
-                    ></div>
-                    <div class="helpdesk-composer-row">
-                      <textarea
-                        id="helpdesk-composer-text"
-                        rows="2"
-                        placeholder="Escreva uma mensagem..."
-                      ></textarea>
-                      <label
-                        class="btn btn-secondary btn-icon helpdesk-attach-btn"
-                        for="helpdesk-composer-file-input"
-                      >
-                        Anexar
-                      </label>
-                      <input
-                        type="file"
-                        id="helpdesk-composer-file-input"
-                        multiple
-                        class="hidden"
-                      />
-                      <button
-                        type="submit"
-                        class="btn btn-primary"
-                        id="helpdesk-composer-send"
-                      >
-                        Enviar
-                      </button>
-                    </div>
-                  </form>
-                </div>
-                <p
-                  id="helpdesk-closed-notice"
-                  class="helpdesk-closed-notice hidden"
-                >
-                  Este chamado está concluído e não aceita novas mensagens.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ===== QUADRO DE FUNCIONÁRIOS (ADMIN/SUPERVISOR ONLY) ===== -->
-        <section
-          id="panel-funcionarios"
-          class="panel"
-          aria-labelledby="funcionarios"
-        >
-          <nav
-            class="subtabs"
-            role="tablist"
-            aria-label="Seções do quadro de funcionários"
-          >
-            <button
-              type="button"
-              class="subtab-btn active"
-              data-subtab="func-list"
-              role="tab"
-              aria-selected="true"
-            >
-              Funcionários
-            </button>
-            <button
-              type="button"
-              class="subtab-btn"
-              data-subtab="func-presenca"
-              role="tab"
-              aria-selected="false"
-            >
-              Presença Diária
-            </button>
-            <button
-              type="button"
-              class="subtab-btn"
-              data-subtab="func-afastamentos"
-              role="tab"
-              aria-selected="false"
-            >
-              Afastamentos
-            </button>
-            <button
-              type="button"
-              class="subtab-btn"
-              data-subtab="func-calendario"
-              role="tab"
-              aria-selected="false"
-            >
-              Calendário
-            </button>
-          </nav>
-
-          <!-- Quick status summary: who's out today, at a glance -->
-          <div class="stats-grid" id="func-status-summary">
-            <div class="stat-card">
-              <div class="stat-title">Funcionários Ativos</div>
-              <div class="stat-value" id="func-stat-active">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">De Férias Hoje</div>
-              <div class="stat-value" id="func-stat-ferias">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">De Atestado Hoje</div>
-              <div class="stat-value" id="func-stat-atestado">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Próximas Férias (30 dias)</div>
-              <div class="stat-value" id="func-stat-upcoming">0</div>
-            </div>
-          </div>
-
-          <!-- ===== Sub-panel: employee registry (CRUD) ===== -->
-          <div id="subpanel-func-list" class="subpanel active">
-            <div class="panel-toolbar">
-              <div class="search-field">
-                <input
-                  type="search"
-                  id="func-search"
-                  placeholder="Buscar por nome, e-mail ou telefone&hellip;"
-                />
-              </div>
-              <div style="display: flex; gap: 10px; flex-wrap: wrap">
-                <select id="func-filter-type">
-                  <option value="">Todos os tipos</option>
-                  <option value="carteiro_interno">Carteiro Interno</option>
-                  <option value="carteiro_externo">Carteiro Externo</option>
-                  <option value="carteiro_emprestado">
-                    Carteiro Emprestado (outra sede)
-                  </option>
-                  <option value="terceirizado_interno">
-                    Terceirizado Interno
-                  </option>
-                  <option value="terceirizado_externo">
-                    Terceirizado Externo
-                  </option>
-                  <option value="motorista">Motorista</option>
-                  <option value="limpeza">Limpeza</option>
-                </select>
-                <select id="func-filter-active">
-                  <option value="active">Somente ativos</option>
-                  <option value="all">Todos (inclui desligados)</option>
-                  <option value="inactive">Somente desligados</option>
-                </select>
-                <button class="btn btn-primary btn-icon" id="btn-new-func">
-                  + Novo Funcionário
-                </button>
-              </div>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th>Tipo</th>
-                    <th>Telefone</th>
-                    <th>E-mail</th>
-                    <th>Situação</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="func-tbody">
-                  <tr class="loading-row">
-                    <td colspan="6">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="func-empty" class="empty-state hidden">
-                Nenhum funcionário encontrado.
-              </p>
-            </div>
-            <div class="pagination" id="func-pagination">
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="func-prev"
-                disabled
-              >
-                &larr; Anterior
-              </button>
-              <span id="func-page-info" class="pagination-info">Página 1</span>
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="func-next"
-                disabled
-              >
-                Próxima &rarr;
+                ">
+              <button type="button" class="btn btn-primary" id="btn-save-notes">
+                Salvar Anotações
               </button>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- ===== Sub-panel: daily attendance register ===== -->
-          <div id="subpanel-func-presenca" class="subpanel hidden">
-            <div class="panel-toolbar">
-              <div class="field daily-ops-date-field">
-                <label for="func-presenca-date">Data</label>
-                <input type="date" id="func-presenca-date" />
-              </div>
-              <div class="field">
-                <label for="func-presenca-filter-type">Tipo</label>
-                <select id="func-presenca-filter-type">
-                  <option value="">Todos os tipos</option>
-                  <option value="carteiro_interno">Carteiro Interno</option>
-                  <option value="carteiro_externo">Carteiro Externo</option>
-                  <option value="carteiro_emprestado">
-                    Carteiro Emprestado
-                  </option>
-                  <option value="terceirizado_interno">
-                    Terceirizado Interno
-                  </option>
-                  <option value="terceirizado_externo">
-                    Terceirizado Externo
-                  </option>
-                  <option value="motorista">Motorista</option>
-                  <option value="limpeza">Limpeza</option>
-                </select>
-              </div>
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="func-presenca-today"
-              >
-                Hoje
-              </button>
-              <button
-                type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-save-presenca"
-              >
-                Salvar Presenças
-              </button>
-            </div>
-            <p class="field-hint">
-              Marque a situação de cada funcionário nesta data. Funcionários com
-              férias ou atestado já registrado para o dia aparecem pré-marcados
-              automaticamente.
+      <!-- ===== MANUAL / ABOUT PAGE ===== -->
+      <!-- ===== HELP DESK (CHAMADOS) ===== -->
+      <section id="panel-helpdesk" class="panel" aria-labelledby="helpdesk">
+        <div class="helpdesk-filter-bar" id="helpdesk-filter-bar" role="group" aria-label="Filtrar chamados por status">
+          <button type="button" class="helpdesk-filter-btn active" data-status="">
+            Todos
+          </button>
+          <button type="button" class="helpdesk-filter-btn" data-status="aberto">
+            Em espera
+          </button>
+          <button type="button" class="helpdesk-filter-btn" data-status="em_andamento">
+            Em andamento
+          </button>
+          <button type="button" class="helpdesk-filter-btn" data-status="concluido_sucesso">
+            Concluídos (sucesso)
+          </button>
+          <button type="button" class="helpdesk-filter-btn" data-status="concluido_sem_sucesso">
+            Concluídos (sem sucesso)
+          </button>
+        </div>
+
+        <div class="helpdesk-layout">
+          <div class="helpdesk-list-col">
+            <button type="button" class="btn btn-primary" id="btn-new-helpdesk-ticket">
+              + Novo Chamado
+            </button>
+            <div id="helpdesk-ticket-list" class="helpdesk-ticket-list"></div>
+            <p id="helpdesk-list-empty" class="empty-state hidden">
+              Nenhum chamado encontrado.
             </p>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th>Tipo</th>
-                    <th>Situação</th>
-                    <th>Observação</th>
-                  </tr>
-                </thead>
-                <tbody id="func-presenca-tbody">
-                  <tr class="loading-row">
-                    <td colspan="4">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="func-presenca-empty" class="empty-state hidden">
-                Nenhum funcionário ativo cadastrado.
+          </div>
+
+          <div class="helpdesk-detail-col">
+            <div id="helpdesk-detail-empty" class="helpdesk-detail-empty">
+              Selecione um chamado à esquerda para ver a conversa.
+            </div>
+
+            <div id="helpdesk-detail" class="helpdesk-detail hidden">
+              <div class="helpdesk-detail-header">
+                <div class="helpdesk-detail-header-top">
+                  <h3 id="helpdesk-detail-title"></h3>
+                  <span id="helpdesk-detail-status" class="helpdesk-status-badge"></span>
+                </div>
+
+                <div class="helpdesk-detail-header-meta">
+                  <span class="loec-type-chip" id="helpdesk-detail-category"></span>
+                </div>
+
+                <!-- Color Legend for Profile Cards -->
+                <div id="helpdesk-profile-legend" class="helpdesk-profile-legend hidden">
+                  <div class="legend-item legend-carteiro">
+                    <div class="legend-color-box"></div>
+                    Carteiro
+                  </div>
+                  <div class="legend-item legend-supervisor">
+                    <div class="legend-color-box"></div>
+                    Supervisor
+                  </div>
+                </div>
+
+                <!-- New Flex Grid for Profile Cards -->
+                <div class="helpdesk-profile-grid">
+                  <div id="helpdesk-detail-carteiro" class="helpdesk-detail-carteiro hidden"></div>
+                  <div id="helpdesk-detail-supervisors" class="helpdesk-detail-supervisors hidden"></div>
+                </div>
+
+                <div id="helpdesk-report-box" class="helpdesk-report-box hidden">
+                  <strong>Relatório de conclusão</strong>
+                  <p id="helpdesk-report-text"></p>
+                </div>
+
+                <!-- Conclusion actions omitted for brevity, keep them as they are -->
+                <div id="helpdesk-conclusion-actions" class="helpdesk-conclusion-actions hidden">
+                  <button type="button" class="btn btn-primary" id="btn-helpdesk-conclude-success">
+                    Concluir com sucesso
+                  </button>
+                  <button type="button" class="btn btn-danger" id="btn-helpdesk-conclude-failure">
+                    Concluir sem sucesso
+                  </button>
+                </div>
+                <div id="helpdesk-reopen-action" class="helpdesk-conclusion-actions hidden">
+                  <div id="helpdesk-reopen-action" class="helpdesk-conclusion-actions hidden">
+                    <button type="button" class="btn btn-secondary" id="btn-helpdesk-reopen">
+                      Reabrir chamado
+                    </button>
+                  </div>
+
+                  <div id="helpdesk-admin-actions" class="helpdesk-conclusion-actions hidden">
+                    <button type="button" class="btn btn-danger" id="btn-helpdesk-delete">
+                      Excluir Chamado
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="helpdesk-messages" class="helpdesk-messages"></div>
+
+              <div id="helpdesk-composer" class="helpdesk-composer-wrap">
+                <form id="helpdesk-composer-form" class="helpdesk-composer">
+                  <div class="helpdesk-file-list" id="helpdesk-composer-files"></div>
+                  <div class="helpdesk-composer-row">
+                    <textarea id="helpdesk-composer-text" rows="2" placeholder="Escreva uma mensagem..."></textarea>
+                    <label class="btn btn-secondary btn-icon helpdesk-attach-btn" for="helpdesk-composer-file-input">
+                      Anexar
+                    </label>
+                    <input type="file" id="helpdesk-composer-file-input" multiple class="hidden" />
+                    <button type="submit" class="btn btn-primary" id="helpdesk-composer-send">
+                      Enviar
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <p id="helpdesk-closed-notice" class="helpdesk-closed-notice hidden">
+                Este chamado está concluído e não aceita novas mensagens.
               </p>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- ===== Sub-panel: leave (férias/atestado) management ===== -->
-          <div id="subpanel-func-afastamentos" class="subpanel hidden">
-            <div class="panel-toolbar">
-              <div style="display: flex; gap: 10px; flex-wrap: wrap">
-                <select id="func-leaves-filter-type">
-                  <option value="">Todos os afastamentos</option>
-                  <option value="ferias">Só férias</option>
-                  <option value="atestado">Só atestados</option>
-                </select>
-                <select id="func-leaves-filter-status">
-                  <option value="">Qualquer período</option>
-                  <option value="current">Em andamento</option>
-                  <option value="upcoming">Futuros</option>
-                  <option value="past">Encerrados</option>
-                </select>
-              </div>
-              <button class="btn btn-primary btn-icon" id="btn-new-leave">
-                + Registrar Afastamento
-              </button>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Funcionário</th>
-                    <th>Tipo</th>
-                    <th>Início</th>
-                    <th>Fim</th>
-                    <th>Motivo</th>
-                    <th>Status</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="func-leaves-tbody">
-                  <tr class="loading-row">
-                    <td colspan="7">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="func-leaves-empty" class="empty-state hidden">
-                Nenhum afastamento encontrado.
-              </p>
-            </div>
+      <!-- ===== QUADRO DE FUNCIONÁRIOS (ADMIN/SUPERVISOR ONLY) ===== -->
+      <section id="panel-funcionarios" class="panel" aria-labelledby="funcionarios">
+        <nav class="subtabs" role="tablist" aria-label="Seções do quadro de funcionários">
+          <button type="button" class="subtab-btn active" data-subtab="func-list" role="tab" aria-selected="true">
+            Funcionários
+          </button>
+          <button type="button" class="subtab-btn" data-subtab="func-presenca" role="tab" aria-selected="false">
+            Presença Diária
+          </button>
+          <button type="button" class="subtab-btn" data-subtab="func-upload-ponto" role="tab" aria-selected="false">
+            Upload de Ponto
+          </button>
+        </nav>
+
+        <!-- Quick status summary: who's out today, at a glance -->
+        <div class="stats-grid" id="func-status-summary">
+          <div class="stat-card">
+            <div class="stat-title">Funcionários Ativos</div>
+            <div class="stat-value" id="func-stat-active">0</div>
           </div>
-
-          <!-- ===== Sub-panel: leave calendar ===== -->
-          <div id="subpanel-func-calendario" class="subpanel hidden">
-            <div class="func-calendar-toolbar">
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="func-cal-prev"
-              >
-                &larr;
-              </button>
-              <h3 id="func-cal-label">&nbsp;</h3>
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="func-cal-next"
-              >
-                &rarr;
-              </button>
-              <button
-                type="button"
-                class="btn btn-secondary btn-icon"
-                id="func-cal-today"
-              >
-                Hoje
-              </button>
-              <div
-                class="func-cal-view-switch"
-                role="tablist"
-                aria-label="Visualização do calendário"
-              >
-                <button
-                  type="button"
-                  class="func-cal-view-btn"
-                  data-cal-view="day"
-                >
-                  Dia
-                </button>
-                <button
-                  type="button"
-                  class="func-cal-view-btn"
-                  data-cal-view="3day"
-                >
-                  3 Dias
-                </button>
-                <button
-                  type="button"
-                  class="func-cal-view-btn active"
-                  data-cal-view="week"
-                >
-                  Semana
-                </button>
-                <button
-                  type="button"
-                  class="func-cal-view-btn"
-                  data-cal-view="month"
-                >
-                  Mês
-                </button>
-              </div>
-              <button
-                type="button"
-                class="btn btn-primary btn-icon"
-                id="btn-new-cal-event"
-              >
-                + Novo Evento/Lembrete
-              </button>
-              <div class="func-calendar-legend">
-                <span class="func-cal-legend-item"
-                  ><span class="func-cal-dot func-cal-dot-ferias"></span
-                  >Férias</span
-                >
-                <span class="func-cal-legend-item"
-                  ><span class="func-cal-dot func-cal-dot-atestado"></span
-                  >Atestado</span
-                >
-                <span class="func-cal-legend-item"
-                  ><span class="func-cal-dot func-cal-dot-evento"></span
-                  >Evento/Lembrete</span
-                >
-              </div>
-            </div>
-            <div class="func-calendar-grid" id="func-calendar-grid">
-              <div class="empty-state">Carregando calendário&hellip;</div>
-            </div>
-
-            <div class="func-events-list-header">
-              <h4>Eventos e Lembretes do Mês</h4>
-            </div>
-            <div class="manifest-frame">
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Título</th>
-                    <th>Período</th>
-                    <th>Descrição</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="func-events-tbody">
-                  <tr class="loading-row">
-                    <td colspan="4">Carregando&hellip;</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p id="func-events-empty" class="empty-state hidden">
-                Nenhum evento ou lembrete cadastrado neste mês.
-              </p>
-            </div>
+          <div class="stat-card">
+            <div class="stat-title">De Férias Hoje</div>
+            <div class="stat-value" id="func-stat-ferias">0</div>
           </div>
-        </section>
+          <div class="stat-card">
+            <div class="stat-title">De Atestado Hoje</div>
+            <div class="stat-value" id="func-stat-atestado">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Próximas Férias (30 dias)</div>
+            <div class="stat-value" id="func-stat-upcoming">0</div>
+          </div>
+        </div>
 
-        <!-- ===== MINHA CONTA (PERFIL DO USUÁRIO) ===== -->
-        <section id="panel-account" class="panel" aria-labelledby="account">
-          <form id="account-form" class="account-form">
-            <p id="account-status" class="account-status hidden"></p>
-
-            <div class="field-row">
-              <div class="field">
-                <label for="account-full-name">Nome completo</label>
-                <input
-                  type="text"
-                  id="account-full-name"
-                  maxlength="150"
-                  placeholder="Seu nome completo"
-                />
-              </div>
-              <div class="field">
-                <label for="account-phone">Telefone</label>
-                <input
-                  type="text"
-                  id="account-phone"
-                  maxlength="30"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="account-contact-email">E-mail de contato</label>
-              <input
-                type="email"
-                id="account-contact-email"
-                maxlength="150"
-                placeholder="seuemail@exemplo.com"
-              />
-            </div>
-
-            <div class="modal-actions account-actions">
-              <button
-                type="button"
-                class="btn btn-danger hidden"
-                id="btn-account-delete"
-              >
-                Excluir meus dados
-              </button>
-              <button
-                type="submit"
-                class="btn btn-primary"
-                id="btn-account-save"
-              >
-                Salvar
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <!-- ===== SUPABASE METRICS DASHBOARD (ADMIN ONLY) ===== -->
-        <section
-          id="panel-metrics"
-          class="panel admin-only"
-          aria-labelledby="metrics"
-        >
+        <!-- ===== Sub-panel: employee registry (CRUD) ===== -->
+        <div id="subpanel-func-list" class="subpanel active">
           <div class="panel-toolbar">
-            <div>
-              <h2 class="manual-title" style="margin-bottom: 0">
-                Network Metrics
-              </h2>
-              <p class="subtitle" style="margin-top: 4px">
-                Monitor Supabase client requests.
-              </p>
+            <div class="search-field">
+              <input type="search" id="func-search" placeholder="Buscar por nome, e-mail ou telefone&hellip;" />
             </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap">
+              <select id="func-filter-type">
+                <option value="">Todos os tipos</option>
+                <option value="terceirizado_interno">
+                  Terceirizado Interno
+                </option>
+                <option value="terceirizado_externo">
+                  Terceirizado Externo
+                </option>
+              </select>
+              <select id="func-filter-active">
+                <option value="active">Somente ativos</option>
+                <option value="all">Todos (inclui desligados)</option>
+                <option value="inactive">Somente desligados</option>
+              </select>
+              <button class="btn btn-primary btn-icon" id="btn-new-func">
+                + Novo Funcionário
+              </button>
+            </div>
+          </div>
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Tipo</th>
+                  <th>Telefone</th>
+                  <th>E-mail</th>
+                  <th>Situação</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="func-tbody">
+                <tr class="loading-row">
+                  <td colspan="6">Carregando&hellip;</td>
+                </tr>
+              </tbody>
+            </table>
+            <p id="func-empty" class="empty-state hidden">
+              Nenhum funcionário encontrado.
+            </p>
+          </div>
+          <div class="pagination" id="func-pagination">
+            <button type="button" class="btn btn-secondary btn-icon" id="func-prev" disabled>
+              &larr; Anterior
+            </button>
+            <span id="func-page-info" class="pagination-info">Página 1</span>
+            <button type="button" class="btn btn-secondary btn-icon" id="func-next" disabled>
+              Próxima &rarr;
+            </button>
+          </div>
+        </div>
 
-            <div
-              style="
+        <!-- ===== Sub-panel: daily attendance register ===== -->
+        <div id="subpanel-func-presenca" class="subpanel hidden">
+          <div class="panel-toolbar">
+            <div class="field daily-ops-date-field">
+              <label for="func-presenca-date">Data</label>
+              <input type="date" id="func-presenca-date" />
+            </div>
+            <div class="field">
+              <label for="func-presenca-filter-type">Tipo</label>
+              <select id="func-presenca-filter-type">
+                <option value="">Todos os tipos</option>
+                <option value="terceirizado_interno">
+                  Terceirizado Interno
+                </option>
+                <option value="terceirizado_externo">
+                  Terceirizado Externo
+                </option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-secondary btn-icon" id="func-presenca-today">
+              Hoje
+            </button>
+            <button type="button" class="btn btn-primary btn-icon" id="btn-save-presenca">
+              Salvar Presenças
+            </button>
+          </div>
+          <p class="field-hint">
+            Marque a situação de cada funcionário nesta data. Funcionários com
+            férias ou atestado já registrado para o dia aparecem pré-marcados
+            automaticamente.
+          </p>
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Tipo</th>
+                  <th>Situação</th>
+                  <th>Observação</th>
+                </tr>
+              </thead>
+              <tbody id="func-presenca-tbody">
+                <tr class="loading-row">
+                  <td colspan="4">Carregando&hellip;</td>
+                </tr>
+              </tbody>
+            </table>
+            <p id="func-presenca-empty" class="empty-state hidden">
+              Nenhum funcionário ativo cadastrado.
+            </p>
+          </div>
+        </div>
+
+
+        <!-- ===== Sub-panel: Upload e Extração de Ponto ===== -->
+        <div id="subpanel-func-upload-ponto" class="subpanel hidden">
+          <div class="panel-toolbar">
+            <div class="field" style="margin-bottom: 0; flex: 1;">
+              <label for="ponto-file-upload">Selecione o arquivo do Relógio de Ponto (AFD .txt)</label>
+              <input type="file" id="ponto-file-upload" accept=".txt" style="max-width: 400px;" />
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+              <button type="button" class="btn btn-primary" id="btn-process-ponto">
+                Extrair Registros
+              </button>
+            </div>
+          </div>
+
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>PIS/Identificador</th>
+                  <th>Nome do Empregado</th>
+                  <th>Total de Marcações</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="ponto-results-tbody">
+                <tr class="empty-state">
+                  <td colspan="4">Nenhum arquivo processado ainda. Faça o upload acima.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MINHA CONTA (PERFIL DO USUÁRIO) ===== -->
+      <section id="panel-account" class="panel" aria-labelledby="account">
+        <form id="account-form" class="account-form">
+          <p id="account-status" class="account-status hidden"></p>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="account-full-name">Nome completo</label>
+              <input type="text" id="account-full-name" maxlength="150" placeholder="Seu nome completo" />
+            </div>
+            <div class="field">
+              <label for="account-phone">Telefone</label>
+              <input type="text" id="account-phone" maxlength="30" placeholder="(00) 00000-0000" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="account-contact-email">E-mail de contato</label>
+            <input type="email" id="account-contact-email" maxlength="150" placeholder="seuemail@exemplo.com" />
+          </div>
+
+          <div class="modal-actions account-actions">
+            <button type="button" class="btn btn-danger hidden" id="btn-account-delete">
+              Excluir meus dados
+            </button>
+            <button type="submit" class="btn btn-primary" id="btn-account-save">
+              Salvar
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ===== SUPABASE METRICS DASHBOARD (ADMIN ONLY) ===== -->
+      <section id="panel-metrics" class="panel admin-only" aria-labelledby="metrics">
+        <div class="panel-toolbar">
+          <div>
+            <h2 class="manual-title" style="margin-bottom: 0">
+              Network Metrics
+            </h2>
+            <p class="subtitle" style="margin-top: 4px">
+              Monitor Supabase client requests.
+            </p>
+          </div>
+
+          <div style="
                 display: flex;
                 gap: 16px;
                 align-items: center;
                 flex-wrap: wrap;
-              "
-            >
-              <!-- View Toggle Group -->
-              <div
-                class="loec-analysis-sort-group"
-                role="group"
-                aria-label="Metrics View"
-              >
-                <button
-                  type="button"
-                  class="btn btn-primary btn-icon"
-                  id="btn-view-local"
-                >
-                  Local Session
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-icon"
-                  id="btn-view-global"
-                >
-                  Global (24h)
-                </button>
-              </div>
-
-              <button
-                type="button"
-                class="btn btn-primary"
-                id="btn-refresh-metrics"
-              >
-                Refresh Data
+              ">
+            <!-- View Toggle Group -->
+            <div class="loec-analysis-sort-group" role="group" aria-label="Metrics View">
+              <button type="button" class="btn btn-primary btn-icon" id="btn-view-local">
+                Local Session
+              </button>
+              <button type="button" class="btn btn-secondary btn-icon" id="btn-view-global">
+                Global (24h)
               </button>
             </div>
-          </div>
 
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-title">Total Requests</div>
-              <div class="stat-value" id="metric-total-req">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Avg Response Time</div>
-              <div class="stat-value" id="metric-avg-time">
-                0<span style="font-size: 1rem">ms</span>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Success Rate</div>
-              <div class="stat-value" id="metric-success-rate">
-                0<span style="font-size: 1rem">%</span>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Req / Min</div>
-              <div class="stat-value" id="metric-rpm">0</div>
+            <button type="button" class="btn btn-primary" id="btn-refresh-metrics">
+              Refresh Data
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-title">Total Requests</div>
+            <div class="stat-value" id="metric-total-req">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Avg Response Time</div>
+            <div class="stat-value" id="metric-avg-time">
+              0<span style="font-size: 1rem">ms</span>
             </div>
           </div>
+          <div class="stat-card">
+            <div class="stat-title">Success Rate</div>
+            <div class="stat-value" id="metric-success-rate">
+              0<span style="font-size: 1rem">%</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Req / Min</div>
+            <div class="stat-value" id="metric-rpm">0</div>
+          </div>
+        </div>
 
-          <div class="stats-columns" style="margin-bottom: 24px">
-            <!-- HTTP Methods Doughnut Chart -->
-            <div class="loec-report-chart-box">
-              <div class="stats-section-header">HTTP Methods</div>
-              <div
-                style="
+        <div class="stats-columns" style="margin-bottom: 24px">
+          <!-- HTTP Methods Doughnut Chart -->
+          <div class="loec-report-chart-box">
+            <div class="stats-section-header">HTTP Methods</div>
+            <div style="
                   position: relative;
                   height: 220px;
                   width: 100%;
                   margin-top: 10px;
-                "
-              >
-                <canvas id="metrics-method-chart"></canvas>
-              </div>
+                ">
+              <canvas id="metrics-method-chart"></canvas>
             </div>
+          </div>
 
-            <!-- Status Codes Bar Chart -->
-            <div class="loec-report-chart-box">
-              <div class="stats-section-header">Status Codes</div>
-              <div
-                style="
+          <!-- Status Codes Bar Chart -->
+          <div class="loec-report-chart-box">
+            <div class="stats-section-header">Status Codes</div>
+            <div style="
                   position: relative;
                   height: 220px;
                   width: 100%;
                   margin-top: 10px;
-                "
-              >
-                <canvas id="metrics-status-chart"></canvas>
-              </div>
+                ">
+              <canvas id="metrics-status-chart"></canvas>
             </div>
           </div>
+        </div>
 
-          <!-- Top 10 Endpoints Table -->
-          <div
-            class="manifest-frame stats-table-wrapper"
-            style="margin-bottom: 24px"
-          >
-            <div class="stats-section-header">Top 10 Endpoints</div>
-            <table class="manifest-table">
-              <thead>
-                <tr>
-                  <th>Endpoint</th>
-                  <th class="col-actions">Requests</th>
-                </tr>
-              </thead>
-              <tbody id="metrics-top-endpoints-tbody">
-                <tr class="empty-state">
-                  <td colspan="2">No endpoints recorded yet.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="manifest-frame stats-table-wrapper">
-            <div class="stats-section-header">Recent Requests Log</div>
-            <table class="manifest-table">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Method</th>
-                  <th>Status</th>
-                  <th>Duration</th>
-                  <th>Endpoint</th>
-                </tr>
-              </thead>
-              <tbody id="metrics-log-tbody">
-                <tr class="empty-state">
-                  <td colspan="5">No requests recorded yet.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <!-- Top 10 Endpoints Table -->
+        <div class="manifest-frame stats-table-wrapper" style="margin-bottom: 24px">
+          <div class="stats-section-header">Top 10 Endpoints</div>
+          <table class="manifest-table">
+            <thead>
+              <tr>
+                <th>Endpoint</th>
+                <th class="col-actions">Requests</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-top-endpoints-tbody">
+              <tr class="empty-state">
+                <td colspan="2">No endpoints recorded yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="manifest-frame stats-table-wrapper">
+          <div class="stats-section-header">Recent Requests Log</div>
+          <table class="manifest-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Endpoint</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-log-tbody">
+              <tr class="empty-state">
+                <td colspan="5">No requests recorded yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        <!-- ===== GEOCODING ===== -->
-        <section id="panel-geocoding" class="panel hidden aria-labelledby="geocoding">
-          <nav
-            class="subtabs"
-            role="tablist"
-            aria-label="Seções de geocodificação"
-          >
-            <button
-              type="button"
-              class="subtab-btn active"
-              data-subtab="geo-single"
-              role="tab"
-              aria-selected="true"
-            >
-              Consulta Individual
-            </button>
-            <button
-              type="button"
-              class="subtab-btn"
-              data-subtab="geo-batch"
-              role="tab"
-              aria-selected="false"
-            >
-              Consulta em Lote
-            </button>
-            <button
-              type="button"
-              class="subtab-btn"
-              data-subtab="geo-route"
-              role="tab"
-              aria-selected="false"
-            >
-              Otimização de Rota
-            </button>
-          </nav>
+      <!-- ===== GEOCODING ===== -->
+      <section id="panel-geocoding" class="panel hidden aria-labelledby=" geocoding">
+        <nav class="subtabs" role="tablist" aria-label="Seções de geocodificação">
+          <button type="button" class="subtab-btn active" data-subtab="geo-single" role="tab" aria-selected="true">
+            Consulta Individual
+          </button>
+          <button type="button" class="subtab-btn" data-subtab="geo-batch" role="tab" aria-selected="false">
+            Consulta em Lote
+          </button>
+          <button type="button" class="subtab-btn" data-subtab="geo-route" role="tab" aria-selected="false">
+            Otimização de Rota
+          </button>
+        </nav>
 
-          <!-- ===== Sub-panel: single CEP + number lookup ===== -->
-          <div id="subpanel-geo-single" class="subpanel active">
-            <form id="geo-single-form" class="cepsearch-form">
-              <div class="field">
-                <label for="geo-single-cep">CEP</label>
-                <input
-                  type="text"
-                  id="geo-single-cep"
-                  placeholder="Ex.: 88056-300"
-                  autocomplete="off"
-                  required
-                />
-                <p class="field-hint">Informe um CEP da base (880XX-XXX).</p>
-              </div>
-              <div class="field">
-                <label for="geo-single-number">Número do imóvel</label>
-                <input
-                  type="text"
-                  id="geo-single-number"
-                  placeholder="Ex.: 123 (deixe em branco para S/N)"
-                  autocomplete="off"
-                />
-                <p class="field-hint">Opcional. Sem número, usamos "S/N".</p>
-              </div>
-            </form>
-            <div style="margin-bottom: 18px">
-              <button
-                type="submit"
-                form="geo-single-form"
-                class="btn btn-primary"
-                id="geo-single-submit"
-              >
-                Buscar Coordenadas
-              </button>
-            </div>
-
-            <div id="geo-single-result" class="geo-result-card hidden"></div>
-            <p id="geo-single-empty" class="empty-state">
-              Informe um CEP para localizar as coordenadas.
-            </p>
-          </div>
-
-          <!-- ===== Sub-panel: batch lookup from pasted table text ===== -->
-          <div id="subpanel-geo-batch" class="subpanel hidden">
+        <!-- ===== Sub-panel: single CEP + number lookup ===== -->
+        <div id="subpanel-geo-single" class="subpanel active">
+          <form id="geo-single-form" class="cepsearch-form">
             <div class="field">
-              <label for="geo-batch-input"
-                >Colar dados (formato de tabela, colunas separadas por
-                tabulação)</label
-              >
-              <textarea
-                id="geo-batch-input"
-                rows="8"
-                placeholder="Cole aqui as linhas copiadas da planilha, com colunas de Endereço e CEP&hellip;"
-              ></textarea>
-              <p class="field-hint">
-                Detectamos automaticamente a coluna de CEP e usamos a coluna
-                anterior como Endereço, extraindo o número do final (ou "S/N").
-              </p>
+              <label for="geo-single-cep">CEP</label>
+              <input type="text" id="geo-single-cep" placeholder="Ex.: 88056-300" autocomplete="off" required />
+              <p class="field-hint">Informe um CEP da base (880XX-XXX).</p>
             </div>
-
-            <div class="panel-toolbar">
-              <div
-                class="field-row"
-                style="align-items: flex-end; gap: 16px; margin-bottom: 0"
-              >
-                <div class="field" style="margin-bottom: 0; max-width: 220px">
-                  <label for="geo-batch-concurrency"
-                    >Requisições simultâneas</label
-                  >
-                  <input
-                    type="number"
-                    id="geo-batch-concurrency"
-                    min="1"
-                    max="20"
-                    value="20"
-                  />
-                </div>
-              </div>
-              <div style="display: flex; gap: 10px">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  id="geo-batch-cancel"
-                  disabled
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  id="geo-batch-run"
-                >
-                  Processar em Lote
-                </button>
-              </div>
+            <div class="field">
+              <label for="geo-single-number">Número do imóvel</label>
+              <input type="text" id="geo-single-number" placeholder="Ex.: 123 (deixe em branco para S/N)"
+                autocomplete="off" />
+              <p class="field-hint">Opcional. Sem número, usamos "S/N".</p>
             </div>
-
-            <div
-              class="stats-grid"
-              id="geo-batch-summary"
-              style="display: none"
-            >
-              <div class="stat-card">
-                <div class="stat-title">Total</div>
-                <div class="stat-value" id="geo-batch-stat-total">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Processados</div>
-                <div class="stat-value" id="geo-batch-stat-done">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Sucesso</div>
-                <div class="stat-value" id="geo-batch-stat-success">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Erros</div>
-                <div class="stat-value" id="geo-batch-stat-error">0</div>
-              </div>
-            </div>
-
-            <div class="geo-progress hidden" id="geo-batch-progress">
-              <div class="geo-progress-bar">
-                <div
-                  class="geo-progress-bar-fill"
-                  id="geo-batch-progress-fill"
-                ></div>
-              </div>
-            </div>
-
-            <div
-              class="manifest-frame"
-              id="geo-batch-results-frame"
-              style="display: none"
-            >
-              <table class="manifest-table">
-                <thead>
-                  <tr>
-                    <th>Objeto</th>
-                    <th>Endereço</th>
-                    <th>Número</th>
-                    <th>CEP</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>Origem</th>
-                    <th class="col-actions">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="geo-batch-tbody"></tbody>
-              </table>
-            </div>
-            <p id="geo-batch-empty" class="empty-state">
-              Cole os dados acima e clique em "Processar em Lote" para começar.
-            </p>
+          </form>
+          <div style="margin-bottom: 18px">
+            <button type="submit" form="geo-single-form" class="btn btn-primary" id="geo-single-submit">
+              Buscar Coordenadas
+            </button>
           </div>
-          <!-- Add the new Route Optimization subpanel -->
-          <div id="subpanel-geo-route" class="subpanel hidden">
-            <div class="cepsearch-split-layout">
-              <!-- Left Column: Input Form and List -->
-              <div class="cepsearch-results-col">
-                <!-- Manual Input Form -->
-                <form
-                  id="geo-route-manual-form"
-                  class="cepsearch-form"
-                  style="grid-template-columns: 1fr 1fr 1fr"
-                >
-                  <div class="field">
-                    <label for="geo-route-code"
-                      >Cód. Encomenda (Opcional)</label
-                    >
-                    <input
-                      type="text"
-                      id="geo-route-code"
-                      placeholder="Ex: AP026280784BR"
-                      autocomplete="off"
-                    />
-                  </div>
-                  <div class="field">
-                    <label for="geo-route-cep">CEP (Obrigatório)</label>
-                    <input
-                      type="text"
-                      id="geo-route-cep"
-                      placeholder="88056-300"
-                      required
-                      autocomplete="off"
-                    />
-                  </div>
-                  <div class="field">
-                    <label for="geo-route-number">Número (Opcional)</label>
-                    <input
-                      type="text"
-                      id="geo-route-number"
-                      placeholder="Ex: 1186 ou S/N"
-                      autocomplete="off"
-                    />
-                  </div>
-                </form>
-                <div style="margin-bottom: 16px">
-                  <button
-                    type="submit"
-                    form="geo-route-manual-form"
-                    class="btn btn-secondary"
-                  >
-                    + Adicionar Manualmente
-                  </button>
-                </div>
 
-                <hr class="manual-divider" style="margin: 16px 0" />
-
-                <!-- Paste Area -->
-                <div class="field">
-                  <label for="geo-route-paste"
-                    >Ou cole a lista de encomendas (Formato Tabela)</label
-                  >
-                  <textarea
-                    id="geo-route-paste"
-                    rows="4"
-                    placeholder="Cole as linhas copiadas da planilha aqui..."
-                  ></textarea>
-                </div>
-                <div style="margin-bottom: 16px">
-                  <button
-                    type="button"
-                    id="geo-route-add-pasted"
-                    class="btn btn-secondary"
-                  >
-                    + Adicionar da Tabela
-                  </button>
-                </div>
-
-                <!-- Pending List -->
-                <div class="stats-section-header">
-                  Lista de Encomendas (<span id="geo-route-count">0</span>)
-                </div>
-                <div
-                  class="manifest-frame"
-                  style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    margin-bottom: 16px;
-                  "
-                >
-                  <table class="manifest-table">
-                    <thead>
-                      <tr>
-                        <th>Objeto</th>
-                        <th>CEP</th>
-                        <th>Número</th>
-                        <th class="col-actions">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody id="geo-route-tbody">
-                      <tr class="empty-state">
-                        <td colspan="4">Nenhuma encomenda adicionada.</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <button
-                  type="button"
-                  id="geo-route-generate"
-                  class="btn btn-primary"
-                  style="width: 100%"
-                >
-                  Traçar Melhor Rota
-                </button>
-              </div>
-
-              <!-- Right Column: Map and Route Instructions -->
-              <div class="cepsearch-map-col">
-                <div
-                  id="geo-route-map"
-                  class="street-map-container"
-                  style="height: 500px"
-                ></div>
-
-                <!-- Route Stats -->
-                <div
-                  class="stats-grid"
-                  style="margin-top: 16px; display: none"
-                  id="geo-route-stats"
-                >
-                  <div class="stat-card">
-                    <div class="stat-title">Tempo Estimado</div>
-                    <div class="stat-value" id="geo-route-time">0 min</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-title">Distância</div>
-                    <div class="stat-value" id="geo-route-distance">0 km</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
-    <div id="modal-overlay" class="modal-overlay hidden">
-      <div
-        class="modal-slip"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div class="modal-slip-header">
-          <!-- <span class="modal-corner-stamp">CEP</span> -->
-          <h2 id="modal-title">Título</h2>
-          <button
-            type="button"
-            class="modal-close"
-            id="modal-close"
-            aria-label="Fechar"
-          >
-            &times;
-          </button>
-        </div>
-        <div class="modal-slip-body" id="modal-body">
-          <!-- injected by app.js -->
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== LOEC ANALYSIS (paste & analyze, any role) ===== -->
-    <div
-      id="loec-analysis-modal"
-      class="modal-overlay hidden"
-      style="z-index: 105"
-    >
-      <div
-        class="modal-slip modal-slip-wide"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="loec-analysis-title"
-      >
-        <div class="modal-slip-header">
-          <h2 id="loec-analysis-title">Análise de LOEC</h2>
-          <button
-            type="button"
-            class="modal-close"
-            id="loec-analysis-modal-close"
-            aria-label="Fechar"
-          >
-            &times;
-          </button>
-        </div>
-        <div class="modal-slip-body" id="panel-loec-analysis">
-          <p class="field-hint loec-analysis-intro">
-            Cole abaixo o texto da LOEC. O sistema identifica automaticamente as
-            linhas que trazem um código de objeto válido (ex.:
-            <code>AN924300185BR</code>) no formato
-            <code
-              >código&nbsp;&nbsp;ordem&nbsp;&nbsp;logradouro&nbsp;&nbsp;CEP</code
-            >
-            e ignora todo o restante do texto colado.
+          <div id="geo-single-result" class="geo-result-card hidden"></div>
+          <p id="geo-single-empty" class="empty-state">
+            Informe um CEP para localizar as coordenadas.
           </p>
+        </div>
 
+        <!-- ===== Sub-panel: batch lookup from pasted table text ===== -->
+        <div id="subpanel-geo-batch" class="subpanel hidden">
           <div class="field">
-            <textarea
-              id="loec-analysis-input"
-              rows="10"
-              placeholder="Cole aqui o texto copiado da LOEC..."
-            ></textarea>
+            <label for="geo-batch-input">Colar dados (formato de tabela, colunas separadas por
+              tabulação)</label>
+            <textarea id="geo-batch-input" rows="8"
+              placeholder="Cole aqui as linhas copiadas da planilha, com colunas de Endereço e CEP&hellip;"></textarea>
+            <p class="field-hint">
+              Detectamos automaticamente a coluna de CEP e usamos a coluna
+              anterior como Endereço, extraindo o número do final (ou "S/N").
+            </p>
           </div>
 
           <div class="panel-toolbar">
-            <div></div>
+            <div class="field-row" style="align-items: flex-end; gap: 16px; margin-bottom: 0">
+              <div class="field" style="margin-bottom: 0; max-width: 220px">
+                <label for="geo-batch-concurrency">Requisições simultâneas</label>
+                <input type="number" id="geo-batch-concurrency" min="1" max="20" value="20" />
+              </div>
+            </div>
             <div style="display: flex; gap: 10px">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                id="loec-analysis-clear"
-              >
-                Limpar
+              <button type="button" class="btn btn-secondary" id="geo-batch-cancel" disabled>
+                Cancelar
               </button>
-              <button
-                type="button"
-                class="btn btn-primary"
-                id="loec-analysis-run"
-              >
-                Analisar Lista
+              <button type="button" class="btn btn-primary" id="geo-batch-run">
+                Processar em Lote
               </button>
             </div>
           </div>
 
-          <p id="loec-analysis-empty" class="empty-state">
-            Cole o texto da LOEC acima e clique em &ldquo;Analisar Lista&rdquo;
-            para ver os resultados.
+          <div class="stats-grid" id="geo-batch-summary" style="display: none">
+            <div class="stat-card">
+              <div class="stat-title">Total</div>
+              <div class="stat-value" id="geo-batch-stat-total">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Processados</div>
+              <div class="stat-value" id="geo-batch-stat-done">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Sucesso</div>
+              <div class="stat-value" id="geo-batch-stat-success">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Erros</div>
+              <div class="stat-value" id="geo-batch-stat-error">0</div>
+            </div>
+          </div>
+
+          <div class="geo-progress hidden" id="geo-batch-progress">
+            <div class="geo-progress-bar">
+              <div class="geo-progress-bar-fill" id="geo-batch-progress-fill"></div>
+            </div>
+          </div>
+
+          <div class="manifest-frame" id="geo-batch-results-frame" style="display: none">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>Objeto</th>
+                  <th>Endereço</th>
+                  <th>Número</th>
+                  <th>CEP</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Origem</th>
+                  <th class="col-actions">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="geo-batch-tbody"></tbody>
+            </table>
+          </div>
+          <p id="geo-batch-empty" class="empty-state">
+            Cole os dados acima e clique em "Processar em Lote" para começar.
           </p>
-
-          <div id="loec-analysis-results" class="loec-analysis-results hidden">
-            <!-- KPI cards -->
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-title">Objetos Identificados</div>
-                <div class="stat-value" id="loecx-total-objects">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Tipos Distintos</div>
-                <div class="stat-value" id="loecx-total-types">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">Logradouros Distintos</div>
-                <div class="stat-value" id="loecx-total-streets">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">CEPs Distintos</div>
-                <div class="stat-value" id="loecx-total-ceps">0</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-title">CEPs Não Cadastrados</div>
-                <div class="stat-value" id="loecx-total-unregistered">
-                  &hellip;
+        </div>
+        <!-- Add the new Route Optimization subpanel -->
+        <div id="subpanel-geo-route" class="subpanel hidden">
+          <div class="cepsearch-split-layout">
+            <!-- Left Column: Input Form and List -->
+            <div class="cepsearch-results-col">
+              <!-- Manual Input Form -->
+              <form id="geo-route-manual-form" class="cepsearch-form" style="grid-template-columns: 1fr 1fr 1fr">
+                <div class="field">
+                  <label for="geo-route-code">Cód. Encomenda (Opcional)</label>
+                  <input type="text" id="geo-route-code" placeholder="Ex: AP026280784BR" autocomplete="off" />
                 </div>
+                <div class="field">
+                  <label for="geo-route-cep">CEP (Obrigatório)</label>
+                  <input type="text" id="geo-route-cep" placeholder="88056-300" required autocomplete="off" />
+                </div>
+                <div class="field">
+                  <label for="geo-route-number">Número (Opcional)</label>
+                  <input type="text" id="geo-route-number" placeholder="Ex: 1186 ou S/N" autocomplete="off" />
+                </div>
+              </form>
+              <div style="margin-bottom: 16px">
+                <button type="submit" form="geo-route-manual-form" class="btn btn-secondary">
+                  + Adicionar Manualmente
+                </button>
               </div>
-              <div class="stat-card">
-                <div class="stat-title">Linhas Ignoradas</div>
-                <div class="stat-value" id="loecx-total-ignored">0</div>
-              </div>
-            </div>
 
-            <!-- Charts -->
-            <div class="stats-columns loec-analysis-charts">
-              <div class="loec-report-chart-box">
-                <div class="stats-section-header">Objetos por Tipo</div>
-                <canvas id="loecx-chart-type" height="220"></canvas>
-              </div>
-              <div class="loec-report-chart-box">
-                <div class="stats-section-header">Top 10 Logradouros</div>
-                <canvas id="loecx-chart-streets" height="220"></canvas>
-              </div>
-            </div>
+              <hr class="manual-divider" style="margin: 16px 0" />
 
-            <!-- Type breakdown -->
-            <div class="stats-columns">
-              <div class="manifest-frame stats-table-wrapper">
-                <div class="stats-section-header">Resumo por Tipo</div>
+              <!-- Paste Area -->
+              <div class="field">
+                <label for="geo-route-paste">Ou cole a lista de encomendas (Formato Tabela)</label>
+                <textarea id="geo-route-paste" rows="4"
+                  placeholder="Cole as linhas copiadas da planilha aqui..."></textarea>
+              </div>
+              <div style="margin-bottom: 16px">
+                <button type="button" id="geo-route-add-pasted" class="btn btn-secondary">
+                  + Adicionar da Tabela
+                </button>
+              </div>
+
+              <!-- Pending List -->
+              <div class="stats-section-header">
+                Lista de Encomendas (<span id="geo-route-count">0</span>)
+              </div>
+              <div class="manifest-frame" style="
+                    max-height: 300px;
+                    overflow-y: auto;
+                    margin-bottom: 16px;
+                  ">
                 <table class="manifest-table">
                   <thead>
                     <tr>
-                      <th>Tipo</th>
-                      <th class="col-actions">Objetos</th>
-                      <th class="col-actions">%</th>
+                      <th>Objeto</th>
+                      <th>CEP</th>
+                      <th>Número</th>
+                      <th class="col-actions">Ação</th>
                     </tr>
                   </thead>
-                  <tbody id="loecx-type-tbody"></tbody>
+                  <tbody id="geo-route-tbody">
+                    <tr class="empty-state">
+                      <td colspan="4">Nenhuma encomenda adicionada.</td>
+                    </tr>
+                  </tbody>
                 </table>
               </div>
+
+              <button type="button" id="geo-route-generate" class="btn btn-primary" style="width: 100%">
+                Traçar Melhor Rota
+              </button>
             </div>
 
-            <!-- Full sortable / filterable table -->
-            <div class="panel-toolbar loec-analysis-table-toolbar">
-              <div class="search-field">
-                <input
-                  type="search"
-                  id="loecx-filter-search"
-                  placeholder="Buscar por código ou logradouro&hellip;"
-                />
-              </div>
-              <div class="loec-analysis-toolbar-actions">
-                <div class="search-field">
-                  <select id="loecx-filter-type">
-                    <option value="">Todos os tipos</option>
-                  </select>
+            <!-- Right Column: Map and Route Instructions -->
+            <div class="cepsearch-map-col">
+              <div id="geo-route-map" class="street-map-container" style="height: 500px"></div>
+
+              <!-- Route Stats -->
+              <div class="stats-grid" style="margin-top: 16px; display: none" id="geo-route-stats">
+                <div class="stat-card">
+                  <div class="stat-title">Tempo Estimado</div>
+                  <div class="stat-value" id="geo-route-time">0 min</div>
                 </div>
-                <div
-                  class="loec-analysis-sort-group"
-                  role="group"
-                  aria-label="Ordenar por"
-                >
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-icon loec-sort-btn active"
-                    data-sort="ordem"
-                  >
-                    Ordem
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-icon loec-sort-btn"
-                    data-sort="code"
-                  >
-                    Código
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-icon loec-sort-btn"
-                    data-sort="logradouro"
-                  >
-                    Logradouro
-                  </button>
+                <div class="stat-card">
+                  <div class="stat-title">Distância</div>
+                  <div class="stat-value" id="geo-route-distance">0 km</div>
                 </div>
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-icon"
-                  id="loecx-export-csv"
-                >
-                  Exportar CSV
-                </button>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
-            <div class="manifest-frame">
+  <!-- ===== Modal (shared by all forms + delete confirmation) ===== -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-slip" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-slip-header">
+        <!-- <span class="modal-corner-stamp">CEP</span> -->
+        <h2 id="modal-title">Título</h2>
+        <button type="button" class="modal-close" id="modal-close" aria-label="Fechar">
+          &times;
+        </button>
+      </div>
+      <div class="modal-slip-body" id="modal-body">
+        <!-- injected by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LOEC ANALYSIS (paste & analyze, any role) ===== -->
+  <div id="loec-analysis-modal" class="modal-overlay hidden" style="z-index: 105">
+    <div class="modal-slip modal-slip-wide" role="dialog" aria-modal="true" aria-labelledby="loec-analysis-title">
+      <div class="modal-slip-header">
+        <h2 id="loec-analysis-title">Análise de LOEC</h2>
+        <button type="button" class="modal-close" id="loec-analysis-modal-close" aria-label="Fechar">
+          &times;
+        </button>
+      </div>
+      <div class="modal-slip-body" id="panel-loec-analysis">
+        <p class="field-hint loec-analysis-intro">
+          Cole abaixo o texto da LOEC. O sistema identifica automaticamente as
+          linhas que trazem um código de objeto válido (ex.:
+          <code>AN924300185BR</code>) no formato
+          <code>código&nbsp;&nbsp;ordem&nbsp;&nbsp;logradouro&nbsp;&nbsp;CEP</code>
+          e ignora todo o restante do texto colado.
+        </p>
+
+        <div class="field">
+          <textarea id="loec-analysis-input" rows="10" placeholder="Cole aqui o texto copiado da LOEC..."></textarea>
+        </div>
+
+        <div class="panel-toolbar">
+          <div></div>
+          <div style="display: flex; gap: 10px">
+            <button type="button" class="btn btn-secondary" id="loec-analysis-clear">
+              Limpar
+            </button>
+            <button type="button" class="btn btn-primary" id="loec-analysis-run">
+              Analisar Lista
+            </button>
+          </div>
+        </div>
+
+        <p id="loec-analysis-empty" class="empty-state">
+          Cole o texto da LOEC acima e clique em &ldquo;Analisar Lista&rdquo;
+          para ver os resultados.
+        </p>
+
+        <div id="loec-analysis-results" class="loec-analysis-results hidden">
+          <!-- KPI cards -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-title">Objetos Identificados</div>
+              <div class="stat-value" id="loecx-total-objects">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Tipos Distintos</div>
+              <div class="stat-value" id="loecx-total-types">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Logradouros Distintos</div>
+              <div class="stat-value" id="loecx-total-streets">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">CEPs Distintos</div>
+              <div class="stat-value" id="loecx-total-ceps">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">CEPs Não Cadastrados</div>
+              <div class="stat-value" id="loecx-total-unregistered">
+                &hellip;
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">Linhas Ignoradas</div>
+              <div class="stat-value" id="loecx-total-ignored">0</div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="stats-columns loec-analysis-charts">
+            <div class="loec-report-chart-box">
+              <div class="stats-section-header">Objetos por Tipo</div>
+              <canvas id="loecx-chart-type" height="220"></canvas>
+            </div>
+            <div class="loec-report-chart-box">
+              <div class="stats-section-header">Top 10 Logradouros</div>
+              <canvas id="loecx-chart-streets" height="220"></canvas>
+            </div>
+          </div>
+
+          <!-- Type breakdown -->
+          <div class="stats-columns">
+            <div class="manifest-frame stats-table-wrapper">
+              <div class="stats-section-header">Resumo por Tipo</div>
               <table class="manifest-table">
                 <thead>
                   <tr>
-                    <th>Ordem</th>
-                    <th>Código</th>
                     <th>Tipo</th>
-                    <th>Logradouro</th>
-                    <th>CEP</th>
+                    <th class="col-actions">Objetos</th>
+                    <th class="col-actions">%</th>
                   </tr>
                 </thead>
-                <tbody id="loecx-full-tbody"></tbody>
+                <tbody id="loecx-type-tbody"></tbody>
               </table>
-              <p id="loecx-full-empty" class="empty-state hidden">
-                Nenhum objeto corresponde ao filtro atual.
-              </p>
             </div>
-            <p class="pagination-info" id="loecx-count-info"></p>
           </div>
+
+          <!-- Full sortable / filterable table -->
+          <div class="panel-toolbar loec-analysis-table-toolbar">
+            <div class="search-field">
+              <input type="search" id="loecx-filter-search" placeholder="Buscar por código ou logradouro&hellip;" />
+            </div>
+            <div class="loec-analysis-toolbar-actions">
+              <div class="search-field">
+                <select id="loecx-filter-type">
+                  <option value="">Todos os tipos</option>
+                </select>
+              </div>
+              <div class="loec-analysis-sort-group" role="group" aria-label="Ordenar por">
+                <button type="button" class="btn btn-secondary btn-icon loec-sort-btn active" data-sort="ordem">
+                  Ordem
+                </button>
+                <button type="button" class="btn btn-secondary btn-icon loec-sort-btn" data-sort="code">
+                  Código
+                </button>
+                <button type="button" class="btn btn-secondary btn-icon loec-sort-btn" data-sort="logradouro">
+                  Logradouro
+                </button>
+              </div>
+              <button type="button" class="btn btn-secondary btn-icon" id="loecx-export-csv">
+                Exportar CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="manifest-frame">
+            <table class="manifest-table">
+              <thead>
+                <tr>
+                  <th>Ordem</th>
+                  <th>Código</th>
+                  <th>Tipo</th>
+                  <th>Logradouro</th>
+                  <th>CEP</th>
+                </tr>
+              </thead>
+              <tbody id="loecx-full-tbody"></tbody>
+            </table>
+            <p id="loecx-full-empty" class="empty-state hidden">
+              Nenhum objeto corresponde ao filtro atual.
+            </p>
+          </div>
+          <p class="pagination-info" id="loecx-count-info"></p>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- ===== Attachment Lightbox (Help Desk media viewer) ===== -->
-    <div id="attachment-lightbox" class="lightbox-overlay hidden">
-      <button
-        type="button"
-        class="lightbox-close"
-        id="lightbox-close"
-        aria-label="Fechar"
-      >
-        &times;
-      </button>
-      <button
-        type="button"
-        class="lightbox-nav lightbox-prev"
-        id="lightbox-prev"
-        aria-label="Anexo anterior"
-      >
-        &#8249;
-      </button>
-      <div class="lightbox-stage" id="lightbox-stage"></div>
-      <button
-        type="button"
-        class="lightbox-nav lightbox-next"
-        id="lightbox-next"
-        aria-label="Próximo anexo"
-      >
-        &#8250;
-      </button>
-      <div class="lightbox-toolbar">
-        <span class="lightbox-caption" id="lightbox-caption"></span>
-        <div class="lightbox-actions">
-          <button
-            type="button"
-            id="lightbox-zoom-out"
-            class="btn btn-secondary btn-icon lightbox-zoom-control hidden"
-            aria-label="Diminuir zoom"
-          >
-            &minus;
-          </button>
-          <button
-            type="button"
-            id="lightbox-zoom-reset"
-            class="btn btn-secondary btn-icon lightbox-zoom-control hidden"
-          >
-            100%
-          </button>
-          <button
-            type="button"
-            id="lightbox-zoom-in"
-            class="btn btn-secondary btn-icon lightbox-zoom-control hidden"
-            aria-label="Aumentar zoom"
-          >
-            &plus;
-          </button>
-          <button
-            type="button"
-            id="lightbox-media-playpause"
-            class="btn btn-secondary btn-icon lightbox-media-control hidden"
-          >
-            Pausar / Retomar
-          </button>
-          <button
-            type="button"
-            id="lightbox-media-reset"
-            class="btn btn-secondary btn-icon lightbox-media-control hidden"
-          >
-            Reiniciar
-          </button>
-          <button
-            type="button"
-            id="lightbox-download"
-            class="btn btn-primary btn-icon"
-          >
-            Baixar
-          </button>
-        </div>
+  <!-- ===== Attachment Lightbox (Help Desk media viewer) ===== -->
+  <div id="attachment-lightbox" class="lightbox-overlay hidden">
+    <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Fechar">
+      &times;
+    </button>
+    <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Anexo anterior">
+      &#8249;
+    </button>
+    <div class="lightbox-stage" id="lightbox-stage"></div>
+    <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Próximo anexo">
+      &#8250;
+    </button>
+    <div class="lightbox-toolbar">
+      <span class="lightbox-caption" id="lightbox-caption"></span>
+      <div class="lightbox-actions">
+        <button type="button" id="lightbox-zoom-out" class="btn btn-secondary btn-icon lightbox-zoom-control hidden"
+          aria-label="Diminuir zoom">
+          &minus;
+        </button>
+        <button type="button" id="lightbox-zoom-reset" class="btn btn-secondary btn-icon lightbox-zoom-control hidden">
+          100%
+        </button>
+        <button type="button" id="lightbox-zoom-in" class="btn btn-secondary btn-icon lightbox-zoom-control hidden"
+          aria-label="Aumentar zoom">
+          &plus;
+        </button>
+        <button type="button" id="lightbox-media-playpause"
+          class="btn btn-secondary btn-icon lightbox-media-control hidden">
+          Pausar / Retomar
+        </button>
+        <button type="button" id="lightbox-media-reset"
+          class="btn btn-secondary btn-icon lightbox-media-control hidden">
+          Reiniciar
+        </button>
+        <button type="button" id="lightbox-download" class="btn btn-primary btn-icon">
+          Baixar
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- Footer -->
-    <footer
-      class="postal-footer"
-      style="
+  <!-- Footer -->
+  <footer class="postal-footer" style="
         position: relative;
         padding: 32px 24px;
         text-align: center;
         background: var(--paper-raised);
         border-top: 2px solid var(--paper-line);
-      "
-    >
-      <!-- Footer Content -->
+      ">
+    <!-- Footer Content -->
 
-      <div
-        style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)"
-      >
-        Developed by <strong>Vitor Fernando da Silva</strong>
-      </div>
-      <a
-        href="https://github.com/vitortz/cee"
-        target="_blank"
-        style="
+    <div style="margin-bottom: 16px; font-size: 0.95rem; color: var(--ink-soft)">
+      Developed by <strong>Vitor Fernando da Silva</strong>
+    </div>
+    <a href="https://github.com/vitortz/cee" target="_blank" style="
           color: #00447c;
           text-decoration: none;
           font-weight: bold;
           display: inline-flex;
           align-items: center;
-        "
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          style="margin-right: 6px"
-          aria-hidden="true"
-        >
-          <path
-            d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.237 1.84 1.237 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12z"
-          />
-        </svg>
-        github.com/vitortz/cee
-      </a>
-      <div
-        style="
+        ">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"
+        style="margin-right: 6px" aria-hidden="true">
+        <path
+          d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.237 1.84 1.237 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12z" />
+      </svg>
+      github.com/vitortz/cee
+    </a>
+    <div style="
           margin-top: 24px;
           display: flex;
           justify-content: center;
           gap: 12px;
           flex-wrap: wrap;
-        "
-      >
-        <button class="btn btn-secondary" id="btn-contact-us">
-          Entrar em Contato
-        </button>
-        <button class="btn btn-danger" id="btn-report-bug">
-          Reportar um Bug
-        </button>
-      </div>
-    </footer>
-    <!-- ===== Toast / postmark stamp confirmation ===== -->
-    <div id="toast-container" class="toast-container" aria-live="polite"></div>
-    <script src="config.js" type="module" defer></script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-      defer
-    ></script>
-    <script src="src/supabase-client.js" type="module" defer></script>
-    <script src="src/utils.js" type="module" defer></script>
-    <script src="src/auth.js" type="module" defer></script>
-    <script src="src/ui.js" type="module" defer></script>
-    <script src="src/combobox.js" type="module" defer></script>
-    <script src="src/tabs/streets.js" type="module" defer></script>
-    <script src="src/tabs/zips.js" type="module" defer></script>
-    <script src="src/tabs/rules.js" type="module" defer></script>
-    <script src="src/tabs/cep-search.js" type="module" defer></script>
-    <script src="src/tabs/loec-scans.js" type="module" defer></script>
-    <script src="src/tabs/malote-scans.js" type="module" defer></script>
-    <script src="src/tabs/daily-ops.js" type="module" defer></script>
-    <script src="src/tabs/helpdesk.js" type="module" defer></script>
-    <script src="src/tabs/employees.js" type="module" defer></script>
-    <script src="src/tabs/account.js" type="module" defer></script>
-    <script src="src/tabs/bug-reports.js" type="module" defer></script>
-    <script src="src/tabs/loec-analysis.js" type="module" defer></script>
-    <script src="src/tabs/metrics.js" type="module" defer></script>
-    <script src="src/tabs/contact.js" type="module" defer></script>
-    <script src="src/tabs/geocoding.js" type="module" defer></script>
-    <script src="app.js" type="module" defer></script>
-  </body>
+        ">
+      <button class="btn btn-secondary" id="btn-contact-us">
+        Entrar em Contato
+      </button>
+      <button class="btn btn-danger" id="btn-report-bug">
+        Reportar um Bug
+      </button>
+    </div>
+  </footer>
+  <!-- ===== Toast / postmark stamp confirmation ===== -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+  <script src="config.js" type="module" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="src/supabase-client.js" type="module" defer></script>
+  <script src="src/utils.js" type="module" defer></script>
+  <script src="src/auth.js" type="module" defer></script>
+  <script src="src/ui.js" type="module" defer></script>
+  <script src="src/combobox.js" type="module" defer></script>
+  <script src="src/tabs/streets.js" type="module" defer></script>
+  <script src="src/tabs/zips.js" type="module" defer></script>
+  <script src="src/tabs/rules.js" type="module" defer></script>
+  <script src="src/tabs/cep-search.js" type="module" defer></script>
+  <script src="src/tabs/loec-scans.js" type="module" defer></script>
+  <script src="src/tabs/malote-scans.js" type="module" defer></script>
+  <script src="src/tabs/daily-ops.js" type="module" defer></script>
+  <script src="src/tabs/helpdesk.js" type="module" defer></script>
+  <script src="src/tabs/employees.js" type="module" defer></script>
+  <script src="src/tabs/account.js" type="module" defer></script>
+  <script src="src/tabs/bug-reports.js" type="module" defer></script>
+  <script src="src/tabs/loec-analysis.js" type="module" defer></script>
+  <script src="src/tabs/metrics.js" type="module" defer></script>
+  <script src="src/tabs/contact.js" type="module" defer></script>
+  <script src="src/tabs/geocoding.js" type="module" defer></script>
+  <script src="app.js" type="module" defer></script>
+</body>
+
 </html>
