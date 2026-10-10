@@ -1507,8 +1507,8 @@ function renderPontoResults() {
 }
 
 /**
- * Abre o modal de compartilhamento mesclando os layouts de texto padrão
- * com a nova seção focada em geração e envio de planilhas de Excel via API Nativa.
+ * Opens the sharing modal merging the standard text layout
+ * with the Excel spreadsheet generation section (now with month selection).
  */
 function openPontoShareModal(workerId) {
     const emp = pontoParsedData.find(e => e.id === workerId);
@@ -1516,6 +1516,15 @@ function openPontoShareModal(workerId) {
 
     const dbMatchedEmp = funcActiveEmployeesCache?.find(e => e.full_name.toUpperCase() === emp.name.toUpperCase());
     const defaultPhone = dbMatchedEmp ? (dbMatchedEmp.phone || "") : "";
+
+    // Extracts unique months from the employee's records to populate the Excel dropdown
+    const availableMonths = [...new Set(emp.clockRecords.map(iso => iso.substring(0, 7)))].sort().reverse();
+    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const monthOptions = availableMonths.map(m => {
+        const [y, mm] = m.split('-');
+        const mName = monthNames[parseInt(mm, 10) - 1];
+        return `<option value="${m}">${mName} / ${y}</option>`;
+    }).join('');
 
     const modalHtml = `
       <div class="field">
@@ -1539,7 +1548,12 @@ function openPontoShareModal(workerId) {
       
       <div class="field" style="margin-top: 24px; padding-top: 16px; border-top: 2px dashed var(--paper-line);">
         <label>Exportar Planilha Completa (.xlsx)</label>
-        <p class="field-hint" style="margin-bottom: 12px;">Gera a planilha formatada com fórmulas de horas e campos de alerta automáticos.</p>
+        <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+            <select id="ponto-share-xlsx-month" style="flex: 1; min-width: 200px;">
+                ${monthOptions}
+            </select>
+        </div>
+        <p class="field-hint" style="margin-bottom: 12px;">Gera a planilha formatada do mês selecionado com fórmulas e alertas automáticos.</p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button type="button" class="btn btn-secondary" id="btn-download-xlsx">📥 Baixar Excel</button>
             <button type="button" class="btn btn-primary" id="btn-share-xlsx-native" style="display: none;">
@@ -1556,6 +1570,7 @@ function openPontoShareModal(workerId) {
 
     const periodSelect = qs("#ponto-share-period");
     const textArea = qs("#ponto-share-text");
+    const xlsxMonthSelect = qs("#ponto-share-xlsx-month");
 
     const updateTextPreview = () => {
         const onlyLatest = periodSelect.value === "latest";
@@ -1565,7 +1580,7 @@ function openPontoShareModal(workerId) {
     updateTextPreview();
     periodSelect.addEventListener("change", updateTextPreview);
 
-    // Evento de Envio do WhatsApp Web (apenas texto)
+    // Event: Send text via WhatsApp Web
     qs("#btn-send-wa").addEventListener("click", () => {
         const reportText = textArea.value;
         const phone = qs("#ponto-share-phone").value.replace(/\D/g, "");
@@ -1578,13 +1593,14 @@ function openPontoShareModal(workerId) {
         window.open(`https://wa.me/${waPhone}?text=${encodedMsg}`, "_blank");
     });
 
-    // Evento para Download físico da planilha .xlsx
+    // Event: Download physical .xlsx file
     qs("#btn-download-xlsx").addEventListener("click", async () => {
         const btn = qs("#btn-download-xlsx");
+        const selectedMonth = xlsxMonthSelect.value;
         try {
             btn.disabled = true;
             btn.innerText = "Gerando...";
-            const { blob, filename } = await createExcelForEmployee(emp.id);
+            const { blob, filename } = await createExcelForEmployee(emp.id, selectedMonth);
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
@@ -1592,7 +1608,7 @@ function openPontoShareModal(workerId) {
             link.click();
             URL.revokeObjectURL(url);
         } catch(err) {
-            showToast("Erro ao gerar o Excel.", "error");
+            showToast(err.message || "Erro ao gerar o Excel.", "error");
             console.error(err);
         } finally {
             btn.disabled = false;
@@ -1600,17 +1616,18 @@ function openPontoShareModal(workerId) {
         }
     });
 
-    // Checagem silenciosa e injeção do Botão Nativo para Mobile
+    // Silent check and injection for Native Mobile Share API
     const btnShareXlsx = qs("#btn-share-xlsx-native");
     try {
         if (navigator.canShare && navigator.canShare({ files: [new File([''], 't.txt', {type: 'text/plain'})] })) {
             btnShareXlsx.style.display = "inline-flex";
             btnShareXlsx.addEventListener("click", async () => {
+                const selectedMonth = xlsxMonthSelect.value;
                 try {
                     btnShareXlsx.disabled = true;
                     btnShareXlsx.innerHTML = "Gerando Planilha...";
                     
-                    const { blob, filename } = await createExcelForEmployee(emp.id);
+                    const { blob, filename } = await createExcelForEmployee(emp.id, selectedMonth);
                     const file = new File([blob], filename, { type: blob.type });
                     
                     if (navigator.canShare({ files: [file] })) {
@@ -1622,7 +1639,10 @@ function openPontoShareModal(workerId) {
                         showToast("O sistema não suporta anexar arquivos desta forma.", "error");
                     }
                 } catch (err) {
-                    console.log("Compartilhamento cancelado.", err);
+                    if (err.name !== 'AbortError') {
+                        showToast(err.message || "Erro ao compartilhar.", "error");
+                    }
+                    console.log("Compartilhamento cancelado ou falhou.", err);
                 } finally {
                     btnShareXlsx.disabled = false;
                     btnShareXlsx.innerHTML = `<svg style="margin-right:6px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Enviar Excel via WhatsApp (Celular)`;
@@ -1630,7 +1650,7 @@ function openPontoShareModal(workerId) {
             });
         }
     } catch(e) {
-        // Fallback silencioso (navegador desktop clássico que recusa API Share com arquivos)
+        // Silent fallback
     }
 }
 
@@ -1638,21 +1658,28 @@ function openPontoShareModal(workerId) {
 // GERAÇÃO DE ESPELHO DE PONTO EM EXCEL (.xlsx)
 // =============================================================================
 
+const FERIADOS_ABA = 'Feriados';
+const FERIADOS_LINHA_MAX = 60;
+
 function parseAFDForExcel(texto) {
     const linhas = texto.split(/\r?\n/).filter((l) => l.trim() !== '');
-    const funcionarios = new Map();
-    const marcacoes = new Map();
+    const funcionarios = new Map(); // pis -> { pis, nome, ultimaOp, inclusao }
+    const marcacoes = new Map();    // pis -> [{ data, hora }]
     let empregador = null;
-
+    let periodo = null;             // { inicio, fim, geradoEm, geradoHora }
+ 
     const reMarc = /^(\d{9})3(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}[-+]\d{4}(\d{12})/;
-    const reFunc = /^(\d{9})5\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[-+]\d{4}([IAE])(\d{12})(.{52})/;
+    const reFunc = /^(\d{9})5(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}[-+]\d{4}([IAE])(\d{12})(.{52})/;
     const reEmpr = /^\d{10}\d(\d{14})\d*?([A-Za-zÀ-ú][^\s]*(?: [^\s]+)*?)\s{3,}/;
-
+    const rePer = /(\d{4}-\d{2}-\d{2})(\d{4}-\d{2}-\d{2})(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}[-+]\d{4}/;
+ 
     for (const l of linhas) {
         const tipo = l[9];
         if (tipo === '1' && !empregador) {
             const m = reEmpr.exec(l);
             if (m) empregador = { cnpj: m[1], razaoSocial: m[2].trim() };
+            const p = rePer.exec(l);
+            if (p) periodo = { inicio: p[1], fim: p[2], geradoEm: p[3], geradoHora: p[4] };
         } else if (tipo === '3') {
             const m = reMarc.exec(l);
             if (!m) continue;
@@ -1662,31 +1689,29 @@ function parseAFDForExcel(texto) {
         } else if (tipo === '5') {
             const m = reFunc.exec(l);
             if (!m) continue;
-            const [, , op, pis, nome] = m;
-            const atual = funcionarios.get(pis) || { pis, nome: '', ultimaOp: op };
+            const [, , dataReg, op, pis, nome] = m;
+            const atual = funcionarios.get(pis) || { pis, nome: '', ultimaOp: op, inclusao: null };
             atual.nome = nome.trim() || atual.nome;
             atual.ultimaOp = op;
+            if (op === 'I' && (!atual.inclusao || dataReg < atual.inclusao)) atual.inclusao = dataReg;
             funcionarios.set(pis, atual);
         }
     }
-    return { empregador, funcionarios, marcacoes };
+    return { empregador, funcionarios, marcacoes, periodo };
 }
+
 
 const minDe = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const fracDia = (hhmm) => minDe(hhmm) / 1440;
 const utc = (y, m, d) => new Date(Date.UTC(y, m - 1, d));
+const isoDe = (dt) => dt.toISOString().slice(0, 10);
+const isoParaDate = (iso) => utc(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)), Number(iso.slice(8, 10)));
+const somaDias = (dt, n) => new Date(dt.getTime() + n * 86400000);
+const normNome = (s) => (s || '').toUpperCase().replace(/\s+/g, ' ').trim();
 const nomeTitulo = (s) => s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 const fmtCNPJ = (c) => c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
-
-function distribuirMarcacoes(horas) {
-    const n = horas.length;
-    if (n === 0) return [null, null, null, null];
-    if (n === 1) return [horas[0], null, null, null];
-    if (n === 2) return [horas[0], null, null, horas[1]];
-    if (n === 3) return [horas[0], horas[1], null, horas[2]];
-    if (n === 4) return horas;
-    return [horas[0], horas[1], horas[2], horas[n - 1]];
-}
+const fmtDataBR = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+ 
 
 function nomeAbaUnico(base, usados) {
     let nome = base.replace(/[\[\]:*?\/\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 31) || 'Empregado';
@@ -1699,199 +1724,438 @@ function nomeAbaUnico(base, usados) {
     return final;
 }
 
-function montarAba(wb, emp, diasMarcados, cfg) {
-    const { ano, mes, empregador, jornadaSemanaMin, sabadoMin, almocoMin, ultimaData } = cfg;
-    const ws = wb.addWorksheet(cfg.nomeAba, {
+
+function pascoa(ano) { // algoritmo de Meeus/Jones/Butcher
+    const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100;
+    const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const mes = Math.floor((h + l - 7 * m + 114) / 31);
+    const dia = ((h + l - 7 * m + 114) % 31) + 1;
+    return utc(ano, mes, dia);
+}
+
+
+/** Feriados nacionais do ano (+ facultativos e extras opcionais). Retorna [{ data, nome, tipo }] ordenado. */
+function feriadosBR(ano, opts = {}) {
+    const fixos = [
+        ['01-01', 'Confraternização Universal'], ['04-21', 'Tiradentes'], ['05-01', 'Dia do Trabalho'],
+        ['09-07', 'Independência do Brasil'], ['10-12', 'Nossa Senhora Aparecida'], ['11-02', 'Finados'],
+        ['11-15', 'Proclamação da República'], ['12-25', 'Natal'],
+    ];
+    const lista = fixos.map(([md, nome]) => ({ data: `${ano}-${md}`, nome, tipo: 'Nacional' }));
+    if (ano >= 2024) lista.push({ data: `${ano}-11-20`, nome: 'Dia da Consciência Negra', tipo: 'Nacional' }); // Lei 14.759/2023
+    const p = pascoa(ano);
+    lista.push({ data: isoDe(somaDias(p, -2)), nome: 'Sexta-feira Santa', tipo: 'Nacional' });
+    if (opts.pontosFacultativos) {
+        lista.push({ data: isoDe(somaDias(p, -48)), nome: 'Carnaval (segunda)', tipo: 'Facultativo' });
+        lista.push({ data: isoDe(somaDias(p, -47)), nome: 'Carnaval (terça)', tipo: 'Facultativo' });
+        lista.push({ data: isoDe(somaDias(p, 60)), nome: 'Corpus Christi', tipo: 'Facultativo' });
+    }
+    for (const x of opts.feriadosExtras || []) {
+        const data = /^\d{2}-\d{2}$/.test(x.data) ? `${ano}-${x.data}` : x.data;
+        if (data.startsWith(String(ano))) lista.push({ data, nome: x.nome, tipo: x.tipo || 'Extra' });
+    }
+    const vistos = new Set();
+    return lista
+        .sort((a, b) => a.data.localeCompare(b.data))
+        .filter((x) => (vistos.has(x.data) ? false : (vistos.add(x.data), true)));
+}
+
+
+function criarAbaFeriados(wb, feriados) {
+    const ws = wb.addWorksheet(FERIADOS_ABA, { views: [{ state: 'frozen', ySplit: 1 }] });
+    const F = (o = {}) => ({ name: 'Arial', size: 10, ...o });
+    ['Data', 'Feriado', 'Tipo'].forEach((h, i) => {
+        const c = ws.getCell(1, i + 1);
+        c.value = h;
+        c.font = F({ bold: true, color: { argb: 'FFFFFFFF' } });
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } };
+    });
+    feriados.forEach((f, i) => {
+        const r = i + 2;
+        ws.getCell(r, 1).value = isoParaDate(f.data);
+        ws.getCell(r, 1).numFmt = 'dd/mm/yyyy';
+        ws.getCell(r, 2).value = f.nome;
+        ws.getCell(r, 3).value = f.tipo;
+        for (let c = 1; c <= 3; c++) ws.getCell(r, c).font = F({ color: { argb: 'FF0000FF' } });
+    });
+    for (let r = feriados.length + 2; r <= FERIADOS_LINHA_MAX; r++) {
+        ws.getCell(r, 1).numFmt = 'dd/mm/yyyy';
+        for (let c = 1; c <= 3; c++) ws.getCell(r, c).font = F({ color: { argb: 'FF0000FF' } });
+    }
+    ws.getCell('E1').value = 'Acrescente aqui feriados estaduais/municipais ou pontos facultativos (linhas até 60). As planilhas dos empregados recalculam sozinhas.';
+    ws.getCell('E1').font = F({ italic: true, size: 9 });
+    ws.getCell('E2').value = 'Dia listado aqui => jornada esperada 0:00; se houver marcações, tudo vira hora extra ("Feriado trabalhado").';
+    ws.getCell('E2').font = F({ italic: true, size: 9 });
+    [12, 34, 14, 3, 60].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    return ws;
+}
+
+
+// ------------------------------------------------------------------ marcações
+/** Descarta batidas repetidas (<= janelaMin da anterior mantida). */
+function consolidarBatidas(lista, janelaMin) {
+    const ord = [...lista].sort((a, b) => a.hora.localeCompare(b.hora));
+    const mantidas = [], descartadas = [];
+    for (const m of ord) {
+        const ult = mantidas[mantidas.length - 1];
+        if (ult && minDe(m.hora) - minDe(ult.hora) <= janelaMin) descartadas.push(m.hora);
+        else mantidas.push(m);
+    }
+    return { mantidas, descartadas };
+}
+ 
+/** Distribui as marcações nas colunas Entrada / Saída almoço / Volta almoço / Saída. */
+function distribuirMarcacoes(horas) {
+    const n = horas.length;
+    const vazio = [null, null, null, null];
+    if (n === 0) return { slots: vazio, extras: [], nota: '' };
+    if (n === 1) return { slots: [horas[0], null, null, null], extras: [], nota: 'Só 1 marcação (falta a saída).' };
+    if (n === 2) return { slots: [horas[0], null, null, horas[1]], extras: [], nota: '' };
+    if (n === 3) {
+        const [a, b, c] = horas;
+        const par = minDe(c) - minDe(b);
+        const paresDeAlmoco = par >= 20 && par <= 180 && minDe(b) >= 630 && minDe(b) <= 870;
+        return paresDeAlmoco
+            ? { slots: [a, b, c, null], extras: [], nota: 'Falta a saída (provável).' }
+            : { slots: [a, b, null, c], extras: [], nota: 'Falta a volta do almoço (provável).' };
+    }
+    if (n === 4) return { slots: horas, extras: [], nota: '' };
+    return { slots: horas.slice(0, 4), extras: horas.slice(4), nota: `${n} marcações no dia: ${horas.join(', ')}.` };
+}
+
+function construirDias({ grupoPis, workerId, marcacoes, mesRef, janelaMin, diaAndamento, geradoHora }) {
+    const porDia = new Map();
+    for (const pis of grupoPis) {
+        for (const m of marcacoes.get(pis) || []) {
+            if (!m.data.startsWith(mesRef)) continue;
+            if (!porDia.has(m.data)) porDia.set(m.data, []);
+            porDia.get(m.data).push({ hora: m.hora, pis });
+        }
+    }
+    const dias = new Map();
+    for (const [iso, lista] of porDia) {
+        const { mantidas, descartadas } = consolidarBatidas(lista, janelaMin);
+        const horas = mantidas.map((m) => m.hora);
+        const d = distribuirMarcacoes(horas);
+        const notas = [];
+        if (d.nota) notas.push(d.nota);
+        if (descartadas.length) notas.push(`Batida repetida desconsiderada: ${descartadas.join(', ')}.`);
+        const outros = [...new Set(mantidas.filter((m) => m.pis !== workerId).map((m) => m.pis))];
+        if (outros.length) notas.push(`Inclui marcações do PIS ${outros.join(', ')} (mesmo empregado).`);
+        if (horas.length % 2 === 1 || horas.length > 4) {
+            notas.push(iso === diaAndamento
+                ? `AFD gerado às ${geradoHora}: dia em andamento, fora do saldo.`
+                : 'Fora do saldo até o ajuste das marcações.');
+        }
+        dias.set(iso, { slots: d.slots, extras: d.extras, obs: notas.join(' ') });
+    }
+    return dias;
+}
+
+
+
+// ------------------------------------------------------------------ planilha
+function montarAba(wb, emp, dias, cfg) {
+    const {
+        ano, mes, empregador, jornadaSemanaMin, sabadoMin, almocoMin, toleranciaMin,
+        cobIni, cobFim, diaAndamento, geradoEm, geradoHora, nomeAba, pisGrupo,
+    } = cfg;
+    const ws = wb.addWorksheet(nomeAba, {
         pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-        views: [{ state: 'frozen', xSplit: 2, ySplit: 9 }],
+        views: [{ state: 'frozen', xSplit: 2, ySplit: 12 }],
     });
     const F = 'Arial';
     const f = (o = {}) => ({ name: F, size: 10, ...o });
     const borda = { style: 'thin', color: { argb: 'FFBFBFBF' } };
     const box = { top: borda, left: borda, bottom: borda, right: borda };
     const centro = { horizontal: 'center', vertical: 'middle' };
-
-    const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+    const azul = { argb: 'FF0000FF' };
+    const preenche = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+ 
+    const MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
     ws.getCell('A1').value = `ESPELHO DE PONTO - ${MESES[mes - 1]}/${ano}`;
     ws.getCell('A1').font = f({ bold: true, size: 14 });
     ws.getCell('A2').value = 'Empregado:';
     ws.getCell('A2').font = f({ bold: true });
-    ws.getCell('C2').value = `${nomeTitulo(emp.nome)}   |   PIS ${emp.pis}`;
+    ws.getCell('C2').value = `${nomeTitulo(emp.nome)}   |   PIS ${pisGrupo.join(' / ')}`;
     ws.getCell('C2').font = f();
-    
     if (empregador) {
-        ws.getCell('A3').value = `Empregador: ${empregador.razaoSocial} - CNPJ ${fmtCNPJ(empregador.cnpj)}. Fonte: AFD.`;
+        ws.getCell('A3').value = `Empregador: ${empregador.razaoSocial} - CNPJ ${fmtCNPJ(empregador.cnpj)}. Fonte: AFD gerado em ${fmtDataBR(geradoEm)} ${geradoHora}.`;
         ws.getCell('A3').font = f({ italic: true, size: 9 });
     }
-
+ 
     const params = [
-        [4, 'Jornada dias úteis (seg-sex)', jornadaSemanaMin / 1440, 'h:mm'],
-        [5, 'Jornada sábado', sabadoMin / 1440, 'h:mm'],
-        [6, 'Intervalo de almoço (seg-sex)', almocoMin / 1440, 'h:mm'],
-        [7, 'Última data coberta pelo AFD', ultimaData, 'dd/mm/yyyy'],
+        [4, 'Jornada seg-sex', jornadaSemanaMin / 1440, 'h:mm', 'Jornada diária esperada.'],
+        [5, 'Jornada sábado', sabadoMin / 1440, 'h:mm', 'Sem intervalo.'],
+        [6, 'Intervalo almoço', almocoMin / 1440, 'h:mm', 'Descontado quando há só entrada e saída e o período passa de 6h; também é o mínimo do alerta de intervalo.'],
+        [7, 'Tolerância (min)', toleranciaMin, '0', 'CLT art. 58 §1º: variação até 10 min/dia não conta (0 = desativar).'],
+        [8, '1ª data coberta', isoParaDate(cobIni), 'dd/mm/yyyy', 'Maior entre início do mês, início das marcações no AFD e cadastro do PIS no relógio. Edite se o vínculo começou antes.'],
+        [9, 'Última data', isoParaDate(cobFim), 'dd/mm/yyyy', 'Menor entre fim do mês e fim do período do AFD.'],
+        [10, 'Dia em andamento', diaAndamento ? isoParaDate(diaAndamento) : null, 'dd/mm/yyyy',
+            'Dia em que o AFD foi gerado antes do fim do expediente: marcação ímpar nesse dia não vira falta/débito. Apague para desativar.'],
     ];
-    for (const [r, rotulo, v, nf] of params) {
+    for (const [r, rotulo, v, nf, dica] of params) {
         ws.getCell(r, 1).value = rotulo;
         ws.getCell(r, 1).font = f({ bold: true });
         const c = ws.getCell(r, 3);
         c.value = v; c.numFmt = nf;
-        c.font = f({ color: { argb: 'FF0000FF' } });
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+        c.font = f({ color: azul });
+        c.fill = preenche('FFFFFF00');
         c.border = box; c.alignment = centro;
+        ws.getCell(r, 5).value = dica;
+        ws.getCell(r, 5).font = f({ italic: true, size: 9 });
     }
-
-    const HR = 9;
-    const heads = ['Data','Dia','Entrada','Saída almoço','Volta almoço','Saída','Nº marcações','Horas trabalhadas','Jornada esperada','Saldo (min)','Status','Observação'];
+ 
+    const HR = 12;
+    const heads = ['Data', 'Dia', 'Tipo de dia', 'Entrada', 'Saída almoço', 'Volta almoço', 'Saída', 'Outras marcações', 'Nº marcações',
+        'Intervalo (min)', 'Horas trabalhadas', 'Jornada esperada', 'Saldo (min)', 'Horas extras (min)', 'Débito (min)', 'Status', 'Alertas', 'Observação'];
     heads.forEach((h, i) => {
         const c = ws.getCell(HR, i + 1);
         c.value = h;
         c.font = f({ bold: true, color: { argb: 'FFFFFFFF' } });
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } };
+        c.fill = preenche('FF1F3864');
         c.alignment = { ...centro, wrapText: true }; c.border = box;
     });
-    ws.getRow(HR).height = 30;
-
+    ws.getRow(HR).height = 32;
+ 
     const diasNoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
     const first = HR + 1;
     const last = first + diasNoMes - 1;
-    const azul = { argb: 'FF0000FF' };
-
+    const FER_NOME = (r) => `INDEX(${FERIADOS_ABA}!$B$2:$B$${FERIADOS_LINHA_MAX},MATCH($A${r},${FERIADOS_ABA}!$A$2:$A$${FERIADOS_LINHA_MAX},0))`;
+ 
     for (let d = 1; d <= diasNoMes; d++) {
         const r = first + d - 1;
+        const prev = r - 1;
         const iso = `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const horas = diasMarcados.get(iso) || [];
-        const slots = distribuirMarcacoes(horas);
-
+        const dia = dias.get(iso) || { slots: [null, null, null, null], extras: [], obs: '' };
+ 
+        const FORA = `OR($A${r}<$C$8,$A${r}>$C$9)`;
+        const PEND = `OR(MOD($I${r},2)=1,$I${r}>4)`;
+ 
         ws.getCell(r, 1).value = utc(ano, mes, d);
         ws.getCell(r, 1).numFmt = 'dd/mm/yyyy';
-        ws.getCell(r, 2).value = { formula: `CHOOSE(WEEKDAY(A${r}),"Dom","Seg","Ter","Qua","Qui","Sex","Sáb")` };
-        slots.forEach((h, j) => {
-            const c = ws.getCell(r, 3 + j);
+        ws.getCell(r, 2).value = { formula: `CHOOSE(WEEKDAY($A${r}),"Dom","Seg","Ter","Qua","Qui","Sex","Sáb")` };
+        ws.getCell(r, 3).value = { formula: `IFERROR("Feriado - "&${FER_NOME(r)},CHOOSE(WEEKDAY($A${r}),"Domingo","Útil","Útil","Útil","Útil","Útil","Sábado"))` };
+        dia.slots.forEach((h, j) => {
+            const c = ws.getCell(r, 4 + j);
             if (h) c.value = fracDia(h);
             c.numFmt = 'hh:mm';
-            c.font = f({ color: azul });
         });
-        ws.getCell(r, 7).value = { formula: `COUNT(C${r}:F${r})` };
-        ws.getCell(r, 8).value = { formula:
-            `IF(A${r}>$C$7,"",IF(AND(ISNUMBER(C${r}),ISNUMBER(D${r}),ISNUMBER(E${r}),ISNUMBER(F${r})),(D${r}-C${r})+(F${r}-E${r}),` +
-            `IF(AND(ISNUMBER(C${r}),ISNUMBER(F${r})),F${r}-C${r}-IF(WEEKDAY(A${r})=7,0,$C$6),0)))` };
-        ws.getCell(r, 8).numFmt = '[h]:mm';
-        ws.getCell(r, 9).value = { formula: `IF(A${r}>$C$7,"",IF(WEEKDAY(A${r})=1,0,IF(WEEKDAY(A${r})=7,$C$5,$C$4)))` };
-        ws.getCell(r, 9).numFmt = '[h]:mm';
-        ws.getCell(r, 10).value = { formula: `IF(A${r}>$C$7,"",ROUND((H${r}-I${r})*1440,0))` };
-        ws.getCell(r, 10).numFmt = '+0;-0;0';
+        ws.getCell(r, 8).value = dia.extras.length ? dia.extras.join(' ') : null;
+        ws.getCell(r, 9).value = { formula: `COUNT($D${r}:$G${r})+IF($H${r}="",0,LEN(TRIM($H${r}))-LEN(SUBSTITUTE(TRIM($H${r})," ",""))+1)` };
+        ws.getCell(r, 10).value = { formula: `IF(AND($I${r}=4,ISNUMBER($E${r}),ISNUMBER($F${r})),ROUND(($F${r}-$E${r})*1440,0),"")` };
         ws.getCell(r, 11).value = { formula:
-            `IF(A${r}>$C$7,"Fora do AFD",IF(AND(I${r}=0,G${r}=0),"Folga",IF(G${r}=0,"SEM MARCAÇÃO",` +
-            `IF(MOD(G${r},2)=1,"Marcação ímpar",IF(AND(G${r}=2,WEEKDAY(A${r})<>7),"Almoço não marcado","OK")))))` };
-
-        let obs = '';
-        if (horas.length > 4) obs = `${horas.length} marcações no dia: ${horas.join(', ')}.`;
-        ws.getCell(r, 12).value = obs;
-
-        const domingo = new Date(Date.UTC(ano, mes - 1, d)).getUTCDay() === 0;
-        for (let c = 1; c <= 12; c++) {
+            `IF(OR(${FORA},${PEND}),"",ROUND(IF($I${r}=4,($E${r}-$D${r})+($G${r}-$F${r}),` +
+            `IF($I${r}=2,(MAX($D${r}:$G${r})-MIN($D${r}:$G${r}))-IF(MAX($D${r}:$G${r})-MIN($D${r}:$G${r})>6/24,$C$6,0),0))*1440,0)/1440)` };
+        ws.getCell(r, 12).value = { formula:
+            `IF(OR(${FORA},${PEND}),"",IF(LEFT($C${r},3)="Fer",0,IF(WEEKDAY($A${r})=1,0,IF(WEEKDAY($A${r})=7,$C$5,$C$4))))` };
+        ws.getCell(r, 13).value = { formula:
+            `IF($L${r}="","",IF(ABS(ROUND(($K${r}-$L${r})*1440,0))<=$C$7,0,ROUND(($K${r}-$L${r})*1440,0)))` };
+        ws.getCell(r, 14).value = { formula: `IF($M${r}="","",MAX($M${r},0))` };
+        ws.getCell(r, 15).value = { formula: `IF($M${r}="","",MAX(-$M${r},0))` };
+        ws.getCell(r, 16).value = { formula:
+            `IF(${FORA},"Fora do período",IF(AND($C$10<>"",$A${r}=$C$10,MOD($I${r},2)=1),"Em andamento",` +
+            `IF($I${r}>4,"Marcações em excesso",IF(MOD($I${r},2)=1,"Marcação ímpar",` +
+            `IF(LEFT($C${r},3)="Fer",IF($I${r}=0,"Feriado","Feriado trabalhado"),` +
+            `IF($L${r}=0,IF($I${r}=0,"Folga","Folga trabalhada"),IF($I${r}=0,"SEM MARCAÇÃO",` +
+            `IF(AND($I${r}=2,MAX($D${r}:$G${r})-MIN($D${r}:$G${r})>6/24),"Almoço não marcado","OK"))))))))` };
+        const inter = r > first
+            ? `IF(AND(ISNUMBER($G${prev}),ISNUMBER($D${r})),IF(ROUND((($A${r}+$D${r})-($A${prev}+$G${prev}))*1440,0)<660,"Interjornada menor que 11h; ",""),"")`
+            : '""';
+        ws.getCell(r, 17).value = { formula:
+            `IF(OR(${FORA},${PEND}),"",TRIM(` +
+            `IF(AND(ISNUMBER($J${r}),$J${r}<ROUND($C$6*1440,0)),"Intervalo menor que "&TEXT($C$6,"h:mm")&" ("&$J${r}&" min); ","")&` +
+            `IF(AND(ISNUMBER($K${r}),$K${r}>10/24),"Jornada acima de 10h; ","")&${inter}))` };
+        ws.getCell(r, 18).value = dia.obs || null;
+ 
+        ws.getCell(r, 11).numFmt = '[h]:mm';
+        ws.getCell(r, 12).numFmt = '[h]:mm';
+        ws.getCell(r, 13).numFmt = '+0;-0;0';
+ 
+        for (let c = 1; c <= 18; c++) {
             const cell = ws.getCell(r, c);
             cell.border = box;
-            if (!(c >= 3 && c <= 6)) cell.font = f(c === 12 ? { size: 9 } : {});
-            cell.alignment = c === 12 ? { vertical: 'middle', wrapText: true } : centro;
-            if (domingo) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDEDED' } };
+            cell.font = (c >= 4 && c <= 8) ? f({ color: azul }) : (c === 17 || c === 18 ? f({ size: 9 }) : f());
+            cell.alignment = (c === 17 || c === 18) ? { vertical: 'middle', wrapText: true } : centro;
         }
+        ws.getCell(r, 3).alignment = { vertical: 'middle' };
     }
-
+ 
+    // totais
     const tr = last + 1;
     ws.getCell(tr, 1).value = 'TOTAL';
-    [[7, 'G'], [8, 'H'], [9, 'I'], [10, 'J']].forEach(([c, L]) => {
+    [[11, 'K'], [12, 'L'], [13, 'M'], [14, 'N'], [15, 'O']].forEach(([c, L]) => {
         ws.getCell(tr, c).value = { formula: `SUM(${L}${first}:${L}${last})` };
     });
-    ws.getCell(tr, 8).numFmt = '[h]:mm';
-    ws.getCell(tr, 9).numFmt = '[h]:mm';
-    ws.getCell(tr, 10).numFmt = '+0;-0;0';
-    for (let c = 1; c <= 12; c++) {
+    ws.getCell(tr, 11).numFmt = '[h]:mm';
+    ws.getCell(tr, 12).numFmt = '[h]:mm';
+    ws.getCell(tr, 13).numFmt = '+0;-0;0';
+    for (let c = 1; c <= 18; c++) {
         const cell = ws.getCell(tr, c);
         cell.font = f({ bold: true }); cell.border = box;
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        cell.fill = preenche('FFD9E1F2');
         if (c > 1) cell.alignment = centro;
     }
-
+ 
+    // formatação condicional (feriado, domingo, status)
+    const corFundo = (argb) => ({ fill: { type: 'pattern', pattern: 'solid', bgColor: { argb } } });
+    ws.addConditionalFormatting({
+        ref: `A${first}:R${last}`,
+        rules: [
+            { type: 'expression', formulae: [`LEFT($C${first},3)="Fer"`], style: corFundo('FFDDEBF7'), priority: 1 },
+            { type: 'expression', formulae: [`WEEKDAY($A${first})=1`], style: corFundo('FFEDEDED'), priority: 2 },
+        ],
+    });
+    const st = (txt, bg, fg) => ({
+        type: 'expression', formulae: [`$P${first}="${txt}"`],
+        style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: bg } }, font: { color: { argb: fg }, bold: true } },
+    });
+    ws.addConditionalFormatting({
+        ref: `P${first}:P${last}`,
+        rules: [
+            st('SEM MARCAÇÃO', 'FFFFC7CE', 'FF9C0006'),
+            st('Marcação ímpar', 'FFFFEB9C', 'FF9C5700'),
+            st('Marcações em excesso', 'FFFFEB9C', 'FF9C5700'),
+            st('Almoço não marcado', 'FFFFF2CC', 'FF7F6000'),
+            st('Em andamento', 'FFD9D9D9', 'FF404040'),
+            st('Feriado trabalhado', 'FFC6EFCE', 'FF006100'),
+            st('Folga trabalhada', 'FFC6EFCE', 'FF006100'),
+        ],
+    });
+ 
+    // resumo
     const s = tr + 2;
     ws.getCell(s, 1).value = 'RESUMO';
     ws.getCell(s, 1).font = f({ bold: true });
+    const rngP = `P${first}:P${last}`;
     const resumo = [
-        ['Saldo do período (hh:mm)', `IF(J${tr}<0,"-","+")&TEXT(ABS(J${tr})/1440,"[h]:mm")`],
-        ['Dias sem marcação', `COUNTIF(K${first}:K${last},"SEM MARCAÇÃO")`],
-        ['Dias com marcação ímpar', `COUNTIF(K${first}:K${last},"Marcação ímpar")`],
-        ['Dias com almoço não marcado', `COUNTIF(K${first}:K${last},"Almoço não marcado")`],
+        ['Saldo do período (hh:mm)', `IF($M${tr}<0,"-","+")&TEXT(ABS($M${tr})/1440,"[h]:mm")`],
+        ['Horas extras (hh:mm)', `TEXT($N${tr}/1440,"[h]:mm")`],
+        ['Débito de horas (hh:mm)', `TEXT($O${tr}/1440,"[h]:mm")`],
+        ['Dias sem marcação (faltas)', `COUNTIF(${rngP},"SEM MARCAÇÃO")`],
+        ['Feriados no mês', `COUNTIF($C${first}:$C${last},"Feriado*")`],
+        ['Feriados trabalhados', `COUNTIF(${rngP},"Feriado trabalhado")`],
+        ['Dias pendentes de ajuste (ímpar/excesso)', `COUNTIF(${rngP},"Marcação ímpar")+COUNTIF(${rngP},"Marcações em excesso")`],
+        ['Dias em andamento', `COUNTIF(${rngP},"Em andamento")`],
+        ['Dias com almoço não marcado', `COUNTIF(${rngP},"Almoço não marcado")`],
+        ['Dias com alertas (intervalo/jornada/interjornada)', `COUNTIF($Q${first}:$Q${last},"?*")`],
     ];
     resumo.forEach(([rot, form], i) => {
         ws.getCell(s + 1 + i, 1).value = rot;
         ws.getCell(s + 1 + i, 1).font = f();
-        const c = ws.getCell(s + 1 + i, 5);
+        const c = ws.getCell(s + 1 + i, 6);
         c.value = { formula: form }; c.font = f({ bold: true }); c.alignment = centro;
     });
-
+ 
+    // legenda
     const n = s + resumo.length + 2;
     ws.getCell(n, 1).value = 'LEGENDA E PREMISSAS';
     ws.getCell(n, 1).font = f({ bold: true });
     [
         'Fonte azul = dado digitado (marcações do AFD e parâmetros); preto = fórmula. Células amarelas = parâmetros editáveis.',
-        'Com 4 marcações: horas = (saída almoço - entrada) + (saída - volta). Se faltar alguma do almoço: saída - entrada - intervalo (seg-sex) ou sem intervalo (sábado).',
-        'Com 3 marcações, a 3ª é tratada como saída final e a volta do almoço fica vazia (ajuste manual). Marcações idênticas no mesmo minuto são unificadas.',
-        'Feriados: sobrescreva manualmente a coluna Jornada esperada com 0:00.',
+        'Com 4 marcações: horas = (saída almoço - entrada) + (saída - volta). Com 2 (entrada e saída): desconta o intervalo se o período passar de 6h.',
+        'Marcação ímpar, ou mais de 4 marcações: o dia fica fora do saldo (jornada esperada e horas em branco) até o ajuste; o provável problema está na Observação.',
+        'Batidas a até 2 min da anterior são desconsideradas (batida repetida) e listadas na Observação.',
+        'Feriados vêm da aba "Feriados" (nacionais calculados; acrescente os locais). Feriado/domingo: esperado 0:00; marcações viram hora extra.',
+        'Tolerância (C7): se |horas - jornada| do dia <= tolerância, o saldo do dia é 0 (CLT art. 58 §1º).',
+        'Esta planilha é conferência gerencial a partir do AFD; não substitui o espelho oficial nem o tratamento de ajustes/atestados.',
     ].forEach((t, i) => {
         ws.getCell(n + 1 + i, 1).value = t;
         ws.getCell(n + 1 + i, 1).font = f({ size: 9 });
     });
-
-    [12, 6, 10, 12, 12, 10, 11, 12, 12, 11, 20, 60].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+ 
+    [12, 6, 30, 9, 11, 11, 9, 16, 9, 10, 11, 11, 10, 10, 10, 20, 34, 58].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     return ws;
 }
 
+
 /**
- * Função principal para gerar o Excel de um único empregado no browser.
+ * Main function to generate the Excel file for a single employee in the browser.
+ * @param {string} workerId - The employee's PIS/ID.
+ * @param {string} selectedMonth - The month to generate the report for (format: 'YYYY-MM').
  */
-async function createExcelForEmployee(workerId) {
-    const { empregador, funcionarios, marcacoes } = parseAFDForExcel(currentAfdText);
-    
+/**
+ * Gera o Excel de um empregado (identificado pelo PIS) para o mês escolhido.
+ * @param {string} workerId       PIS do empregado
+ * @param {string} selectedMonth  'AAAA-MM' (padrão: mês da marcação mais recente do AFD)
+ * @param {object} [opts]         ver cabeçalho do arquivo
+ */
+async function createExcelForEmployee(workerId, selectedMonth, opts = {}) {
+    const o = {
+        jornadaSemanaMin: 480, sabadoMin: 240, almocoMin: 60, toleranciaMin: 10, janelaDuplicidadeMin: 2,
+        unirPisPorNome: true, pontosFacultativos: false, feriadosExtras: [], limiteDiaEmAndamento: '18:00',
+        ...opts,
+    };
+    const texto = o.afdTexto || currentAfdText;
+    const { empregador, funcionarios, marcacoes, periodo } = parseAFDForExcel(texto);
+ 
     let todasDatas = [];
     for (const lista of marcacoes.values()) todasDatas = todasDatas.concat(lista.map((m) => m.data));
     if (!todasDatas.length) throw new Error('Nenhuma marcação encontrada no AFD.');
-    
-    const mesRef = todasDatas.reduce((a, b) => (a > b ? a : b)).slice(0, 7);
+    const maxData = todasDatas.reduce((a, b) => (a > b ? a : b));
+    const minData = todasDatas.reduce((a, b) => (a < b ? a : b));
+ 
+    const mesRef = selectedMonth || maxData.slice(0, 7);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mesRef)) throw new Error(`Mês inválido: "${mesRef}" (use AAAA-MM).`);
     const [ano, mes] = mesRef.split('-').map(Number);
-    const datasDoMes = todasDatas.filter((d) => d.startsWith(mesRef));
-    const ultimaIso = datasDoMes.length ? datasDoMes.reduce((a, b) => (a > b ? a : b)) : `${mesRef}-01`;
-    const [uy, um, ud] = ultimaIso.split('-').map(Number);
-    const ultimaData = utc(uy, um, ud);
-
-    const emp = { 
-        pis: workerId, 
-        nome: (funcionarios.get(workerId) || {}).nome || '(não cadastrado no AFD)' 
-    };
-
-    const dias = new Map();
-    for (const m of (marcacoes.get(workerId) || [])) {
-        if (!m.data.startsWith(mesRef)) continue;
-        if (!dias.has(m.data)) dias.set(m.data, []);
-        dias.get(m.data).push(m.hora);
+    const diasNoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+ 
+    // PIS do mesmo empregado (mesmo nome) que também tenham marcações no mês
+    const nomeEmp = (funcionarios.get(workerId) || {}).nome || '';
+    let grupoPis = [workerId];
+    if (o.unirPisPorNome && normNome(nomeEmp)) {
+        const outros = [...funcionarios.values()]
+            .filter((x) => x.pis !== workerId && normNome(x.nome) === normNome(nomeEmp))
+            .filter((x) => (marcacoes.get(x.pis) || []).some((m) => m.data.startsWith(mesRef)))
+            .map((x) => x.pis);
+        grupoPis = grupoPis.concat(outros);
     }
-    for (const [d, hs] of dias) dias.set(d, [...new Set(hs)].sort());
-
+    const emp = { pis: workerId, nome: nomeEmp || '(não cadastrado no AFD)' };
+ 
+    if (!grupoPis.some((p) => (marcacoes.get(p) || []).some((m) => m.data.startsWith(mesRef)))) {
+        throw new Error('Nenhum registro de ponto encontrado para este funcionário no mês selecionado.');
+    }
+ 
+    // janela de cobertura: início do mês / início dos dados / cadastro do PIS  ..  fim do mês / fim do período do AFD
+    const inicioAFD = periodo && periodo.inicio > minData ? periodo.inicio : minData;
+    const fimAFD = periodo ? periodo.fim : maxData;
+    const inclusoes = grupoPis.map((p) => (funcionarios.get(p) || {}).inclusao).filter(Boolean).sort();
+    const cadastro = inclusoes.length ? inclusoes[0] : '0000-00-00';
+    const primeiroDoMes = `${mesRef}-01`;
+    const ultimoDoMes = `${mesRef}-${String(diasNoMes).padStart(2, '0')}`;
+    const cobIni = [primeiroDoMes, inicioAFD, cadastro].reduce((a, b) => (a > b ? a : b));
+    const cobFim = ultimoDoMes < fimAFD ? ultimoDoMes : fimAFD;
+ 
+    // dia em andamento: AFD gerado antes do fim do expediente, no último dia coberto
+    let diaAndamento = null;
+    if (opts.diaAndamento !== undefined) diaAndamento = opts.diaAndamento;
+    else if (periodo && periodo.geradoEm === cobFim && periodo.geradoHora < o.limiteDiaEmAndamento) diaAndamento = periodo.geradoEm;
+ 
+    const dias = construirDias({
+        grupoPis, workerId, marcacoes, mesRef, janelaMin: o.janelaDuplicidadeMin,
+        diaAndamento, geradoHora: periodo ? periodo.geradoHora : '',
+    });
+ 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'CEE App';
     wb.calcProperties.fullCalcOnLoad = true;
-    
     const nomeAba = nomeAbaUnico(`${emp.pis} ${nomeTitulo(emp.nome)}`, new Set());
-    
     montarAba(wb, emp, dias, {
-        ano, mes, empregador, jornadaSemanaMin: 480, sabadoMin: 240, almocoMin: 60, ultimaData, nomeAba
+        ano, mes, empregador, jornadaSemanaMin: o.jornadaSemanaMin, sabadoMin: o.sabadoMin, almocoMin: o.almocoMin,
+        toleranciaMin: o.toleranciaMin, cobIni, cobFim, diaAndamento,
+        geradoEm: periodo ? periodo.geradoEm : maxData, geradoHora: periodo ? periodo.geradoHora : '',
+        nomeAba, pisGrupo: grupoPis,
     });
-    
+    criarAbaFeriados(wb, feriadosBR(ano, o));
+ 
     const buffer = await wb.xlsx.writeBuffer();
     const safeName = nomeTitulo(emp.nome).replace(/[^\p{L}\p{N} _-]/gu, '').trim().replace(/\s+/g, '_');
     const filename = `espelho_${mesRef}_${emp.pis}_${safeName}.xlsx`;
-    
     return {
-        blob: new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-        filename
+        blob: new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        filename,
     };
 }
